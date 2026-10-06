@@ -6,6 +6,17 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T16:04:00-05:00 — TDD mandate for core program invariants (Debu / Grok Bot)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Debu Dash (mandate); Grok Bot (record + enforce for Engineers/Testers) |
+| **Decision** | **TDD is mandatory** for Meridian program work. Write **failing tests first**, then implement, for these core paths/invariants: **vault $1** collateralization (vault covers outstanding pairs at $1 USDC per pair), **mint**, **settle**, **redeem**, and **pause**. Do not ship implementation ahead of red tests for these. |
+| **Rationale** | Locks engineer workflow to prove vault/mint/settle/redeem/pause behavior before green code; reduces silent invariant breaks on the platinum demo path. See **D-016**. |
+| **Applies to** | Anchor program (`programs/meridian`), Tester plans, Reviewer gates |
+
+---
+
 ## 2026-10-06T15:52:00-05:00 — Unblock: glab official land path; Phoenix V1 spot assumed (Debu / Grok Bot)
 
 | Field | Value |
