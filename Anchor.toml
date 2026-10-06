@@ -16,4 +16,5 @@ cluster = "Localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
+# Program must be built with localnet-test so fixture ixs exist for the suite.
 test = "yarn run mocha -r ts-node/register -t 180000 'tests/**/*.ts'"

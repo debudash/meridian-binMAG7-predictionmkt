@@ -115,3 +115,22 @@ Defined in [`docs/SCHEMA.md`](../../docs/SCHEMA.md) §6. Keep field order stable
 | [`docs/accounts.md`](../../docs/accounts.md) | Exact fields / seeds |
 | [`docs/flows.md`](../../docs/flows.md) | CPI order / UX |
 | [`docs/units.md`](../../docs/units.md) | Fixed-point + Pyth math |
+
+## Feature flags (deploy blockers)
+
+| Feature | Purpose |
+| --- | --- |
+| *(none / default)* | Production binary — **no** `upsert_mock_pyth` / `test_drain_vault` |
+| `localnet-test` | Local validator + `anchor test` only — fixture ixs for Pyth mocks + V-07 vault drain |
+
+```bash
+# Localnet / CI suite
+anchor build -- --features localnet-test
+anchor test -- --features localnet-test
+
+# Production / mainnet deploy (fixtures absent from .so)
+anchor build
+```
+
+Authority-only checks are **not** sufficient for deploy safety — these ixs are `#[cfg(feature = "localnet-test")]`.
+

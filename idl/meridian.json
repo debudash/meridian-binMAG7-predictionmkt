@@ -792,7 +792,7 @@
     {
       "name": "test_drain_vault",
       "docs": [
-        "Localnet/test fixture: authority drains vault USDC (V-07 InsufficientVault proof)."
+        "Localnet/test fixture — compiled only with `--features localnet-test` (deploy blocker)."
       ],
       "discriminator": [
         72,
@@ -987,7 +987,7 @@
     {
       "name": "upsert_mock_pyth",
       "docs": [
-        "Localnet/test fixture: write MockPythPrice account bytes (not for mainnet)."
+        "Localnet/test fixture — compiled only with `--features localnet-test` (deploy blocker)."
       ],
       "discriminator": [
         197,

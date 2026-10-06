@@ -8,7 +8,10 @@ pub mod settle;
 pub mod admin_settle;
 pub mod redeem;
 pub mod burn_losing;
+
+#[cfg(feature = "localnet-test")]
 pub mod upsert_mock_pyth;
+#[cfg(feature = "localnet-test")]
 pub mod test_drain_vault;
 
 pub use initialize_config::*;
@@ -21,5 +24,8 @@ pub use settle::*;
 pub use admin_settle::*;
 pub use redeem::*;
 pub use burn_losing::*;
+
+#[cfg(feature = "localnet-test")]
 pub use upsert_mock_pyth::*;
+#[cfg(feature = "localnet-test")]
 pub use test_drain_vault::*;
