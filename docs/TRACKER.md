@@ -1,7 +1,9 @@
 # Meridian tracker
 
 Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** only.
-No Blocked column — Cursor enterprise GitLab + MCP 404 are not blockers; land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016).
+No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016).
+
+_Last refreshed: 2026-10-06 17:26 CT (live MR state !1–!11)._
 
 ## Done
 
@@ -14,21 +16,24 @@ No Blocked column — Cursor enterprise GitLab + MCP 404 are not blockers; land 
 - [x] UI design slice landed (MR !2, `ui/docs-slice`)
 - [x] Docs unblock: glab land path + Phoenix spot assumed (MR !3, `docs/unblock-glab-path`)
 - [x] TDD mandate locked (D-016) via MR !4 (`docs/tdd-mandate`): failing tests first for vault $1, mint, settle, redeem, pause
+- [x] TRACKER synced to live MR state (MR !7) and Peak6 PRD deliverables added (MR !8)
 
 ## In Progress
 
 - [ ] Tester plan: `docs/TEST_MATRIX.md` (MR !5, OPEN) — mint/settle/redeem + $1 vault
-- [ ] Failing TDD suite (MR !6, OPEN; `test/failing-lifecycle-invariants`): **37 P0 red** — mint/settle/redeem/$1 vault/pause
-- [ ] Engineers implementing Anchor P0 **only to green** Testers suite (D-016)
-- [ ] `docs/SPEC.md` **not ready** — Debu waiting to be notified when ready
+- [ ] Failing P0 TDD suite (MR !6, OPEN; `test/failing-lifecycle-invariants`): 37 P0 cases — mint/settle/redeem/$1 vault/pause
+- [ ] Anchor P0 impl (MR !9, OPEN; `eng/p0-anchor-impl`): reports **41 passing / 0 failing**, all 37 P0 case IDs green — **needs rebase onto main (merge conflict)**
+- [ ] Tester P1 fees + edges failing suite (MR !10, OPEN; `test/p1-fees-failing`): M-03/R-05/V-06 + S-08, X-03, M-07, M-09, M-10, V-07, V-08 — stacked on !9, **needs rebase (merge conflict)**
+- [ ] Eng P1 fees + edges green (MR !11, OPEN; `eng/p1-fees`): reports **51 passing / 0 failing**; V-07 via localnet-only `test_drain_vault` — stacked on !9/!10; merge order !5 → !6 → !9 → !10 → !11
+- [ ] `docs/SPEC.md` **not ready** (not on main) — Debu waiting to be notified when ready
 
 ## Todo
 
 - [ ] Remaining D-012 docs stubs: `AGENTS.md`, `ARCHITECTURE.md`, `TASKS.md`, `DEMO_SCRIPT.md`, `DEPLOY.md`, `EVALS.md`, `METRICS.md`, `RED_TEAM.md`, `DIAGRAMS.md`, `CONTEXT.md`, `CLAUDE.md`, `ORCHESTRATOR_KICKOFF.md`
-- [ ] Anchor program green against Testers' failing suite (vault $1, mint, settle, redeem, pause) (D-016)
+- [ ] Phoenix integration: Buy/Sell No composition (mint+sell Yes / buy Yes+merge) — SDK vs Meridian-wrapped ix still open
 - [ ] Next.js UI implementation (consume UI specs)
 - [ ] Node automation: morning strike creation (~8:00 ET) + Pyth settle retries
-- [ ] Tester P1/P2 cases + invariant gates after P0 suite greens (D-016)
-- [ ] Reviewer pass (security, non-custodial, pause, admin delay, demo readiness, TDD evidence)
+- [ ] Tester P2 cases + invariant gates after P0/P1 land on main (D-016)
+- [ ] Reviewer pass (security, non-custodial, pause, admin delay, demo readiness, TDD evidence; confirm localnet-only fixtures `upsert_mock_pyth` / `test_drain_vault` excluded from mainnet)
 - [ ] Peak6 PRD: demo video (distinct from `DEMO_SCRIPT.md`)
-- [ ] Peak6 PRD: test results artifact (after suite execution)
+- [ ] Peak6 PRD: test results artifact (after suite execution on main)
