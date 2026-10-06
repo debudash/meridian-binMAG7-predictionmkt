@@ -110,7 +110,8 @@
           "writable": true
         },
         {
-          "name": "losing_mint"
+          "name": "losing_mint",
+          "writable": true
         },
         {
           "name": "token_program",
@@ -668,7 +669,8 @@
           "writable": true
         },
         {
-          "name": "winning_mint"
+          "name": "winning_mint",
+          "writable": true
         },
         {
           "name": "treasury",
@@ -875,6 +877,48 @@
           "type": {
             "defined": {
               "name": "UpdateConfigParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "upsert_mock_pyth",
+      "docs": [
+        "Localnet/test fixture: write MockPythPrice account bytes (not for mainnet)."
+      ],
+      "discriminator": [
+        197,
+        187,
+        0,
+        133,
+        197,
+        225,
+        37,
+        100
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pyth_price_feed",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "MockPythParams"
             }
           }
         }
@@ -1407,6 +1451,39 @@
           {
             "name": "pairs_minted_after",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MockPythParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "price",
+            "type": "i64"
+          },
+          {
+            "name": "conf",
+            "type": "u64"
+          },
+          {
+            "name": "expo",
+            "type": "i32"
+          },
+          {
+            "name": "publish_slot",
+            "type": "u64"
+          },
+          {
+            "name": "feed_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           }
         ]
       }

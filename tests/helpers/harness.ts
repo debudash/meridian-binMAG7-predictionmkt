@@ -1,29 +1,27 @@
 /**
- * Bankrun + Anchor harness for Meridian P0 suite (D-016).
- * Phoenix: pubkey wiring only. Pyth: MockPythPrice account fixtures.
+ * Anchor local-validator harness for Meridian P0 suite (D-016).
+ * Phoenix: pubkey wiring only. Pyth: MockPythPrice via upsert_mock_pyth.
  */
 import * as fs from "fs";
 import * as path from "path";
 import { expect } from "chai";
 import * as anchor from "@coral-xyz/anchor";
 import { Program, BN, AnchorError, Idl } from "@coral-xyz/anchor";
-import { BankrunProvider, startAnchor } from "anchor-bankrun";
-import { Clock, ProgramTestContext } from "solana-bankrun";
 import {
   Keypair,
   PublicKey,
   SystemProgram,
   Transaction,
-  TransactionInstruction,
+  LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
-  AccountLayout,
-  MintLayout,
   createAssociatedTokenAccountInstruction,
   createInitializeMint2Instruction,
   createMintToInstruction,
   getAssociatedTokenAddressSync,
+  getAccount,
+  getMint,
   MINT_SIZE,
 } from "@solana/spl-token";
 import {
@@ -44,9 +42,7 @@ import {
 export class TddRedError extends Error {
   readonly code = "TDD_RED";
   constructor(caseId: string, detail: string) {
-    super(
-      `[TDD_RED ${caseId}] ${detail} — Engineers: implement only enough program code to green this case (D-016). See docs/TEST_MATRIX.md.`
-    );
+    super(`[TDD_RED ${caseId}] ${detail}`);
     this.name = "TddRedError";
   }
 }
@@ -67,22 +63,17 @@ export const EXPECTED_INSTRUCTIONS = [
 
 export type IxName = (typeof EXPECTED_INSTRUCTIONS)[number];
 
-const MOCK_PYTH_MAGIC = 0x5459504d;
-
 function findRepoRoot(): string {
   return path.resolve(__dirname, "../..");
 }
 
 export function loadMeridianIdl(): Idl & { address: string } {
   const root = findRepoRoot();
-  const candidates = [
+  for (const p of [
     path.join(root, "target/idl/meridian.json"),
     path.join(root, "idl/meridian.json"),
-  ];
-  for (const p of candidates) {
-    if (fs.existsSync(p)) {
-      return JSON.parse(fs.readFileSync(p, "utf8"));
-    }
+  ]) {
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, "utf8"));
   }
   throw new TddRedError("IDL", "meridian IDL not found");
 }
@@ -91,54 +82,29 @@ export function assertIdlHasInstructions(caseId: string = "IDL") {
   const idl = loadMeridianIdl();
   const names = new Set(idl.instructions.map((i) => i.name));
   for (const ix of EXPECTED_INSTRUCTIONS) {
-    expect(names.has(ix), `${caseId}: IDL missing instruction '${ix}'`).to.equal(true);
+    expect(names.has(ix), `${caseId}: IDL missing '${ix}'`).to.equal(true);
   }
   expect(idl.address).to.equal(MERIDIAN_PROGRAM_ID.toBase58());
 }
 
-/** units.md §4.2 / §8 — mirrors programs/meridian/src/utils/pyth.rs */
 export function pythPriceToE6(price: bigint, expo: number): bigint {
   if (price <= 0n) throw new Error("InvalidPythPrice");
   const shift = expo + 6;
-  let e6: bigint;
-  if (shift >= 0) e6 = price * 10n ** BigInt(shift);
-  else e6 = price / 10n ** BigInt(-shift);
+  let e6 = shift >= 0 ? price * 10n ** BigInt(shift) : price / 10n ** BigInt(-shift);
   if (e6 === 0n) throw new Error("InvalidPythPrice");
   return e6;
 }
 
-export function packMockPyth(args: {
-  price: bigint;
-  conf: bigint;
-  expo: number;
-  publishSlot: bigint;
-  feedId?: Buffer;
-}): Buffer {
-  const buf = Buffer.alloc(64);
-  buf.writeUInt32LE(MOCK_PYTH_MAGIC, 0);
-  buf.writeBigInt64LE(args.price, 4);
-  buf.writeBigUInt64LE(args.conf, 12);
-  buf.writeInt32LE(args.expo, 20);
-  buf.writeBigUInt64LE(args.publishSlot, 24);
-  (args.feedId ?? Buffer.from(PYTH_FEED_ID_PLACEHOLDER)).copy(buf, 32);
-  return buf;
-}
-
 export function requireProgram(caseId: string): never {
-  throw new TddRedError(
-    caseId,
-    "use TestCtx.fromBankrun() — legacy requireProgram path retired"
-  );
+  throw new TddRedError(caseId, "use TestCtx.boot()");
 }
-
 export async function invokeIx(caseId: string, _ix: IxName, _args?: unknown): Promise<never> {
   return requireProgram(caseId);
 }
 
 export function isAnchorErrorCode(e: unknown, name: string): boolean {
   if (e instanceof AnchorError) return e.error.errorCode.code === name;
-  const msg = String((e as any)?.toString?.() ?? (e as any)?.message ?? e);
-  return msg.includes(name);
+  return String((e as any)?.message ?? e).includes(name);
 }
 
 export async function expectErr(p: Promise<unknown>, code: string) {
@@ -150,11 +116,12 @@ export async function expectErr(p: Promise<unknown>, code: string) {
   }
 }
 
-export type MeridianProgram = Program;
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 export class TestCtx {
-  context!: ProgramTestContext;
-  provider!: BankrunProvider;
+  provider!: anchor.AnchorProvider;
   program!: any;
   authority!: Keypair;
   user!: Keypair;
@@ -169,58 +136,30 @@ export class TestCtx {
   noMint!: PublicKey;
   vault!: PublicKey;
   vaultAuthority!: PublicKey;
-  pythFeed!: PublicKey;
+  pythFeed!: Keypair;
   equity = Buffer.from(EQUITY_AAPL);
   strike = new BN(DEFAULT_STRIKE_E6.toString());
   expiryTs!: BN;
   feedId = Buffer.from(PYTH_FEED_ID_PLACEHOLDER);
-  clockUnix = 1_700_000_000;
-  clockSlot = 1000n;
+  nowUnix!: number;
+  static marketSeq = 0;
 
   static async boot(): Promise<TestCtx> {
     const ctx = new TestCtx();
-    // Load program from workspace (Anchor.toml programs)
-    const root = path.resolve(__dirname, "../..");
-    process.chdir(root);
-    ctx.context = await startAnchor(
-      ".",
-      [{ name: "meridian", programId: MERIDIAN_PROGRAM_ID }],
-      []
-    );
-    ctx.provider = new BankrunProvider(ctx.context);
+    ctx.provider = anchor.AnchorProvider.env();
     anchor.setProvider(ctx.provider);
-    const idl = loadMeridianIdl();
-    ctx.program = new Program(idl, ctx.provider);
-    ctx.authority = ctx.context.payer;
+    ctx.program = new Program(loadMeridianIdl(), ctx.provider);
+    ctx.authority = (ctx.provider.wallet as anchor.Wallet).payer;
     ctx.user = Keypair.generate();
-    await ctx.setClock(ctx.clockUnix, ctx.clockSlot);
-    return ctx;
-  }
-
-  async setClock(unixTimestamp: number, slot: bigint) {
-    this.clockUnix = unixTimestamp;
-    this.clockSlot = slot;
-    const clock = new Clock(
-      slot,
-      0n,
-      0n,
-      0n,
-      BigInt(unixTimestamp)
+    const slot = await ctx.provider.connection.getSlot();
+    void slot;
+    ctx.nowUnix = Math.floor(Date.now() / 1000);
+    const sig = await ctx.provider.connection.requestAirdrop(
+      ctx.user.publicKey,
+      10 * LAMPORTS_PER_SOL
     );
-    this.context.setClock(clock);
-  }
-
-  async warpUnix(unixTimestamp: number) {
-    await this.setClock(unixTimestamp, this.clockSlot + 10n);
-  }
-
-  async fund(pk: PublicKey, lamports = 10n * 1_000_000_000n) {
-    this.context.setAccount(pk, {
-      lamports: Number(lamports),
-      data: Buffer.alloc(0),
-      owner: SystemProgram.programId,
-      executable: false,
-    });
+    await ctx.provider.connection.confirmTransaction(sig, "confirmed");
+    return ctx;
   }
 
   async setupProtocol(opts?: {
@@ -228,123 +167,127 @@ export class TestCtx {
     mintFeeBps?: number;
     redeemFeeBps?: number;
   }) {
-    await this.fund(this.user.publicKey);
-
-    // Create mint account manually in bankrun
     const mintKp = Keypair.generate();
     this.collateralMint = mintKp.publicKey;
-    const mintRent = 1_000_000_000;
-    const mintData = Buffer.alloc(MINT_SIZE);
-    // We'll initialize via tx
-    this.context.setAccount(mintKp.publicKey, {
-      lamports: mintRent,
-      data: Buffer.alloc(MINT_SIZE),
-      owner: TOKEN_PROGRAM_ID,
-      executable: false,
-    });
-
-    const ixInit = createInitializeMint2Instruction(
-      mintKp.publicKey,
-      6,
-      this.authority.publicKey,
-      null
-    );
-    await this.sendIx([ixInit]);
-
-    this.treasury = getAssociatedTokenAddressSync(
-      this.collateralMint,
-      this.authority.publicKey
-    );
-    await this.sendIx([
-      createAssociatedTokenAccountInstruction(
-        this.authority.publicKey,
-        this.treasury,
-        this.authority.publicKey,
-        this.collateralMint
+    const lamports = await this.provider.connection.getMinimumBalanceForRentExemption(MINT_SIZE);
+    await this.provider.sendAndConfirm(
+      new Transaction().add(
+        SystemProgram.createAccount({
+          fromPubkey: this.authority.publicKey,
+          newAccountPubkey: mintKp.publicKey,
+          space: MINT_SIZE,
+          lamports,
+          programId: TOKEN_PROGRAM_ID,
+        }),
+        createInitializeMint2Instruction(mintKp.publicKey, 6, this.authority.publicKey, null)
       ),
-    ]);
+      [mintKp]
+    );
+
+    this.treasury = getAssociatedTokenAddressSync(this.collateralMint, this.authority.publicKey);
+    await this.provider.sendAndConfirm(
+      new Transaction().add(
+        createAssociatedTokenAccountInstruction(
+          this.authority.publicKey,
+          this.treasury,
+          this.authority.publicKey,
+          this.collateralMint
+        )
+      )
+    );
 
     [this.configPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("config")],
       this.program.programId
     );
 
-    await this.program.methods
-      .initializeConfig({
-        mintFeeBps: opts?.mintFeeBps ?? DEFAULT_MINT_FEE_BPS,
-        redeemFeeBps: opts?.redeemFeeBps ?? DEFAULT_REDEEM_FEE_BPS,
-        settleMaxStalenessSlots: new BN(DEFAULT_STALENESS_SLOTS),
-        settleMaxConfRatioBps: DEFAULT_CONF_RATIO_BPS,
-        adminSettleDelaySecs: new BN(
-          opts?.adminDelay ?? DEFAULT_ADMIN_SETTLE_DELAY_SECS
+    try {
+      await this.program.methods
+        .initializeConfig({
+          mintFeeBps: opts?.mintFeeBps ?? DEFAULT_MINT_FEE_BPS,
+          redeemFeeBps: opts?.redeemFeeBps ?? DEFAULT_REDEEM_FEE_BPS,
+          settleMaxStalenessSlots: new BN(DEFAULT_STALENESS_SLOTS),
+          settleMaxConfRatioBps: DEFAULT_CONF_RATIO_BPS,
+          adminSettleDelaySecs: new BN(opts?.adminDelay ?? DEFAULT_ADMIN_SETTLE_DELAY_SECS),
+        })
+        .accounts({
+          authority: this.authority.publicKey,
+          config: this.configPda,
+          collateralMint: this.collateralMint,
+          treasury: this.treasury,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+      try { await this.unpause(); } catch { /* ignore */ }
+    } catch {
+      // Reuse existing global config (single PDA). Align mint/treasury to on-chain values.
+      const cfg = await this.program.account.config.fetch(this.configPda);
+      this.collateralMint = cfg.collateralMint as PublicKey;
+      this.treasury = cfg.treasury as PublicKey;
+      if (opts?.adminDelay !== undefined) {
+        await this.program.methods
+          .updateConfig({
+            mintFeeBps: opts?.mintFeeBps ?? DEFAULT_MINT_FEE_BPS,
+            redeemFeeBps: opts?.redeemFeeBps ?? DEFAULT_REDEEM_FEE_BPS,
+            settleMaxStalenessSlots: new BN(DEFAULT_STALENESS_SLOTS),
+            settleMaxConfRatioBps: DEFAULT_CONF_RATIO_BPS,
+            adminSettleDelaySecs: new BN(opts.adminDelay),
+            treasury: this.treasury,
+          })
+          .accounts({
+            authority: this.authority.publicKey,
+            config: this.configPda,
+          })
+          .rpc();
+      }
+      // Ensure prior pause tests don't poison later suites
+      try { await this.unpause(); } catch { /* already unpaused or not init */ }
+    }
+
+    this.userCollateral = getAssociatedTokenAddressSync(this.collateralMint, this.user.publicKey);
+    await this.provider.sendAndConfirm(
+      new Transaction().add(
+        createAssociatedTokenAccountInstruction(
+          this.authority.publicKey,
+          this.userCollateral,
+          this.user.publicKey,
+          this.collateralMint
         ),
-      })
-      .accounts({
-        authority: this.authority.publicKey,
-        config: this.configPda,
-        collateralMint: this.collateralMint,
-        treasury: this.treasury,
-        systemProgram: SystemProgram.programId,
-      })
-      .signers([this.authority])
-      .rpc();
-
-    this.userCollateral = getAssociatedTokenAddressSync(
-      this.collateralMint,
-      this.user.publicKey
+        createMintToInstruction(
+          this.collateralMint,
+          this.userCollateral,
+          this.authority.publicKey,
+          BigInt(1_000_000_000_000)
+        )
+      )
     );
-    await this.sendIx([
-      createAssociatedTokenAccountInstruction(
-        this.authority.publicKey,
-        this.userCollateral,
-        this.user.publicKey,
-        this.collateralMint
-      ),
-    ]);
-    await this.sendIx([
-      createMintToInstruction(
-        this.collateralMint,
-        this.userCollateral,
-        this.authority.publicKey,
-        BigInt(1_000_000_000_000)
-      ),
-    ]);
   }
 
-  async sendIx(ixs: TransactionInstruction[], signers: Keypair[] = []) {
-    const tx = new Transaction();
-    const [recent] = await Promise.all([this.context.banksClient.getLatestBlockhash()]);
-    tx.recentBlockhash = recent?.[0] ?? this.context.lastBlockhash;
-    tx.feePayer = this.authority.publicKey;
-    tx.add(...ixs);
-    tx.sign(this.authority, ...signers);
-    await this.context.banksClient.processTransaction(tx);
-  }
-
-  setMockPyth(opts: {
+  async upsertPyth(opts: {
     price: bigint;
     conf?: bigint;
     expo?: number;
     publishSlot?: bigint;
     feedId?: Buffer;
-    pubkey?: PublicKey;
+    keypair?: Keypair;
   }) {
-    const kp = Keypair.generate();
-    this.pythFeed = opts.pubkey ?? kp.publicKey;
-    const data = packMockPyth({
-      price: opts.price,
-      conf: opts.conf ?? 1_000n,
-      expo: opts.expo ?? -8,
-      publishSlot: opts.publishSlot ?? this.clockSlot - 1n,
-      feedId: opts.feedId ?? this.feedId,
-    });
-    this.context.setAccount(this.pythFeed, {
-      lamports: 1_000_000,
-      data,
-      owner: this.program.programId,
-      executable: false,
-    });
-    return this.pythFeed;
+    this.pythFeed = opts.keypair ?? Keypair.generate();
+    const slot = BigInt(await this.provider.connection.getSlot());
+    await this.program.methods
+      .upsertMockPyth({
+        price: new BN(opts.price.toString()),
+        conf: new BN((opts.conf ?? 1000n).toString()),
+        expo: opts.expo ?? -8,
+        publishSlot: new BN((opts.publishSlot ?? slot).toString()),
+        feedId: Array.from(opts.feedId ?? this.feedId),
+      } as any)
+      .accounts({
+        payer: this.authority.publicKey,
+        pythPriceFeed: this.pythFeed.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([this.authority, this.pythFeed])
+      .rpc();
   }
 
   async createMarket(opts?: {
@@ -356,11 +299,15 @@ export class TestCtx {
     pythSlot?: bigint;
     wrongFeed?: boolean;
   }) {
-    this.expiryTs = new BN(opts?.expiryTs ?? this.clockUnix + 86_400);
+    this.nowUnix = Math.floor(Date.now() / 1000);
+    TestCtx.marketSeq += 1;
+    // Unique PDA: vary expiry when caller doesn't pin it
+    const defaultExpiry = this.nowUnix + 3600 + TestCtx.marketSeq;
+    this.expiryTs = new BN(opts?.expiryTs ?? defaultExpiry);
     this.strike = opts?.strike ?? this.strike;
-    this.setMockPyth({
+    await this.upsertPyth({
       price: opts?.pythPrice ?? 18_000_000_000n,
-      conf: opts?.pythConf ?? 1_000n,
+      conf: opts?.pythConf,
       publishSlot: opts?.pythSlot,
       feedId: opts?.wrongFeed ? Buffer.alloc(32, 0x99) : this.feedId,
     });
@@ -409,51 +356,49 @@ export class TestCtx {
         vaultAuthority: this.vaultAuthority,
         collateralVault: this.vault,
         collateralMint: this.collateralMint,
-        pythPriceFeed: this.pythFeed,
+        pythPriceFeed: this.pythFeed.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       })
-      .signers([this.authority])
       .rpc();
 
     this.userYes = getAssociatedTokenAddressSync(this.yesMint, this.user.publicKey);
     this.userNo = getAssociatedTokenAddressSync(this.noMint, this.user.publicKey);
-    await this.sendIx([
-      createAssociatedTokenAccountInstruction(
-        this.authority.publicKey,
-        this.userYes,
-        this.user.publicKey,
-        this.yesMint
-      ),
-      createAssociatedTokenAccountInstruction(
-        this.authority.publicKey,
-        this.userNo,
-        this.user.publicKey,
-        this.noMint
-      ),
-    ]);
+    await this.provider.sendAndConfirm(
+      new Transaction().add(
+        createAssociatedTokenAccountInstruction(
+          this.authority.publicKey,
+          this.userYes,
+          this.user.publicKey,
+          this.yesMint
+        ),
+        createAssociatedTokenAccountInstruction(
+          this.authority.publicKey,
+          this.userNo,
+          this.user.publicKey,
+          this.noMint
+        )
+      )
+    );
+  }
+
+  async waitPastExpiry() {
+    const target = Number(this.expiryTs.toString()) + 1;
+    const waitMs = Math.max(0, target * 1000 - Date.now()) + 500;
+    if (waitMs > 0) await sleep(waitMs);
   }
 
   async pause() {
     await this.program.methods
       .pause()
-      .accounts({
-        authority: this.authority.publicKey,
-        config: this.configPda,
-      })
-      .signers([this.authority])
+      .accounts({ authority: this.authority.publicKey, config: this.configPda })
       .rpc();
   }
-
   async unpause() {
     await this.program.methods
       .unpause()
-      .accounts({
-        authority: this.authority.publicKey,
-        config: this.configPda,
-      })
-      .signers([this.authority])
+      .accounts({ authority: this.authority.publicKey, config: this.configPda })
       .rpc();
   }
 
@@ -489,7 +434,7 @@ export class TestCtx {
         settler: settler.publicKey,
         config: this.configPda,
         strikeMarket: this.market,
-        pythPriceFeed: this.pythFeed,
+        pythPriceFeed: this.pythFeed.publicKey,
       })
       .signers([settler])
       .rpc();
@@ -509,8 +454,6 @@ export class TestCtx {
 
   async redeem(amount: BN, winning: "yes" | "no", signer: Keypair = this.user) {
     const winningMint = winning === "yes" ? this.yesMint : this.noMint;
-    const userWinning = getAssociatedTokenAddressSync(winningMint, signer.publicKey);
-    const userCol = getAssociatedTokenAddressSync(this.collateralMint, signer.publicKey);
     await this.program.methods
       .redeem(amount)
       .accounts({
@@ -519,8 +462,8 @@ export class TestCtx {
         strikeMarket: this.market,
         collateralVault: this.vault,
         vaultAuthority: this.vaultAuthority,
-        userCollateralAta: userCol,
-        userWinningAta: userWinning,
+        userCollateralAta: getAssociatedTokenAddressSync(this.collateralMint, signer.publicKey),
+        userWinningAta: getAssociatedTokenAddressSync(winningMint, signer.publicKey),
         winningMint,
         treasury: this.treasury,
         tokenProgram: TOKEN_PROGRAM_ID,
@@ -537,32 +480,23 @@ export class TestCtx {
         config: this.configPda,
         strikeMarket: this.market,
       })
-      .signers([this.authority])
       .rpc();
   }
 
   async tokenBal(ata: PublicKey): Promise<BN> {
-    const acc = await this.context.banksClient.getAccount(ata);
-    if (!acc) return new BN(0);
-    const amount = AccountLayout.decode(Buffer.from(acc.data)).amount;
-    return new BN(amount.toString());
+    const a = await getAccount(this.provider.connection, ata);
+    return new BN(a.amount.toString());
   }
-
   async mintSupply(mint: PublicKey): Promise<BN> {
-    const acc = await this.context.banksClient.getAccount(mint);
-    if (!acc) return new BN(0);
-    const supply = MintLayout.decode(Buffer.from(acc.data)).supply;
-    return new BN(supply.toString());
+    const m = await getMint(this.provider.connection, mint);
+    return new BN(m.supply.toString());
   }
-
   async marketState() {
-    return (this.program.account as any).strikeMarket.fetch(this.market);
+    return this.program.account.strikeMarket.fetch(this.market);
   }
-
   async vaultAmount(): Promise<BN> {
     return this.tokenBal(this.vault);
   }
-
   async invariantCtx() {
     const m = await this.marketState();
     return {
@@ -573,6 +507,11 @@ export class TestCtx {
       noSupply: await this.mintSupply(this.noMint),
       status: m.status as number,
     };
+  }
+
+  async fund(pk: PublicKey) {
+    const sig = await this.provider.connection.requestAirdrop(pk, 5 * LAMPORTS_PER_SOL);
+    await this.provider.connection.confirmTransaction(sig, "confirmed");
   }
 }
 

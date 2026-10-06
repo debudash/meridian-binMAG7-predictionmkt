@@ -14,7 +14,8 @@ import {
   assertVaultCoversLiability,
 } from "./helpers/invariants";
 
-describe("mint P0 (TEST_MATRIX Cluster A)", () => {
+describe("mint P0 (TEST_MATRIX Cluster A)", function () {
+  this.timeout(180000);
   before(() => assertIdlHasInstructions("mint-suite"));
 
   it("M-01: mint(1e6) locks USDC and mints equal Yes/No; vault += amount; pairs_minted += amount", async () => {
@@ -58,7 +59,8 @@ describe("mint P0 (TEST_MATRIX Cluster A)", () => {
   it("M-05: mint when status != Open fails with MarketNotOpen", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    await ctx.createMarket({ expiryTs: ctx.clockUnix - 10 });
+    // Create already-expired market, admin-settle to SettledYes, then mint must fail
+    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) - 10 });
     await ctx.adminSettle(ctx.strike, true);
     await expectErr(ctx.mint(ONE), "MarketNotOpen");
   });
@@ -66,7 +68,7 @@ describe("mint P0 (TEST_MATRIX Cluster A)", () => {
   it("M-06: mint at/after expiry_ts fails with MintAfterExpiry", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol();
-    await ctx.createMarket({ expiryTs: ctx.clockUnix - 1 });
+    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) - 1 });
     await expectErr(ctx.mint(ONE), "MintAfterExpiry");
   });
 

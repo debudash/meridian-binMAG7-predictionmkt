@@ -13,23 +13,26 @@ import { assertBinaryPayout, assertVaultCoversLiability } from "./helpers/invari
 
 async function settleYes(ctx: TestCtx) {
   await ctx.setupProtocol();
-  await ctx.createMarket({ expiryTs: ctx.clockUnix + 1000, pythPrice: 18_100_000_000n });
+  const expiry = Math.floor(Date.now() / 1000) + 2;
+  await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
   await ctx.mint(ONE);
-  await ctx.warpUnix(ctx.clockUnix + 2000);
-  ctx.setMockPyth({ price: 18_100_000_000n, publishSlot: ctx.clockSlot - 1n, pubkey: ctx.pythFeed });
+  await ctx.waitPastExpiry();
+  await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });
   await ctx.settle();
 }
 
 async function settleNo(ctx: TestCtx) {
   await ctx.setupProtocol();
-  await ctx.createMarket({ expiryTs: ctx.clockUnix + 1000, pythPrice: 17_900_000_000n });
+  const expiry = Math.floor(Date.now() / 1000) + 2;
+  await ctx.createMarket({ expiryTs: expiry, pythPrice: 17_900_000_000n });
   await ctx.mint(ONE);
-  await ctx.warpUnix(ctx.clockUnix + 2000);
-  ctx.setMockPyth({ price: 17_900_000_000n, publishSlot: ctx.clockSlot - 1n, pubkey: ctx.pythFeed });
+  await ctx.waitPastExpiry();
+  await ctx.upsertPyth({ price: 17_900_000_000n, keypair: ctx.pythFeed });
   await ctx.settle();
 }
 
-describe("redeem P0 (TEST_MATRIX Cluster D)", () => {
+describe("redeem P0 (TEST_MATRIX Cluster D)", function () {
+  this.timeout(180000);
   before(() => assertIdlHasInstructions("redeem-suite"));
 
   it("R-01: SettledYes + redeem(Yes) burns amount, pays 1:1 USDC, pairs_redeemed += amount", async () => {

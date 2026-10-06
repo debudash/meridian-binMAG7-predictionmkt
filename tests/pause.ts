@@ -16,7 +16,15 @@ import {
   assertBinaryPayout,
 } from "./helpers/invariants";
 
-describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", () => {
+describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", function () {
+  this.timeout(180000);
+  afterEach(async () => {
+    try {
+      const ctx = await TestCtx.boot();
+      await ctx.setupProtocol();
+      await ctx.unpause();
+    } catch { /* ignore */ }
+  });
   before(() => assertIdlHasInstructions("pause-suite"));
 
   it("X-01: after pause, mint and create_strike_market fail with Paused", async () => {
@@ -30,7 +38,7 @@ describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", () => {
     // second market create should also fail paused
     ctx.equity = Buffer.from("MSFT    ");
     await expectErr(
-      ctx.createMarket({ expiryTs: ctx.clockUnix + 5000 }),
+      ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) + 3600 }),
       "Paused"
     );
   });
@@ -40,11 +48,11 @@ describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", () => {
     expect(PAUSE_ALLOWS).to.include("settle");
     expect(PAUSE_ALLOWS).to.include("redeem");
     await ctx.setupProtocol();
-    await ctx.createMarket({ expiryTs: ctx.clockUnix + 1000, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) + 2, pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.pause();
-    await ctx.warpUnix(ctx.clockUnix + 2000);
-    ctx.setMockPyth({ price: 18_100_000_000n, publishSlot: ctx.clockSlot - 1n, pubkey: ctx.pythFeed });
+    await ctx.waitPastExpiry();
+    await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });
     await ctx.settle();
     const colBefore = await ctx.tokenBal(ctx.userCollateral);
     await ctx.redeem(ONE, "yes");
@@ -54,11 +62,11 @@ describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", () => {
   it("X-04: e2e fee=0 SettledYes — create → mint → warp expiry → settle ≥strike → redeem Yes", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol();
-    await ctx.createMarket({ expiryTs: ctx.clockUnix + 1000, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) + 2, pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.setPhoenix();
-    await ctx.warpUnix(ctx.clockUnix + 2000);
-    ctx.setMockPyth({ price: 18_100_000_000n, publishSlot: ctx.clockSlot - 1n, pubkey: ctx.pythFeed });
+    await ctx.waitPastExpiry();
+    await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });
     await ctx.settle();
     const colBefore = await ctx.tokenBal(ctx.userCollateral);
     await ctx.redeem(ONE, "yes");
@@ -71,10 +79,10 @@ describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", () => {
   it("X-05: e2e SettledNo — mint → settle <strike → redeem No", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol();
-    await ctx.createMarket({ expiryTs: ctx.clockUnix + 1000, pythPrice: 17_900_000_000n });
+    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) + 2, pythPrice: 17_900_000_000n });
     await ctx.mint(ONE);
-    await ctx.warpUnix(ctx.clockUnix + 2000);
-    ctx.setMockPyth({ price: 17_900_000_000n, publishSlot: ctx.clockSlot - 1n, pubkey: ctx.pythFeed });
+    await ctx.waitPastExpiry();
+    await ctx.upsertPyth({ price: 17_900_000_000n, keypair: ctx.pythFeed });
     await ctx.settle();
     await ctx.redeem(ONE, "no");
     const inv = await ctx.invariantCtx();
@@ -85,10 +93,10 @@ describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", () => {
   it("X-06: mint → settle → second settle fails (I4)", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol();
-    await ctx.createMarket({ expiryTs: ctx.clockUnix + 1000, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) + 2, pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
-    await ctx.warpUnix(ctx.clockUnix + 2000);
-    ctx.setMockPyth({ price: 18_100_000_000n, publishSlot: ctx.clockSlot - 1n, pubkey: ctx.pythFeed });
+    await ctx.waitPastExpiry();
+    await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });
     await ctx.settle();
     await expectErr(ctx.settle(), "MarketNotOpen");
   });

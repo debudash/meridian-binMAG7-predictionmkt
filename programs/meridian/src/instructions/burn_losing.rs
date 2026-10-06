@@ -13,6 +13,7 @@ pub struct BurnLosing<'info> {
     pub strike_market: Account<'info, StrikeMarket>,
     #[account(mut, token::authority = user)]
     pub user_losing_ata: Account<'info, TokenAccount>,
+    #[account(mut)]
     pub losing_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
 }

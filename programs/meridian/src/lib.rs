@@ -68,4 +68,9 @@ pub mod meridian {
     pub fn burn_losing(ctx: Context<BurnLosing>, amount: u64) -> Result<()> {
         instructions::burn_losing::handler(ctx, amount)
     }
+
+    /// Localnet/test fixture: write MockPythPrice account bytes (not for mainnet).
+    pub fn upsert_mock_pyth(ctx: Context<UpsertMockPyth>, params: MockPythParams) -> Result<()> {
+        instructions::upsert_mock_pyth::handler(ctx, params)
+    }
 }

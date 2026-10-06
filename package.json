@@ -2,9 +2,9 @@
   "name": "peak6-meridian",
   "version": "0.1.0",
   "private": true,
-  "description": "Meridian — Solana binary Yes/No markets (Peak6). TDD suite owns red until Engineers land program code (D-016).",
+  "description": "Meridian \u2014 Solana binary Yes/No markets (Peak6). TDD suite owns red until Engineers land program code (D-016).",
   "scripts": {
-    "test": "mocha -r ts-node/register 'tests/**/*.ts' --timeout 180000 --exit",
+    "test": "anchor test",
     "test:unit": "mocha -r ts-node/register 'tests/unit/**/*.ts' --timeout 10000 --exit",
     "test:lifecycle": "mocha -r ts-node/register 'tests/{mint,settle,redeem,invariants,pause}.ts' --timeout 120000 --exit"
   },

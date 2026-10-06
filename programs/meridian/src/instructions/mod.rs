@@ -8,6 +8,7 @@ pub mod settle;
 pub mod admin_settle;
 pub mod redeem;
 pub mod burn_losing;
+pub mod upsert_mock_pyth;
 
 pub use initialize_config::*;
 pub use update_config::*;
@@ -19,3 +20,4 @@ pub use settle::*;
 pub use admin_settle::*;
 pub use redeem::*;
 pub use burn_losing::*;
+pub use upsert_mock_pyth::*;

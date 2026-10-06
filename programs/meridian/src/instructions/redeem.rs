@@ -29,6 +29,7 @@ pub struct Redeem<'info> {
     pub user_collateral_ata: Account<'info, TokenAccount>,
     #[account(mut, token::authority = user)]
     pub user_winning_ata: Account<'info, TokenAccount>,
+    #[account(mut)]
     pub winning_mint: Account<'info, Mint>,
     /// CHECK: treasury for redeem fee
     #[account(mut)]

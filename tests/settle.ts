@@ -18,22 +18,24 @@ async function openMintThenExpire(
   opts: { price: bigint; conf?: bigint; slot?: bigint }
 ) {
   await ctx.setupProtocol();
+  const expiry = Math.floor(Date.now() / 1000) + 2;
   await ctx.createMarket({
-    expiryTs: ctx.clockUnix + 1000,
+    expiryTs: expiry,
     pythPrice: opts.price,
     pythConf: opts.conf,
   });
   await ctx.mint(ONE);
-  await ctx.warpUnix(ctx.clockUnix + 2000);
-  ctx.setMockPyth({
+  await ctx.waitPastExpiry();
+  await ctx.upsertPyth({
     price: opts.price,
     conf: opts.conf ?? 1_000n,
-    publishSlot: opts.slot ?? ctx.clockSlot - 1n,
-    pubkey: ctx.pythFeed,
+    publishSlot: opts.slot,
+    keypair: ctx.pythFeed,
   });
 }
 
-describe("settle P0 (TEST_MATRIX Cluster B)", () => {
+describe("settle P0 (TEST_MATRIX Cluster B)", function () {
+  this.timeout(180000);
   before(() => assertIdlHasInstructions("settle-suite"));
 
   it("S-01: settle with price_e6 >= strike → SettledYes; vault unchanged; emit Settled", async () => {
@@ -66,17 +68,18 @@ describe("settle P0 (TEST_MATRIX Cluster B)", () => {
   it("S-04: settle before expiry_ts fails with ExpiryNotReached", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol();
-    await ctx.createMarket({ expiryTs: ctx.clockUnix + 10_000 });
+    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) + 3600 });
     await expectErr(ctx.settle(), "ExpiryNotReached");
   });
 
   it("S-05: stale Pyth publish slot fails with StalePythPrice", async () => {
     const ctx = await TestCtx.boot();
     await openMintThenExpire(ctx, { price: 18_100_000_000n });
-    ctx.setMockPyth({
+    const slot = await ctx.provider.connection.getSlot();
+    await ctx.upsertPyth({
       price: 18_100_000_000n,
-      publishSlot: ctx.clockSlot - 500n,
-      pubkey: ctx.pythFeed,
+      publishSlot: BigInt(slot - 500),
+      keypair: ctx.pythFeed,
     });
     await expectErr(ctx.settle(), "StalePythPrice");
   });
@@ -85,23 +88,17 @@ describe("settle P0 (TEST_MATRIX Cluster B)", () => {
     const ctx = await TestCtx.boot();
     const price = 18_000_000_000n;
     await openMintThenExpire(ctx, { price, conf: price });
-    ctx.setMockPyth({
-      price,
-      conf: price,
-      publishSlot: ctx.clockSlot - 1n,
-      pubkey: ctx.pythFeed,
-    });
+    await ctx.upsertPyth({ price, conf: price, keypair: ctx.pythFeed });
     await expectErr(ctx.settle(), "PythConfidenceTooWide");
   });
 
   it("S-07: wrong Pyth account / feed id fails with InvalidPythAccount", async () => {
     const ctx = await TestCtx.boot();
     await openMintThenExpire(ctx, { price: 18_100_000_000n });
-    ctx.setMockPyth({
+    await ctx.upsertPyth({
       price: 18_100_000_000n,
       feedId: Buffer.alloc(32, 0x99),
-      publishSlot: ctx.clockSlot - 1n,
-      pubkey: ctx.pythFeed,
+      keypair: ctx.pythFeed,
     });
     await expectErr(ctx.settle(), "InvalidPythAccount");
   });
@@ -124,35 +121,39 @@ describe("settle P0 (TEST_MATRIX Cluster B)", () => {
   });
 });
 
-describe("admin_settle P0 (TEST_MATRIX Cluster C)", () => {
+describe("admin_settle P0 (TEST_MATRIX Cluster C)", function () {
+  this.timeout(180000);
+
   it("A-01: authority admin_settle after delay → status/fields set; emit AdminSettled; vault unchanged", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    await ctx.createMarket({ expiryTs: ctx.clockUnix + 1000 });
+    const expiry = Math.floor(Date.now() / 1000) + 2;
+    await ctx.createMarket({ expiryTs: expiry });
     await ctx.mint(ONE);
-    await ctx.warpUnix(ctx.clockUnix + 2000);
+    await ctx.waitPastExpiry();
     const vaultBefore = await ctx.vaultAmount();
     await ctx.adminSettle(ctx.strike, true);
-    const m = await ctx.marketState();
-    expect(m.status).to.equal(MarketStatus.SettledYes);
+    expect((await ctx.marketState()).status).to.equal(MarketStatus.SettledYes);
     expect((await ctx.vaultAmount()).eq(vaultBefore)).to.equal(true);
   });
 
   it("A-02: admin_settle before delay fails with AdminSettleTooEarly", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 1800 });
-    await ctx.createMarket({ expiryTs: ctx.clockUnix + 100 });
+    const expiry = Math.floor(Date.now() / 1000) + 2;
+    await ctx.createMarket({ expiryTs: expiry });
     await ctx.mint(ONE);
-    await ctx.warpUnix(ctx.clockUnix + 200); // past expiry but not +1800
+    await ctx.waitPastExpiry();
     await expectErr(ctx.adminSettle(ctx.strike, true), "AdminSettleTooEarly");
   });
 
   it("A-03: non-authority admin_settle fails with Unauthorized", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    await ctx.createMarket({ expiryTs: ctx.clockUnix + 1000 });
+    const expiry = Math.floor(Date.now() / 1000) + 2;
+    await ctx.createMarket({ expiryTs: expiry });
     await ctx.mint(ONE);
-    await ctx.warpUnix(ctx.clockUnix + 2000);
+    await ctx.waitPastExpiry();
     const stranger = Keypair.generate();
     await ctx.fund(stranger.publicKey);
     await expectErr(ctx.adminSettle(ctx.strike, false, stranger), "Unauthorized");
