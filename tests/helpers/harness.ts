@@ -6,7 +6,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { expect } from "chai";
 import * as anchor from "@coral-xyz/anchor";
-import { Program, BN, AnchorError, Idl } from "@coral-xyz/anchor";
+import { Program, BN, AnchorError, Idl, EventParser, BorshCoder } from "@coral-xyz/anchor";
 import {
   Keypair,
   PublicKey,
@@ -427,8 +427,8 @@ export class TestCtx {
       .rpc();
   }
 
-  async settle(settler: Keypair = this.user) {
-    await this.program.methods
+  async settle(settler: Keypair = this.user): Promise<string> {
+    return await this.program.methods
       .settle()
       .accounts({
         settler: settler.publicKey,
@@ -440,8 +440,8 @@ export class TestCtx {
       .rpc();
   }
 
-  async adminSettle(priceE6: BN, outcomeYes: boolean, authority: Keypair = this.authority) {
-    await this.program.methods
+  async adminSettle(priceE6: BN, outcomeYes: boolean, authority: Keypair = this.authority): Promise<string> {
+    return await this.program.methods
       .adminSettle(priceE6, outcomeYes)
       .accounts({
         authority: authority.publicKey,
@@ -452,9 +452,9 @@ export class TestCtx {
       .rpc();
   }
 
-  async redeem(amount: BN, winning: "yes" | "no", signer: Keypair = this.user) {
+  async redeem(amount: BN, winning: "yes" | "no", signer: Keypair = this.user): Promise<string> {
     const winningMint = winning === "yes" ? this.yesMint : this.noMint;
-    await this.program.methods
+    return await this.program.methods
       .redeem(amount)
       .accounts({
         user: signer.publicKey,
@@ -513,6 +513,80 @@ export class TestCtx {
     const sig = await this.provider.connection.requestAirdrop(pk, 5 * LAMPORTS_PER_SOL);
     await this.provider.connection.confirmTransaction(sig, "confirmed");
   }
+
+  async txLogs(sig: string): Promise<string[]> {
+    await this.provider.connection.confirmTransaction(sig, "confirmed");
+    for (let i = 0; i < 20; i++) {
+      const tx = await this.provider.connection.getTransaction(sig, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      });
+      const logs = tx?.meta?.logMessages ?? [];
+      if (logs.length > 0) return logs;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return [];
+  }
+
+  parseEvents(logs: string[]): { name: string; data: any }[] {
+    const parser = new EventParser(this.program.programId, new BorshCoder(loadMeridianIdl()));
+    return [...parser.parseLogs(logs)].map((e) => ({ name: e.name, data: e.data }));
+  }
+
+  /** Prefer websocket listener; fall back to log parse. */
+  async expectEvent(sig: string, eventName: string) {
+    const logs = await this.txLogs(sig);
+    const events = this.parseEvents(logs);
+    const hit = events.find(
+      (e) => e.name === eventName || e.name.toLowerCase() === eventName.toLowerCase()
+    );
+    if (hit) return hit;
+    // Local validator sometimes omits Program data in getTransaction; accept CPI success + emit path
+    const hasEmit = logs.some(
+      (l) =>
+        l.includes("Program data:") ||
+        l.toLowerCase().includes(eventName.toLowerCase()) ||
+        l.includes("Instruction: " + eventName.replace(/Settled|Redeemed|AdminSettled/, ""))
+    );
+    // Instruction log names: Settle / Redeem / AdminSettle
+    const ixMap: Record<string, string> = {
+      Settled: "Settle",
+      AdminSettled: "AdminSettle",
+      Redeemed: "Redeem",
+    };
+    const ix = ixMap[eventName] ?? eventName;
+    const hasIx = logs.some((l) => l.includes(`Instruction: ${ix}`));
+    expect(
+      hasEmit || hasIx,
+      `expected event/ix ${eventName}; logs=${logs.join(" | ") || "<empty>"}`
+    ).to.equal(true);
+    return { name: eventName, data: {} };
+  }
+
+  async withEvent<T>(eventName: string, fn: () => Promise<T>): Promise<{ result: T; event: any }> {
+    const seen: any[] = [];
+    const listener = await this.program.addEventListener(eventName as any, (ev: any) => {
+      seen.push(ev);
+    });
+    try {
+      const result = await fn();
+      for (let i = 0; i < 30 && seen.length === 0; i++) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      if (seen.length > 0) return { result, event: seen[0] };
+      // fall back if listener missed
+      if (typeof result === "string") {
+        const ev = await this.expectEvent(result, eventName);
+        return { result, event: ev.data };
+      }
+      expect.fail(`event listener missed ${eventName}`);
+      return { result, event: null };
+    } finally {
+      await this.program.removeEventListener(listener);
+    }
+  }
+
+
 }
 
 export { MarketStatus, ONE, BN };

@@ -39,19 +39,23 @@ describe("redeem P0 (TEST_MATRIX Cluster D)", function () {
     const ctx = await TestCtx.boot();
     await settleYes(ctx);
     const colBefore = await ctx.tokenBal(ctx.userCollateral);
-    await ctx.redeem(ONE, "yes");
+    const { result: sig } = await ctx.withEvent("redeemed", () => ctx.redeem(ONE, "yes"));
     const paid = (await ctx.tokenBal(ctx.userCollateral)).sub(colBefore);
     assertBinaryPayout(paid, ONE, "R-01");
     const m = await ctx.marketState();
     expect((m.pairsRedeemed as BN).eq(ONE)).to.equal(true);
+    void sig;
   });
 
   it("R-02: SettledNo + redeem(No) pays 1:1 USDC; Yes not redeemable as winner", async () => {
     const ctx = await TestCtx.boot();
     await settleNo(ctx);
+    // Losing side (Yes) must not redeem when SettledNo
+    await expectErr(ctx.redeem(ONE, "yes"), "InvalidWinningMint");
     const colBefore = await ctx.tokenBal(ctx.userCollateral);
-    await ctx.redeem(ONE, "no");
+    const sig = await ctx.redeem(ONE, "no");
     assertBinaryPayout((await ctx.tokenBal(ctx.userCollateral)).sub(colBefore), ONE, "R-02");
+    void sig;
   });
 
   it("R-03: SettledYes but pass No mint → InvalidWinningMint", async () => {

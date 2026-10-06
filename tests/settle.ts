@@ -42,11 +42,12 @@ describe("settle P0 (TEST_MATRIX Cluster B)", function () {
     const ctx = await TestCtx.boot();
     await openMintThenExpire(ctx, { price: 18_100_000_000n });
     const vaultBefore = await ctx.vaultAmount();
-    await ctx.settle();
+    const { result: sig } = await ctx.withEvent("settled", () => ctx.settle());
     const m = await ctx.marketState();
     expect(m.status).to.equal(MarketStatus.SettledYes);
     expect((m.settlementPriceE6 as BN).eq(new BN(181_000_000))).to.equal(true);
     expect((await ctx.vaultAmount()).eq(vaultBefore)).to.equal(true);
+    void sig;
   });
 
   it("S-02: settle with price_e6 < strike → SettledNo; vault unchanged", async () => {
@@ -107,17 +108,33 @@ describe("settle P0 (TEST_MATRIX Cluster B)", function () {
     const ctx = await TestCtx.boot();
     await openMintThenExpire(ctx, { price: 18_100_000_000n });
     await ctx.settle();
-    assertSettledFrozen((await ctx.marketState()).status, "S-09");
+    const snap = await ctx.marketState();
+    assertSettledFrozen(snap.status, "S-09");
+    const price = snap.settlementPriceE6 as BN;
+    const ts = snap.settledAtTs as BN;
+    const slot = snap.settledSlot as BN;
     await expectErr(ctx.settle(), "MarketNotOpen");
+    const after = await ctx.marketState();
+    expect(after.status).to.equal(snap.status);
+    expect((after.settlementPriceE6 as BN).eq(price)).to.equal(true);
+    expect((after.settledAtTs as BN).eq(ts)).to.equal(true);
+    expect((after.settledSlot as BN).eq(slot)).to.equal(true);
   });
 
   it("S-11: after mint + settle Yes, vault still == outstanding pairs (settle does not move vault)", async () => {
     const ctx = await TestCtx.boot();
     await openMintThenExpire(ctx, { price: 18_100_000_000n });
     const before = await ctx.vaultAmount();
+    const yesBefore = await ctx.mintSupply(ctx.yesMint);
+    const noBefore = await ctx.mintSupply(ctx.noMint);
     await ctx.settle();
     expect((await ctx.vaultAmount()).eq(before)).to.equal(true);
     expect(before.eq(ONE)).to.equal(true);
+    // SCHEMA §5.4: settle must not mint/burn — supplies unchanged
+    expect((await ctx.mintSupply(ctx.yesMint)).eq(yesBefore)).to.equal(true);
+    expect((await ctx.mintSupply(ctx.noMint)).eq(noBefore)).to.equal(true);
+    expect(yesBefore.eq(ONE)).to.equal(true);
+    expect(noBefore.eq(ONE)).to.equal(true);
   });
 });
 
@@ -132,9 +149,12 @@ describe("admin_settle P0 (TEST_MATRIX Cluster C)", function () {
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     const vaultBefore = await ctx.vaultAmount();
-    await ctx.adminSettle(ctx.strike, true);
+    const { result: sig } = await ctx.withEvent("adminSettled", () =>
+      ctx.adminSettle(ctx.strike, true)
+    );
     expect((await ctx.marketState()).status).to.equal(MarketStatus.SettledYes);
     expect((await ctx.vaultAmount()).eq(vaultBefore)).to.equal(true);
+    void sig;
   });
 
   it("A-02: admin_settle before delay fails with AdminSettleTooEarly", async () => {
@@ -163,7 +183,12 @@ describe("admin_settle P0 (TEST_MATRIX Cluster C)", function () {
     const ctx = await TestCtx.boot();
     await openMintThenExpire(ctx, { price: 17_900_000_000n });
     await ctx.settle();
-    assertSettledFrozen((await ctx.marketState()).status, "A-04");
+    const snap = await ctx.marketState();
+    assertSettledFrozen(snap.status, "A-04");
+    const price = snap.settlementPriceE6 as BN;
     await expectErr(ctx.adminSettle(ctx.strike, true), "MarketNotOpen");
+    const after = await ctx.marketState();
+    expect(after.status).to.equal(snap.status);
+    expect((after.settlementPriceE6 as BN).eq(price)).to.equal(true);
   });
 });

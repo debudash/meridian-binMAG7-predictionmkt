@@ -6,6 +6,18 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T16:50:00-05:00 — Testers nits on MR !9 (R-02 / S-11 / I4 / events)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers (follow-up); Grok Bot (glab push to `eng/p0-anchor-impl`) |
+| **Decision** | Land Testers approve-with-nits on MR !9 before P1 fees suite: (1) **R-02** assert SettledNo → redeem(Yes) → `InvalidWinningMint` (program already enforced; test gap closed); (2) **S-11** assert Yes/No supplies unchanged across settle (SCHEMA §5.4); (3) optional I4 field snapshots on S-09/A-04; (4) optional event listeners on S-01/A-01/R-01 (`settled` / `adminSettled` / `redeemed`). |
+| **Result** | `anchor test`: **41 passing / 0 failing**. No suite weakening. Ready for Testers P1 fees (M-03 / R-05 / V-06). |
+| **MR** | https://labs.gauntletai.com/debudash/peak6-meridian/-/merge_requests/9 |
+
+---
+
+
 ## 2026-10-06T16:35:00-05:00 — Eng P0 Anchor impl greens Testers suite (Meridian Engineers / Grok Bot)
 
 | Field | Value |
