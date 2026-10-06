@@ -21,6 +21,7 @@ Do not duplicate long rationale here — link the log.
 | D-013 | Schema land path | Schema slice ships via MR !1 on `schema/docs-slice` (not a second main-only AI_LOG) | Meridian Schema / Grok Bot | 2026-10-06 |
 | D-014 | SCM land path | **Official land path = `glab`** against `labs.gauntletai.com` (`GITLAB_HOST`, existing auth / `GAUNTLET_GITLAB_TOKEN`). Cursor enterprise GitLab + MCP GitLab **404 are NOT blockers**. | Debu / Grok Bot | 2026-10-06 |
 | D-015 | Phoenix V1 | **Phoenix V1 spot** is the **working assumption** (Yes/USDC book); confirmation widget skipped — do not invent confirm. | Debu / Grok Bot | 2026-10-06 |
+| D-016 | TDD | **TDD mandatory:** failing tests first for **vault $1**, **mint**, **settle**, **redeem**, **pause**; then implement. | Debu / Grok Bot | 2026-10-06 |
 
 ## Explicitly not locked (see AI_LOG)
 
