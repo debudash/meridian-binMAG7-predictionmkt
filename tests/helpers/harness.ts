@@ -224,22 +224,24 @@ export class TestCtx {
       const cfg = await this.program.account.config.fetch(this.configPda);
       this.collateralMint = cfg.collateralMint as PublicKey;
       this.treasury = cfg.treasury as PublicKey;
-      if (opts?.adminDelay !== undefined) {
-        await this.program.methods
-          .updateConfig({
-            mintFeeBps: opts?.mintFeeBps ?? DEFAULT_MINT_FEE_BPS,
-            redeemFeeBps: opts?.redeemFeeBps ?? DEFAULT_REDEEM_FEE_BPS,
-            settleMaxStalenessSlots: new BN(DEFAULT_STALENESS_SLOTS),
-            settleMaxConfRatioBps: DEFAULT_CONF_RATIO_BPS,
-            adminSettleDelaySecs: new BN(opts.adminDelay),
-            treasury: this.treasury,
-          })
-          .accounts({
-            authority: this.authority.publicKey,
-            config: this.configPda,
-          })
-          .rpc();
-      }
+      // Always re-apply fees (default 0) so P1 fee suites cannot poison P0 fee=0 asserts,
+      // and so setupProtocol({ mintFeeBps }) works when config already exists.
+      await this.program.methods
+        .updateConfig({
+          mintFeeBps: opts?.mintFeeBps ?? DEFAULT_MINT_FEE_BPS,
+          redeemFeeBps: opts?.redeemFeeBps ?? DEFAULT_REDEEM_FEE_BPS,
+          settleMaxStalenessSlots: new BN(DEFAULT_STALENESS_SLOTS),
+          settleMaxConfRatioBps: DEFAULT_CONF_RATIO_BPS,
+          adminSettleDelaySecs: new BN(
+            opts?.adminDelay ?? Number(cfg.adminSettleDelaySecs?.toString?.() ?? DEFAULT_ADMIN_SETTLE_DELAY_SECS)
+          ),
+          treasury: this.treasury,
+        })
+        .accounts({
+          authority: this.authority.publicKey,
+          config: this.configPda,
+        })
+        .rpc();
       // Ensure prior pause tests don't poison later suites
       try { await this.unpause(); } catch { /* already unpaused or not init */ }
     }
@@ -561,6 +563,67 @@ export class TestCtx {
       `expected event/ix ${eventName}; logs=${logs.join(" | ") || "<empty>"}`
     ).to.equal(true);
     return { name: eventName, data: {} };
+  }
+
+
+  /** P1 helper: set mint/redeem fee bps on live config (authority). */
+  async setFees(mintFeeBps: number, redeemFeeBps: number) {
+    await this.program.methods
+      .updateConfig({
+        mintFeeBps,
+        redeemFeeBps,
+        settleMaxStalenessSlots: new BN(DEFAULT_STALENESS_SLOTS),
+        settleMaxConfRatioBps: DEFAULT_CONF_RATIO_BPS,
+        adminSettleDelaySecs: new BN(DEFAULT_ADMIN_SETTLE_DELAY_SECS),
+        treasury: this.treasury,
+      })
+      .accounts({
+        authority: this.authority.publicKey,
+        config: this.configPda,
+      })
+      .rpc();
+  }
+
+  /** P1 helper: second minter with SOL + collateral ATA funded. */
+  async bootSecondUser(collateralRaw: bigint = 1_000_000_000_000n): Promise<{
+    user: Keypair;
+    userCollateral: PublicKey;
+    userYes: PublicKey;
+    userNo: PublicKey;
+  }> {
+    const user = Keypair.generate();
+    await this.fund(user.publicKey);
+    const userCollateral = getAssociatedTokenAddressSync(this.collateralMint, user.publicKey);
+    const userYes = getAssociatedTokenAddressSync(this.yesMint, user.publicKey);
+    const userNo = getAssociatedTokenAddressSync(this.noMint, user.publicKey);
+    const tx = new Transaction().add(
+      createAssociatedTokenAccountInstruction(
+        this.authority.publicKey,
+        userCollateral,
+        user.publicKey,
+        this.collateralMint
+      ),
+      createMintToInstruction(
+        this.collateralMint,
+        userCollateral,
+        this.authority.publicKey,
+        collateralRaw
+      ),
+      createAssociatedTokenAccountInstruction(
+        this.authority.publicKey,
+        userYes,
+        user.publicKey,
+        this.yesMint
+      ),
+      createAssociatedTokenAccountInstruction(
+        this.authority.publicKey,
+        userNo,
+        user.publicKey,
+        this.noMint
+      )
+    );
+    await this.provider.sendAndConfirm(tx);
+    return { user, userCollateral, userYes, userNo };
   }
 
   async withEvent<T>(eventName: string, fn: () => Promise<T>): Promise<{ result: T; event: any }> {
