@@ -1,110 +1,91 @@
 /**
  * Cluster A — Mint P0 cases (docs/TEST_MATRIX.md).
- * SCHEMA §5.3, §7.2–7.3; flows §2; units §3.
- *
- * TDD RED until Engineers implement `mint` (+ create/config prerequisites).
  */
 import { expect } from "chai";
-import BN from "bn.js";
+import { BN } from "@coral-xyz/anchor";
 import {
   assertIdlHasInstructions,
-  invokeIx,
-  TddRedError,
+  TestCtx,
+  expectErr,
+  ONE,
 } from "./helpers/harness";
-import { ONE } from "./helpers/fixtures";
 import {
   assertOpenSupplyParity,
   assertVaultCoversLiability,
 } from "./helpers/invariants";
 
 describe("mint P0 (TEST_MATRIX Cluster A)", () => {
-  before(() => {
-    // Stub IDL must list SCHEMA instruction names even before program build.
-    assertIdlHasInstructions("mint-suite");
-  });
+  before(() => assertIdlHasInstructions("mint-suite"));
 
   it("M-01: mint(1e6) locks USDC and mints equal Yes/No; vault += amount; pairs_minted += amount", async () => {
-    const caseId = "M-01";
-    try {
-      await invokeIx(caseId, "mint", { amount: ONE });
-      // Postconditions (reachable only after Engineers green the harness):
-      // user −1e6 USDC, +1e6 Yes, +1e6 No; vault += 1e6; emit Minted
-      expect.fail(`${caseId}: unreachable until program lands`);
-    } catch (e) {
-      expect(e).to.be.instanceOf(TddRedError);
-      throw e; // keep mocha RED
-    }
+    const ctx = await TestCtx.boot();
+    await ctx.setupProtocol();
+    await ctx.createMarket();
+    const beforeCol = await ctx.tokenBal(ctx.userCollateral);
+    await ctx.mint(ONE);
+    expect((await ctx.tokenBal(ctx.userYes)).eq(ONE)).to.equal(true);
+    expect((await ctx.tokenBal(ctx.userNo)).eq(ONE)).to.equal(true);
+    expect((await ctx.vaultAmount()).eq(ONE)).to.equal(true);
+    expect((await ctx.tokenBal(ctx.userCollateral)).eq(beforeCol.sub(ONE))).to.equal(true);
+    const inv = await ctx.invariantCtx();
+    assertOpenSupplyParity(inv, "M-01");
+    assertVaultCoversLiability(inv, "M-01");
   });
 
   it("M-02: second mint accumulates pairs_minted and vault == pairs_minted (fee=0)", async () => {
-    const caseId = "M-02";
-    try {
-      await invokeIx(caseId, "mint", { amount: new BN(2_500_000) });
-      assertVaultCoversLiability(
-        {
-          vaultAmount: new BN(0),
-          pairsMinted: new BN(0),
-          pairsRedeemed: new BN(0),
-          yesSupply: new BN(0),
-          noSupply: new BN(0),
-          status: 0,
-        },
-        caseId
-      );
-      expect.fail(`${caseId}: unreachable until program lands`);
-    } catch (e) {
-      expect(e).to.be.instanceOf(TddRedError);
-      throw e;
-    }
+    const ctx = await TestCtx.boot();
+    await ctx.setupProtocol();
+    await ctx.createMarket();
+    await ctx.mint(ONE);
+    await ctx.mint(new BN(2_500_000));
+    const inv = await ctx.invariantCtx();
+    expect(inv.pairsMinted.eq(new BN(3_500_000))).to.equal(true);
+    assertVaultCoversLiability(inv, "M-02");
+    assertOpenSupplyParity(inv, "M-02");
   });
 
   it("M-04: mint while paused fails with Paused; vault/supplies/pairs_minted unchanged", async () => {
-    const caseId = "M-04";
-    try {
-      await invokeIx(caseId, "pause");
-      await invokeIx(caseId, "mint", { amount: ONE });
-      expect.fail(`${caseId}: expected Paused error from program`);
-    } catch (e) {
-      expect(e).to.be.instanceOf(TddRedError);
-      throw e;
-    }
+    const ctx = await TestCtx.boot();
+    await ctx.setupProtocol();
+    await ctx.createMarket();
+    await ctx.pause();
+    await expectErr(ctx.mint(ONE), "Paused");
+    const inv = await ctx.invariantCtx();
+    expect(inv.pairsMinted.eqn(0)).to.equal(true);
+    expect(inv.vaultAmount.eqn(0)).to.equal(true);
   });
 
   it("M-05: mint when status != Open fails with MarketNotOpen", async () => {
-    const caseId = "M-05";
-    try {
-      await invokeIx(caseId, "mint", { amount: ONE });
-      expect.fail(`${caseId}: expected MarketNotOpen`);
-    } catch (e) {
-      expect(e).to.be.instanceOf(TddRedError);
-      throw e;
-    }
+    const ctx = await TestCtx.boot();
+    await ctx.setupProtocol({ adminDelay: 0 });
+    await ctx.createMarket({ expiryTs: ctx.clockUnix - 10 });
+    await ctx.adminSettle(ctx.strike, true);
+    await expectErr(ctx.mint(ONE), "MarketNotOpen");
   });
 
   it("M-06: mint at/after expiry_ts fails with MintAfterExpiry", async () => {
-    const caseId = "M-06";
-    try {
-      await invokeIx(caseId, "mint", { amount: ONE });
-      expect.fail(`${caseId}: expected MintAfterExpiry`);
-    } catch (e) {
-      expect(e).to.be.instanceOf(TddRedError);
-      throw e;
-    }
+    const ctx = await TestCtx.boot();
+    await ctx.setupProtocol();
+    await ctx.createMarket({ expiryTs: ctx.clockUnix - 1 });
+    await expectErr(ctx.mint(ONE), "MintAfterExpiry");
   });
 
   it("M-08: insufficient user USDC → no partial mint (Yes/No not minted)", async () => {
-    const caseId = "M-08";
+    const ctx = await TestCtx.boot();
+    await ctx.setupProtocol();
+    await ctx.createMarket();
     try {
-      await invokeIx(caseId, "mint", { amount: ONE });
-      expect.fail(`${caseId}: expected insufficient-funds / transfer failure`);
+      await ctx.mint(new BN("9000000000000"));
+      expect.fail("expected insufficient funds failure");
     } catch (e) {
-      expect(e).to.be.instanceOf(TddRedError);
-      throw e;
+      const inv = await ctx.invariantCtx();
+      expect(inv.pairsMinted.eqn(0)).to.equal(true);
+      expect(inv.yesSupply.eqn(0)).to.equal(true);
+      expect(inv.noSupply.eqn(0)).to.equal(true);
     }
   });
 
   it("M-01 post: open supply parity helper wired (I2)", () => {
-    // Documents expected postcondition shape for Engineers' fixtures.
     assertOpenSupplyParity(
       {
         vaultAmount: ONE,
