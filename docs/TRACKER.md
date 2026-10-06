@@ -13,24 +13,20 @@ No Blocked column — Cursor enterprise GitLab + MCP 404 are not blockers; land 
 - [x] Official land path = `glab` (D-014); Phoenix V1 spot working assumption (D-015)
 - [x] UI design slice landed (MR !2, `ui/docs-slice`)
 - [x] Docs unblock: glab land path + Phoenix spot assumed (MR !3, `docs/unblock-glab-path`)
-- [x] TDD mandate locked (D-016): failing tests first for vault $1, mint, settle, redeem, pause
+- [x] TDD mandate locked (D-016) via MR !4 (`docs/tdd-mandate`): failing tests first for vault $1, mint, settle, redeem, pause
 
 ## In Progress
 
-- [ ] Docs TDD mandate MR (`docs/tdd-mandate`) — this change set
-- [ ] Remaining required docs stubs from D-012 (AGENTS, ARCHITECTURE, CLAUDE, CONTEXT, …)
+- [ ] Tester plan: `docs/TEST_MATRIX.md` (MR !5, OPEN) — mint/settle/redeem + $1 vault
+- [ ] Failing TDD suite (MR !6, OPEN; `test/failing-lifecycle-invariants`): **37 P0 red** — mint/settle/redeem/$1 vault/pause
+- [ ] Engineers implementing Anchor P0 **only to green** Testers suite (D-016)
+- [ ] `docs/SPEC.md` **not ready** — Debu waiting to be notified when ready
 
 ## Todo
 
-- [ ] `docs/AGENTS.md` / agent roster
-- [ ] `docs/ARCHITECTURE.md`
-- [ ] `docs/SPEC.md` / PRD alignment
-- [ ] `docs/TASKS.md` breakdown for Engineers (include TDD order per D-016)
-- [ ] `docs/DEMO_SCRIPT.md`, `docs/DEPLOY.md`, `docs/EVALS.md`, `docs/METRICS.md`
-- [ ] `docs/RED_TEAM.md`, `docs/DIAGRAMS.md`, `docs/CONTEXT.md`, `docs/CLAUDE.md`
-- [ ] `docs/ORCHESTRATOR_KICKOFF.md`
-- [ ] Anchor program: **failing tests first** (vault $1, mint, settle, redeem, pause) then implement (D-016)
+- [ ] Remaining D-012 docs stubs: `AGENTS.md`, `ARCHITECTURE.md`, `TASKS.md`, `DEMO_SCRIPT.md`, `DEPLOY.md`, `EVALS.md`, `METRICS.md`, `RED_TEAM.md`, `DIAGRAMS.md`, `CONTEXT.md`, `CLAUDE.md`, `ORCHESTRATOR_KICKOFF.md`
+- [ ] Anchor program green against Testers' failing suite (vault $1, mint, settle, redeem, pause) (D-016)
 - [ ] Next.js UI implementation (consume UI specs)
 - [ ] Node automation (Pyth settle path)
-- [ ] Tester plans + invariant gates (align with D-016 red→green)
+- [ ] Tester P1/P2 cases + invariant gates after P0 suite greens (D-016)
 - [ ] Reviewer pass (security, non-custodial, pause, admin delay, demo readiness, TDD evidence)
