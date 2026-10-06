@@ -626,6 +626,24 @@ export class TestCtx {
     return { user, userCollateral, userYes, userNo };
   }
 
+
+  /** Localnet fixture: authority drains `amount` USDC from market vault → treasury (V-07). */
+  async drainVault(amount: BN) {
+    await this.program.methods
+      .testDrainVault(amount)
+      .accounts({
+        authority: this.authority.publicKey,
+        config: this.configPda,
+        strikeMarket: this.market,
+        collateralVault: this.vault,
+        vaultAuthority: this.vaultAuthority,
+        destination: this.treasury,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([this.authority])
+      .rpc();
+  }
+
   async withEvent<T>(eventName: string, fn: () => Promise<T>): Promise<{ result: T; event: any }> {
     const seen: any[] = [];
     const listener = await this.program.addEventListener(eventName as any, (ev: any) => {

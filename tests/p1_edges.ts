@@ -19,7 +19,6 @@ import {
   TestCtx,
   expectErr,
   ONE,
-  TddRedError,
 } from "./helpers/harness";
 import { assertVaultCoversLiability } from "./helpers/invariants";
 import { MarketStatus } from "./helpers/fixtures";
@@ -116,12 +115,27 @@ describe("P1 edges (TEST_MATRIX S-08 / X-03 / M-07 / M-09 / M-10 / V-07 / V-08)"
 
   it("V-07: under-collateralized redeem must fail InsufficientVault (never pay unbacked USDC)", async () => {
     const caseId = "V-07";
-    // Hostile vault drain is not a public Meridian ix. Stay TDD_RED until Engineers
-    // expose a controlled fixture (or document impossibility + soft-delete this case).
-    throw new TddRedError(
-      caseId,
-      "need controlled vault-drain fixture (or wrong-CPI harness) to assert InsufficientVault; never pay unbacked USDC"
-    );
+    const ctx = await TestCtx.boot();
+    await ctx.setupProtocol({ adminDelay: 0 });
+    const expiry = Math.floor(Date.now() / 1000) + 2;
+    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    await ctx.mint(ONE);
+    await ctx.waitPastExpiry();
+    await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });
+    await ctx.settle();
+
+    // Controlled localnet drain: leave vault short of redeem amount
+    await ctx.drainVault(new BN(1));
+    expect((await ctx.vaultAmount()).eq(ONE.subn(1))).to.equal(true);
+
+    const colBefore = await ctx.tokenBal(ctx.userCollateral);
+    const vaultBefore = await ctx.vaultAmount();
+    await expectErr(ctx.redeem(ONE, "yes"), "InsufficientVault");
+    expect((await ctx.vaultAmount()).eq(vaultBefore), `${caseId}: vault unchanged`).to.equal(true);
+    expect(
+      (await ctx.tokenBal(ctx.userCollateral)).eq(colBefore),
+      `${caseId}: never paid unbacked USDC`
+    ).to.equal(true);
   });
 
   it("V-08: off-protocol Yes transfer between users leaves Meridian vault/pairs_* unchanged", async () => {

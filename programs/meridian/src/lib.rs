@@ -73,4 +73,9 @@ pub mod meridian {
     pub fn upsert_mock_pyth(ctx: Context<UpsertMockPyth>, params: MockPythParams) -> Result<()> {
         instructions::upsert_mock_pyth::handler(ctx, params)
     }
+
+    /// Localnet/test fixture: authority drains vault USDC (V-07 InsufficientVault proof).
+    pub fn test_drain_vault(ctx: Context<TestDrainVault>, amount: u64) -> Result<()> {
+        instructions::test_drain_vault::handler(ctx, amount)
+    }
 }

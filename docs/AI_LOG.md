@@ -6,6 +6,18 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T17:05:00-05:00 — Eng P1 fees + edges green (MR !10 suite)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers; Grok Bot (glab land) |
+| **Decision** | Branch `eng/p1-fees` from Testers `test/p1-fees-failing` (MR !10 @ P0 tip `6618d74`). Fee paths already fee-on-transfer-in (SCHEMA §7.3) — **M-03 / R-05 / V-06** green without P0 fee=0 weakening. Edges **S-08, X-03, M-07, M-09, M-10, V-08** green on existing program. **V-07:** landed localnet-only `test_drain_vault` fixture + harness `drainVault` to prove `InsufficientVault` (never unbacked payout). |
+| **Result** | `anchor test`: **51 passing / 0 failing**. Depends on / stacks with MR !9 (P0). |
+| **Related** | Testers suite MR !10 · eng P0 MR !9 · D-016 |
+
+---
+
+
 ## 2026-10-06T16:55:00-05:00 — Testers P1 fees failing suite (TDD)
 
 | Field | Value |
