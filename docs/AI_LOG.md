@@ -6,13 +6,24 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T15:52:00-05:00 — Unblock: glab official land path; Phoenix V1 spot assumed (Debu / Grok Bot)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Debu Dash (decision); Grok Bot (record + enforce) |
+| **Decision** | **Cursor enterprise GitLab + MCP GitLab 404 are NOT blockers.** Official SCM land path = **`glab`** against `labs.gauntletai.com` (`GITLAB_HOST=labs.gauntletai.com`, existing `glab` auth / `GAUNTLET_GITLAB_TOKEN`). **Phoenix V1 spot** is the **working assumption** (confirmation widget skipped — do not invent a separate Debu confirm). Reword prior “blocker” language accordingly; ship via branch `docs/unblock-glab-path` + MR. |
+| **Rationale** | CloudAgent/MCP gaps are tooling preferences, not program stalls. Schema/UI already land via `glab`; treat that as the sanctioned path. Spot assumption unblocks Engineers without a confirmation widget. See D-014 / D-015. |
+| **Supersedes** | Framing in the 15:40:30 “Tooling blockers” entry and D-011 “blocked” wording; Phoenix V1 spot “OPEN / do not treat as confirmed” caution → working assumption (D-015). |
+
+---
+
 ## 2026-10-06T15:48:00-05:00 — UI design slice MR (Meridian UI)
 
 | Field | Value |
 | --- | --- |
 | **Actor** | Meridian UI |
 | **Decision** | Open MR `ui/docs-slice` → `main` with engineer-ready UI specs under `docs/ui/` (Landing, Markets, Trade, Portfolio, History + intents/constraints + IA/routes). Append this log entry on `main` (Schema MR !1 already merged; `schema/docs-slice` gone) so AI_LOG stays single-threaded with Schema. |
-| **Rationale** | Parallel UI slice; Cursor CloudAgent blocked on labs.gauntletai.com enterprise SCM; glab API path authorized (same as Schema). |
+| **Rationale** | Parallel UI slice; land via `glab` API on labs.gauntletai.com (same as Schema). Cursor CloudAgent/MCP unavailable — **not blockers** (see 15:52 / D-014). |
 | **URL** | https://labs.gauntletai.com/debudash/peak6-meridian/-/merge_requests/2 |
 | **Commit** | `a3c5a63d` |
 
@@ -26,7 +37,7 @@ Key UI locks in this slice: one Phoenix Yes/USDC book with No as display transfo
 | --- | --- |
 | **Actor** | Grok Bot (chief orchestrator) |
 | **Decision** | Append full orchestration history to this file on branch `schema/docs-slice` (MR !1); expand `DECISIONS.md` locks; do **not** open a second MR or push a parallel AI_LOG to `main` |
-| **Rationale** | Schema already landed `docs/AI_LOG.md` + `DECISIONS.md` via MR !1. A parallel main commit would fork the log. Completeness + security ownership requires one append-only narrative covering repo, stack, agents, blockers, open assumptions, and required docs. |
+| **Rationale** | Schema already landed `docs/AI_LOG.md` + `DECISIONS.md` via MR !1. A parallel main commit would fork the log. Completeness + security ownership requires one append-only narrative covering repo, stack, agents, tooling notes, open assumptions, and required docs. |
 
 ---
 
@@ -48,7 +59,7 @@ Key UI locks in this slice: one Phoenix Yes/USDC book with No as display transfo
 | --- | --- |
 | **Actor** | Meridian Schema |
 | **Decision** | Draft on-chain schema docs locally under `/workspace/meridian-schema-docs` before API commit to GitLab: `SCHEMA.md`, `accounts.md`, `flows.md`, `units.md`, `programs/meridian/README.md` |
-| **Rationale** | CloudAgent/enterprise GitLab tooling unavailable (see below); local draft → `glab`/API push to `schema/docs-slice` is the sanctioned path. UI work proceeds in parallel under `/workspace/meridian-ui-specs` (to be committed as `docs/ui/`). |
+| **Rationale** | Local draft → `glab`/API push to `schema/docs-slice` is the sanctioned land path (CloudAgent/MCP optional; **not blockers** — see 15:52 / D-014). UI work proceeds in parallel under `/workspace/meridian-ui-specs` (to be committed as `docs/ui/`). |
 
 ---
 
@@ -85,13 +96,13 @@ Key UI locks in this slice: one Phoenix Yes/USDC book with No as display transfo
 
 ---
 
-## 2026-10-06T15:40:30-05:00 — Tooling blockers: CloudAgent + MCP GitLab (Grok Bot)
+## 2026-10-06T15:40:30-05:00 — Tooling note (historical): CloudAgent + MCP GitLab (Grok Bot) — NOT blockers (see 15:52 / D-014)
 
 | Field | Value |
 | --- | --- |
 | **Actor** | Grok Bot |
-| **Decision** | Do **not** rely on Cursor CloudAgent or MCP GitLab tools for Meridian forge work. Use box-local draft + `glab` / GitLab REST with `GITLAB_HOST=labs.gauntletai.com` and `GAUNTLET_GITLAB_TOKEN`. |
-| **Rationale** | **CloudAgent blocked:** enterprise instance `labs.gauntletai.com` is not configured in Cursor Settings for CloudAgent. **MCP GitLab tools:** return **404** against this host. Continuing via CloudAgent/MCP would stall the program; `glab` token path works. |
+| **Decision** | Prefer box-local draft + `glab` / GitLab REST with `GITLAB_HOST=labs.gauntletai.com` and `GAUNTLET_GITLAB_TOKEN`. Cursor CloudAgent (enterprise host not in Settings) and MCP GitLab (**404**) are **unavailable conveniences — not program blockers**. Official land path = `glab` (confirmed 15:52 / D-014). |
+| **Rationale** | CloudAgent is not configured for `labs.gauntletai.com`; MCP GitLab returns **404**. Those gaps do **not** stall Meridian — `glab` works and is the official land path. (Superseding “blocker” framing: see 15:52 entry / D-014.) |
 
 ---
 
@@ -123,7 +134,7 @@ Key UI locks in this slice: one Phoenix Yes/USDC book with No as display transfo
 | Field | Value |
 | --- | --- |
 | **Actor** | Meridian PM (bar); Grok Bot (orchestration) |
-| **Decision** | Adopt V1 acceptance bar + non-goals; run **Schema** and **UI** as parallel slices; treat **Phoenix V1 spot** as assumed pending Debu confirm (confirmation widget **skipped**). |
+| **Decision** | Adopt V1 acceptance bar + non-goals; run **Schema** and **UI** as parallel slices; treat **Phoenix V1 spot** as the working assumption (confirmation widget **skipped** — later confirmed as D-015 / 15:52). |
 
 ### V1 acceptance bar (minimum)
 - Non-custodial dApp: mint Yes/No pairs vs USDC, trade on Phoenix Yes/USDC book, settle via Pyth ~4:00 PM ET, redeem winners 1:1 USDC
@@ -141,9 +152,9 @@ Key UI locks in this slice: one Phoenix Yes/USDC book with No as display transfo
 - On-chain code in the schema docs slice (scaffold map only)
 - Phoenix spot confirmation widget / invented Debu confirmation of spot wiring
 
-### Open assumption — Phoenix V1 spot
+### Working assumption — Phoenix V1 spot (locked as assumption in D-015)
 - **Assumption:** V1 uses Phoenix **spot** markets (Yes base / USDC quote) as Schema defaulted.
-- **Status:** **OPEN** — Debu confirmation widget was **skipped**. Do **not** treat as confirmed. Schema/UI may proceed with labeled defaults; Engineers must not hard-lock deploy until Debu confirms.
+- **Status:** **WORKING ASSUMPTION** (Debu / Grok Bot, 15:52) — confirmation widget **skipped**; do not invent a separate confirm. Schema/UI/Engineers proceed on spot. Revisit only if Debu explicitly changes product direction.
 
 | Field | Value |
 | --- | --- |
@@ -187,7 +198,7 @@ Key UI locks in this slice: one Phoenix Yes/USDC book with No as display transfo
 7. Fee policy beyond 0 bps defaults
 8. Settle-window policy vs automation retries
 9. Multi-collateral — out of scope for v1
-10. **Phoenix V1 spot product confirm** — open; widget skipped (see orchestration entry above)
+10. **Phoenix V1 spot** — **working assumption** (D-015); widget skipped; not a blocker (see 15:52)
 
 ### Non-goals this slice
 - No Anchor program source yet (scaffold map only under `programs/meridian/`)
