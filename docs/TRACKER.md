@@ -27,6 +27,8 @@ No Blocked column — Cursor enterprise GitLab + MCP 404 are not blockers; land 
 - [ ] Remaining D-012 docs stubs: `AGENTS.md`, `ARCHITECTURE.md`, `TASKS.md`, `DEMO_SCRIPT.md`, `DEPLOY.md`, `EVALS.md`, `METRICS.md`, `RED_TEAM.md`, `DIAGRAMS.md`, `CONTEXT.md`, `CLAUDE.md`, `ORCHESTRATOR_KICKOFF.md`
 - [ ] Anchor program green against Testers' failing suite (vault $1, mint, settle, redeem, pause) (D-016)
 - [ ] Next.js UI implementation (consume UI specs)
-- [ ] Node automation (Pyth settle path)
+- [ ] Node automation: morning strike creation (~8:00 ET) + Pyth settle retries
 - [ ] Tester P1/P2 cases + invariant gates after P0 suite greens (D-016)
 - [ ] Reviewer pass (security, non-custodial, pause, admin delay, demo readiness, TDD evidence)
+- [ ] Peak6 PRD: demo video (distinct from `DEMO_SCRIPT.md`)
+- [ ] Peak6 PRD: test results artifact (after suite execution)
