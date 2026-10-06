@@ -6,6 +6,20 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T15:48:00-05:00 — UI design slice MR (Meridian UI)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian UI |
+| **Decision** | Open MR `ui/docs-slice` → `main` with engineer-ready UI specs under `docs/ui/` (Landing, Markets, Trade, Portfolio, History + intents/constraints + IA/routes). Append this log entry on `main` (Schema MR !1 already merged; `schema/docs-slice` gone) so AI_LOG stays single-threaded with Schema. |
+| **Rationale** | Parallel UI slice; Cursor CloudAgent blocked on labs.gauntletai.com enterprise SCM; glab API path authorized (same as Schema). |
+| **URL** | https://labs.gauntletai.com/debudash/peak6-meridian/-/merge_requests/2 |
+| **Commit** | `a3c5a63d` |
+
+Key UI locks in this slice: one Phoenix Yes/USDC book with No as display transform; four intents (Buy/Sell × Yes/No); trading UI blocks simultaneous Yes+No exposure (balances + open buys + in-flight); settlement countdown component; payoff copy "1.00 USDC if right, 0 if not". Open `TODO(schema)` / `OPEN:` tags remain in the docs.
+
+---
+
 ## 2026-10-06T15:46:00-05:00 — Orchestration log completeness (Grok Bot)
 
 | Field | Value |
