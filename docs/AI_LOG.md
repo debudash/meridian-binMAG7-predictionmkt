@@ -50,6 +50,14 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 | **Related** | D-014 · D-015 · SPEC §3.4 · `docs/ui/06` · branch `eng/phoenix-place-indexer` |
 
 ---
+## 2026-10-06T23:55:00-05:00 — Testers: P2 + invariant gates TDD suite
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Testers; Grok Bot (`glab` commits API) |
+| **Decision** | Land failing/pinning P2 suite on `test/p2-invariant-gates` from tip `main` (program id `9Rb7nx…`). Cases: **A-05** (prefer reject inconsistent `outcome_yes` vs price/strike; XOR accept+log + DECISIONS), **R-08** (`burn_losing`), **X-07** (Settling unused — pin or retire), **INV-P2-I3** / **INV-PROD-01** / **INV-FEE-TRUNC**. Harness adds `burnLosing`. No Rust; no Phoenix matcher; no P0/P1/SIM re-impl. |
+| **Result** | Suite MR for Engineers to green (D-016). |
+| **Related** | D-016 · TEST_MATRIX · !25 program-id · !16 SIM green |
 
 ## 2026-10-06T23:52:00-05:00 — SPEC lock confirmed on main (!20 @ aa97a22)
 

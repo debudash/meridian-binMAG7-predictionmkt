@@ -13,7 +13,7 @@
 | **P0** | Green on `main` (MR !9) | mint / settle / redeem / $1 vault / pause — 37 case IDs |
 | **P1 fees + edges** | Green on `main` (MR !11) | Fees **M-03 / R-05 / V-06** + edges; V-07 via localnet `test_drain_vault` |
 | **Sim session (localnet)** | Green on `main` (MR !16) | **SIM-01…SIM-09** under `localnet-test`. **Never** required for mainnet builds. |
-| **`merge_pair` (D-018)** | **TDD_RED** (`test/merge-pair-failing`) | **MP-01…MP-08** — Open merge, post-expiry OK, pause/settled fails, fee path, I2/I3, zero/insufficient, distinct from redeem. Eng implement **only** to green. **No** Phoenix matcher. |
+| **`merge_pair` (D-018)** | **Green on `main` (!31)** | **MP-01…MP-08** — Open merge, post-expiry OK, pause/settled fails, fee path, I2/I3. **No** Phoenix matcher. |
 | **A-05 / X-07** | Owned by P2 suite !27 | Schema !29 docs align — **do not double-flip** in the merge_pair MR |
 
 ## Program id / localnet deploy
@@ -48,6 +48,9 @@ Do **not** commit keypair JSON. Testers own fixture/README alignment only — En
 | **`sim_session.ts`** | **SIM-01…SIM-09 (localnet-only / D-017)** |
 | **`merge_pair.ts`** | **MP-01…MP-08 (D-018 / Cluster I)** |
 | `helpers/` | fixtures, I1–I5, Anchor `TestCtx` harness (+ `simOpen` / `simClose` / `simTradeOffBook` / `mergePair`) |
+| **`sim_session.ts`** | **SIM-01…SIM-09 (localnet-only / D-017)** — green |
+| **`p2_gates.ts`** | **A-05, R-08, X-07 + INV-P2-I3, INV-PROD-01, INV-FEE-TRUNC** |
+| `helpers/` | fixtures, I1–I5, Anchor `TestCtx` harness (+ `simOpen` / `simClose` / `simTradeOffBook` / `burnLosing`) |
 
 ## Localnet simulated session (D-017)
 
