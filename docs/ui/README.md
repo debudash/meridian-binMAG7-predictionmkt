@@ -42,3 +42,23 @@ Repo of record: https://labs.gauntletai.com/debudash/peak6-meridian (files live 
 - `OPEN:` — product/PM decision needed.
 - Placeholders: `<PROGRAM_ID>`, `<PHOENIX_PROGRAM_ID>`, `<USDC_MINT>`, `<PYTH_FEED_ID>`, `<INDEXER_URL>`, `<RPC_URL>`.
 - Prices displayed in USDC with 2 decimals (`0.62`), optionally as implied % (`62%`). Sizes in whole contracts unless `market.lotSize` says otherwise.
+
+## Selection & active states (standing rule — D-022, DLV-073)
+
+**Anything clicked or selected must be clearly highlighted or identifiable, everywhere in the UI.** One shared treatment, defined once in `apps/web/src/app/globals.css` (tokens `--sel-color`, `--sel-tint`, `--sel-ring-width`, `--focus-ring`):
+
+| State | Treatment |
+|---|---|
+| **Selected / active** | Border in `--sel-color` + tinted background (`--sel-tint`, ~18%) + 2px accent ring, bolder label. Chips / segmented toggles also show a ✓ (non-colour cue). Rows get the tint plus a 3px left accent bar. |
+| **Colour by context** | Default accent. `.sel-yes` / `.sel-no` for Yes/No choices (header perspective toggle, ticket intents), `--bid` / `--ask` for order-book rows. |
+| **Unselected** | Solid 1px border, no tint (Yes/No intent buttons: faint tint + 45% coloured border). Hover = lighter border / subtle tint. |
+| **Disabled** | Dashed border, greyscale, muted text, no tint or ring, `not-allowed` cursor — must never read as "unselected" or "selected" (e.g. Sell Yes / Sell No with no position). Disabled links also leave the tab order. |
+| **Keyboard focus** | Separate `:focus-visible` ring (`--focus-ring`, light blue, 2px offset) on every interactive element; never removed for keyboard users. |
+| **Last viewed** | The market last opened (sessionStorage) is marked "Last viewed" on cards and in the table/ladder (`aria-current="true"`). |
+
+**ARIA drives the visuals** (CSS selects on ARIA state, so semantics and looks can't drift):
+- `aria-pressed` — toggles and single-choice button groups: filter chips, view toggle (Cards/Table/Ladder), header Yes/No, ticket intents, Market/Limit.
+- `aria-selected` — tabs (`role=tablist`/`tab`, ←/→/Home/End roving focus) and selectable rows (order book `role=listbox`/`option`; tables `role=grid` rows, click or Enter/Space toggles).
+- `aria-current="page"` — primary nav (desktop + mobile bottom nav, brand link on `/`); `aria-current="true"` for the current item in a list (last-viewed market, selected portfolio card — cards hold links/buttons so they can't be `option`s).
+
+Applies to: nav; market filters, view toggle, cards (hover lift / pressed / visited title / last viewed); trade header Yes/No, order-book rows (DLV-071), ticket intents + Market/Limit, Position/Open orders/Fills tabs and their rows; portfolio tabs, position/redeem cards, open-order rows; history type tabs and rows; wallet button (open state), dropdown and modal list items. New controls must reuse these classes/ARIA states rather than inline styles. Logic helpers: `lib/ui/selection.ts` (tested), wiring: `components/ui/a11y.ts`.

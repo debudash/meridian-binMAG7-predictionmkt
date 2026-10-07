@@ -12,7 +12,14 @@ import { useIntentAvailability } from "@/hooks/useIntentAvailability";
 import { useTradingBlockedByBanner } from "@/components/layout/GlobalBanners";
 import { useWallet } from "@solana/wallet-adapter-react";
 
-export function MarketCard({ market }: { market: MarketView }) {
+export function MarketCard({
+  market,
+  lastViewed = false,
+}: {
+  market: MarketView;
+  /** Market the user last opened (sessionStorage) — marked "Last viewed" (D-022). */
+  lastViewed?: boolean;
+}) {
   const { nowSec } = useChainClock();
   const { connected } = useWallet();
   const tradingBlocked = useTradingBlockedByBanner();
@@ -37,14 +44,22 @@ export function MarketCard({ market }: { market: MarketView }) {
         : null;
 
   return (
-    <article className="card" style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+    <article
+      className={`card market-card${lastViewed ? " is-selected" : ""}`}
+      aria-current={lastViewed ? "true" : undefined}
+      style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem" }}>
-        <span className="chip">{market.underlyingSymbol}</span>
+        <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span className="chip">{market.underlyingSymbol}</span>
+          {lastViewed && <span className="chip chip-current">Last viewed</span>}
+        </span>
         <SettlementCountdown market={market} compact />
       </div>
       <Link
         href={`/markets/${market.marketId}`}
-        style={{ color: "var(--text)", fontWeight: 600, textDecoration: "none" }}
+        className="market-card-title"
+        style={{ fontWeight: 600, textDecoration: "none" }}
       >
         {shortQuestion(
           market.underlyingSymbol,
@@ -99,7 +114,8 @@ export function MarketCard({ market }: { market: MarketView }) {
                 ? "Trading unavailable"
                 : undefined
           }
-          style={!buyYesOk ? { pointerEvents: "none", opacity: 0.45 } : undefined}
+          tabIndex={!buyYesOk ? -1 : undefined}
+          style={!buyYesOk ? { pointerEvents: "none" } : undefined}
         >
           Buy Yes
         </Link>
@@ -114,7 +130,8 @@ export function MarketCard({ market }: { market: MarketView }) {
                 ? "Trading unavailable"
                 : undefined
           }
-          style={!buyNoOk ? { pointerEvents: "none", opacity: 0.45 } : undefined}
+          tabIndex={!buyNoOk ? -1 : undefined}
+          style={!buyNoOk ? { pointerEvents: "none" } : undefined}
         >
           Buy No
         </Link>

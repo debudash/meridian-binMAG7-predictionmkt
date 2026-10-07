@@ -31,6 +31,9 @@ import { useLivePosition } from "@/hooks/useLivePosition";
 import { useChainClock } from "@/components/providers/AppProviders";
 import { DEFAULT_PROGRAM_ID } from "@/lib/solana/config";
 import { listDemoOpenOrdersAcrossMarkets, buildDemoHistory } from "@/lib/demo/portfolio";
+import { onTablistKeyDown, selectableRowProps, tabProps } from "@/components/ui/a11y";
+import { useRememberViewedMarket } from "@/components/ui/useLastViewedMarket";
+import { toggleSelection } from "@/lib/ui/selection";
 
 const VALID_INTENTS = new Set<Intent>([
   "buy-yes",
@@ -63,6 +66,8 @@ export function TradeClient({
     initialSide === "no" ? "no" : "yes",
   );
   const [zoneTab, setZoneTab] = useState<ZoneTab>("position");
+  const [selectedRow, setSelectedRow] = useState<string | null>(null);
+  useRememberViewedMarket(market.marketId);
   const [fillPrice, setFillPrice] = useState<number | null>(null);
   const [fillIntentHint, setFillIntentHint] = useState<Intent | null>(null);
 
@@ -212,7 +217,7 @@ export function TradeClient({
           <div className="trade-persp" role="group" aria-label="Book perspective">
             <button
               type="button"
-              className="btn"
+              className="btn sel-yes"
               aria-pressed={perspective === "yes"}
               onClick={() => syncPerspective("yes")}
             >
@@ -223,7 +228,7 @@ export function TradeClient({
             </button>
             <button
               type="button"
-              className="btn"
+              className="btn sel-no"
               aria-pressed={perspective === "no"}
               onClick={() => syncPerspective("no")}
             >
@@ -265,7 +270,12 @@ export function TradeClient({
             />
           </div>
           <section className="card trade-zone">
-            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+            <div
+              role="tablist"
+              aria-label="Market activity"
+              onKeyDown={onTablistKeyDown}
+              style={{ marginBottom: "0.75rem" }}
+            >
               {(
                 [
                   ["position", "Position"],
@@ -277,98 +287,111 @@ export function TradeClient({
                   key={id}
                   type="button"
                   className="btn"
-                  aria-pressed={zoneTab === id}
-                  onClick={() => setZoneTab(id)}
+                  id={`zone-tab-${id}`}
+                  aria-controls="zone-panel"
+                  {...tabProps(zoneTab === id, () => setZoneTab(id))}
                 >
                   {label}
                 </button>
               ))}
             </div>
-            {zoneTab === "position" && (
-              <PositionPanel
-                market={market}
-                yesQty={position.yesQty}
-                noQty={position.noQty}
-              />
-            )}
-            {zoneTab === "orders" && (
-              <div>
-                {marketOrders.length === 0 ? (
-                  <p className="muted" style={{ margin: 0 }}>
-                    No open orders for this market. TODO(phoenix): Phoenix trader state.
-                  </p>
-                ) : (
-                  <table className="markets-table">
-                    <thead>
-                      <tr>
-                        <th>Intent</th>
-                        <th>Price</th>
-                        <th>Size</th>
-                        <th>Filled</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {marketOrders.map((o) => (
-                        <tr key={o.id}>
-                          <td>{o.intent}</td>
-                          <td className="tabular">{o.price.toFixed(2)}</td>
-                          <td className="tabular">{o.size}</td>
-                          <td className="tabular">{o.filled}</td>
+            <div role="tabpanel" id="zone-panel" aria-labelledby={`zone-tab-${zoneTab}`}>
+              {zoneTab === "position" && (
+                <PositionPanel
+                  market={market}
+                  yesQty={position.yesQty}
+                  noQty={position.noQty}
+                />
+              )}
+              {zoneTab === "orders" && (
+                <div>
+                  {marketOrders.length === 0 ? (
+                    <p className="muted" style={{ margin: 0 }}>
+                      No open orders for this market. TODO(phoenix): Phoenix trader state.
+                    </p>
+                  ) : (
+                    <table className="markets-table" role="grid" aria-label="Open orders">
+                      <thead>
+                        <tr>
+                          <th>Intent</th>
+                          <th>Price</th>
+                          <th>Size</th>
+                          <th>Filled</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
-            {zoneTab === "fills" && (
-              <div>
-                {marketFills.length === 0 ? (
-                  <p className="muted" style={{ margin: 0 }}>
-                    No fills yet.{" "}
-                    <Link href="/history">History</Link>
-                  </p>
-                ) : (
-                  <table className="markets-table">
-                    <thead>
-                      <tr>
-                        <th>Time</th>
-                        <th>Intent</th>
-                        <th>Price</th>
-                        <th>Size</th>
-                        <th>Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {marketFills.map((f) => (
-                        <tr key={f.id}>
-                          <td>
-                            {new Date(f.ts * 1000).toLocaleString("en-US", {
-                              timeZone: "America/Chicago",
-                              month: "short",
-                              day: "numeric",
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
-                          </td>
-                          <td>{f.intentOrOutcome}</td>
-                          <td className="tabular">
-                            {f.price != null ? f.price.toFixed(2) : "—"}
-                          </td>
-                          <td className="tabular">{f.size}</td>
-                          <td className="tabular">
-                            {f.amountUsdc != null ? f.amountUsdc.toFixed(2) : "—"}
-                          </td>
+                      </thead>
+                      <tbody>
+                        {marketOrders.map((o) => (
+                          <tr
+                            key={o.id}
+                            {...selectableRowProps(selectedRow === o.id, () =>
+                              setSelectedRow((c) => toggleSelection(c, o.id)),
+                            )}
+                          >
+                            <td>{o.intent}</td>
+                            <td className="tabular">{o.price.toFixed(2)}</td>
+                            <td className="tabular">{o.size}</td>
+                            <td className="tabular">{o.filled}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+              {zoneTab === "fills" && (
+                <div>
+                  {marketFills.length === 0 ? (
+                    <p className="muted" style={{ margin: 0 }}>
+                      No fills yet.{" "}
+                      <Link href="/history">History</Link>
+                    </p>
+                  ) : (
+                    <table className="markets-table" role="grid" aria-label="Fills">
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>Intent</th>
+                          <th>Price</th>
+                          <th>Size</th>
+                          <th>Amount</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-                <p className="muted" style={{ fontSize: "0.8rem", marginTop: 8 }}>
-                  Lifecycle: {lifecycle}. Fixture fills when no indexer.
-                </p>
-              </div>
-            )}
+                      </thead>
+                      <tbody>
+                        {marketFills.map((f) => (
+                          <tr
+                            key={f.id}
+                            {...selectableRowProps(selectedRow === f.id, () =>
+                              setSelectedRow((c) => toggleSelection(c, f.id)),
+                            )}
+                          >
+                            <td>
+                              {new Date(f.ts * 1000).toLocaleString("en-US", {
+                                timeZone: "America/Chicago",
+                                month: "short",
+                                day: "numeric",
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
+                            </td>
+                            <td>{f.intentOrOutcome}</td>
+                            <td className="tabular">
+                              {f.price != null ? f.price.toFixed(2) : "—"}
+                            </td>
+                            <td className="tabular">{f.size}</td>
+                            <td className="tabular">
+                              {f.amountUsdc != null ? f.amountUsdc.toFixed(2) : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                  <p className="muted" style={{ fontSize: "0.8rem", marginTop: 8 }}>
+                    Lifecycle: {lifecycle}. Fixture fills when no indexer.
+                  </p>
+                </div>
+              )}
+            </div>
           </section>
           <section className="card trade-rules">
             <h2 style={{ fontSize: "1rem", marginTop: 0 }}>Rules & resolution</h2>
