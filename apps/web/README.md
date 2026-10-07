@@ -37,6 +37,25 @@ npm run web:dev
 
 Open http://localhost:3000.
 
+### Localnet dev wallet (localnet only)
+
+To sign on a local `solana-test-validator` without Phantom/Solflare, enable the
+**Localnet Dev Wallet** adapter in `apps/web/.env.local`:
+
+```bash
+NEXT_PUBLIC_SOLANA_CLUSTER=localnet
+NEXT_PUBLIC_SOLANA_RPC_URL=http://127.0.0.1:8899
+NEXT_PUBLIC_LOCALNET_DEV_WALLET=true
+# server-only: path to a *localnet* keypair JSON (outside the repo; never commit it)
+LOCALNET_DEV_WALLET_KEYPAIR=/path/to/localnet-dev-wallet.json
+```
+
+Then pick **Localnet Dev Wallet** under *Select Wallet*. The adapter is only
+registered — and `/api/localnet-dev-wallet` only answers (else 404) — when **all** hold:
+cluster `localnet`, flag `true`, RPC URL on loopback, request `Host` on loopback, and
+`LOCALNET_DEV_WALLET_KEYPAIR` set. It is never shown on devnet/mainnet builds. Fund the key
+on localnet yourself (airdrop + fixture USDC mint).
+
 ## Tests / checks
 
 ```bash
