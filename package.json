@@ -11,7 +11,11 @@
     "build:prod": "anchor build && node scripts/emit-prod-idl.js && bash scripts/assert-prod-no-fixtures.sh",
     "build:prod-idl": "node scripts/emit-prod-idl.js",
     "assert:prod-fixtures": "bash scripts/assert-prod-no-fixtures.sh",
-    "deploy:build": "anchor build"
+    "deploy:build": "anchor build",
+    "automation:build": "npm install --prefix apps/automation && npm run build --prefix apps/automation",
+    "automation:start": "npm run start --prefix apps/automation",
+    "automation:sim": "npm run sim-lifecycle --prefix apps/automation",
+    "automation:test": "npm test --prefix apps/automation"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.31.1",
