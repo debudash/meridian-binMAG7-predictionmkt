@@ -47,7 +47,7 @@ _Last refreshed: 2026-10-07 09:15 CT (main tip `92d414e`; DLV-039 test results a
 
 - [x] Peak6 PRD: test results artifact DLV-039 (`docs/TEST_RESULTS.md`) — 74/74 cite tip `65c1ddf`/`92d414e` (!34 flake harden)
 
-- [x] Eng: Phoenix Buy/Sell No **on-book sim E2E** DLV-064 (`eng/dlv064-phoenix-onbook-e2e`) — `simTradeOnBook` + PHX-01…06; off-book demoted; residual Phoenix.so market create in `docs/phoenix-onbook-sim.md`
+- [x] Eng: Phoenix Buy/Sell No **on-book sim E2E** DLV-064 (MR !38; `eng/dlv064-phoenix-onbook-e2e`) — `simTradeOnBook` + PHX-01…06; off-book demoted; residual Phoenix.so market create in `docs/phoenix-onbook-sim.md`
 
 ## In Progress
 
