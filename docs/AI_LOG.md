@@ -10,6 +10,18 @@
 
 # Meridian AI decision log
 
+## 2026-10-07T09:16:00-05:00 — Schema: D-019 pin MAG7 Pyth feed ids (DLV-041)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Schema |
+| **Branch** | `schema/mag7-pyth-feeds` from `origin/main` @ `654ec8f7` (post-!36 DLV-039; prior tip note `92d414e`) |
+| **Decision** | **D-019:** Pin V1 MAG7 Pyth Core Hermes `Equity.US.*/USD` feed ids + shard-0 Solana price accounts (AAPL/MSFT/GOOGL/AMZN/NVDA/META/TSLA; Alphabet = **GOOGL**). Current Price Feed program `pythWSnsw…`; receiver owner `rec5EKM…`; upgrade caveat (`pyt2F414…` PDAs missing 2026-10-07 — re-pin after upgrade). SCHEMA §3.1 registry; §8 rewritten as V1 lock inventory (Phoenix Yes base D-004/D-015; strike `>=` D-005 propose close; space-pad / PDA seeds / burn_losing / fees0 / settle window V1 OK; merge_pair/Settling/Policy A locked D-018; multi-collateral OOS). **Needs Debu lock:** merge D-019; confirm keep `>=` vs Peak6 `>` if still product-open. Docs only — no eng/program/tests. |
+| **Files** | `docs/SCHEMA.md` · `docs/DECISIONS.md` · `docs/TRACKER.md` · `docs/AI_LOG.md` |
+| **Related** | DLV-041 · D-019 · D-005 · D-018 · Grok Bot wake · main tip was `92d414e` then `654ec8f7` |
+
+---
+
 ## 2026-10-07T09:15:00-05:00 — Testers: Peak6 PRD test results artifact (DLV-039)
 
 | Field | Value |
