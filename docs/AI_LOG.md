@@ -6,6 +6,17 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T23:52:00-05:00 — SPEC lock confirmed on main (!20 @ aa97a22)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian PM / Grok Bot (post-merge TRACKER/AI_LOG sync) |
+| **Decision** | Confirm Debu-authorized **SPEC lock** + **wireframe approval** recorded on main after !20 merge. Revise-later OK. No new DECISIONS row / no D-018. |
+| **Merge** | `aa97a22b85b1ba4a85571ff8c1d15969e864b4e1` — Merge branch `docs/d012-spec-freeze` into `main` |
+| **Related** | D-012 · MR !20 · TRACKER Done (SPEC + wireframes) · open !25 |
+
+---
+
 ## 2026-10-06T23:50:00-05:00 — SPEC lock (Debu authorized; MR !20)
 
 | Field | Value |
@@ -13,7 +24,7 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 | **Actor** | Debu Dash (lock); Grok Bot (record + merge `docs/d012-spec-freeze` !20) |
 | **Decision** | **Lock** `docs/SPEC.md` (status → **Locked**). Debu authorized lock **without full review**; **wireframes approved all** (Landing/Markets/Trade/Portfolio/History under `docs/ui/wireframes/`). TRACKER: SPEC + D-012 stubs + wireframes → **Done/locked**. No new DECISIONS D-0xx invented for the freeze. |
 | **History scrub** | Debu **skipped** full history scrub question. Tip-delete of committed keypair already done in !24. **Do not** force-push / filter-repo / BFG. |
-| **Constraints** | Rebase onto current `main` before merge; resolve TRACKER/AI_LOG carefully; preserve SPEC.md + wireframes entirely. Pipeline runner failure OK. Do **not** invent further readiness. |
+| **Status at record time** | !20 **merged** onto `main` @ `aa97a22b85b1ba4a85571ff8c1d15969e864b4e1` (merge commit; head `124c074`). `docs/SPEC.md` **Locked** on main; wireframes under `docs/ui/wireframes/`. No D-018. Open residual: !25 (`test/program-id-rotate`). |
 | **Related** | D-012 · MR !20 · !24 tip-delete · TRACKER SPEC Done |
 
 ---
