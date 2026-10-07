@@ -95,6 +95,16 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T21:30:00-05:00 — D-012 SPEC freeze candidate + remaining stubs (Meridian PM)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian PM; Grok Bot (`docs/d012-spec-freeze`) |
+| **Decision** | Land freeze-ready `docs/SPEC.md` (status: **Freeze candidate**, awaiting Debu lock ping) plus remaining D-012 artifacts: AGENTS, ARCHITECTURE, TASKS, DEMO_SCRIPT, EVALS, METRICS, RED_TEAM, DIAGRAMS, CONTEXT, CLAUDE, ORCHESTRATOR_KICKOFF. Root README gains Docs map. TRACKER: SPEC moved from “not ready” → freeze candidate In Progress; D-012 stubs Done; Railway noted as prod app/automation target; !19 already on main. No new DECISIONS row — SPEC freeze candidate landed; Debu lock pending (prefer AI_LOG/TRACKER over inventing D-018). |
+| **Constraints honored** | GitLab-only + glab (D-014); Phoenix V1 spot (D-015); TDD (D-016); Anytime sim hard acceptance (D-017); no regulatory claims; Todo/In Progress/Done only. |
+| **Related** | D-012 · D-014…D-017 · DEPLOY Railway · MR !19 already merged |
+
+---
 
 ## 2026-10-06T21:26:00-05:00 — Landed !14–!18 on main (glab merge order)
 

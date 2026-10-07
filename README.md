@@ -14,9 +14,34 @@ Meridian is a non-custodial Solana dApp for binary Yes/No stock outcome markets 
 | Automation | Node / TypeScript (strike creation, settle retries) |
 | Source of truth | Gauntlet Labs GitLab — `https://labs.gauntletai.com/debudash/peak6-meridian` (private) |
 
-## Docs in this slice
 
-This MR / branch is the **on-chain schema slice** (accounts, PDAs, instruction flows, events, units). UI work proceeds in parallel.
+## Docs map
+
+| Doc | Purpose |
+| --- | --- |
+| [`docs/SPEC.md`](docs/SPEC.md) | **V1 SPEC** — freeze candidate (awaiting Debu lock) |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Locked decisions index (D-001…D-017) |
+| [`docs/TRACKER.md`](docs/TRACKER.md) | Kanban (Done / In Progress / Todo) |
+| [`docs/AGENTS.md`](docs/AGENTS.md) | Specialist roster + ownership |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Components + trust boundaries |
+| [`docs/SCHEMA.md`](docs/SCHEMA.md) | On-chain schema (accounts, ixs, invariants) |
+| [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) | P0 / P1 / SIM cases |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Deploy ladder; **Railway** app + automation |
+| [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | Localnet / anytime-sim demo walkthrough |
+| [`docs/EVALS.md`](docs/EVALS.md) | How we judge V1 pass |
+| [`docs/METRICS.md`](docs/METRICS.md) | V1-required vs aspirational metrics |
+| [`docs/RED_TEAM.md`](docs/RED_TEAM.md) | Reviewer abuse-case checklist |
+| [`docs/TASKS.md`](docs/TASKS.md) | Checklist derived from TRACKER |
+| [`docs/DIAGRAMS.md`](docs/DIAGRAMS.md) | Diagram index |
+| [`docs/CONTEXT.md`](docs/CONTEXT.md) | Mid-stream agent one-pager |
+| [`docs/CLAUDE.md`](docs/CLAUDE.md) | Agent operating notes |
+| [`docs/ORCHESTRATOR_KICKOFF.md`](docs/ORCHESTRATOR_KICKOFF.md) | Grok Bot slice kickoff |
+| [`docs/AI_LOG.md`](docs/AI_LOG.md) | Append-only decision narrative |
+| [`docs/ui/`](docs/ui/) | Next.js five-page UI specs |
+| [`docs/sim-clock.md`](docs/sim-clock.md) | SimClock / effective_clock (D-017) |
+
+
+## Schema companions
 
 | Doc | Purpose |
 | --- | --- |
