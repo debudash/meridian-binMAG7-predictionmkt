@@ -9,7 +9,7 @@
 - [`flows.md`](flows.md) §§2–5, §7 (mint / settle / redeem / pause)
 - [`accounts.md`](accounts.md) (status machine, writers, vault PDA)
 - [`units.md`](units.md) (fee math, Pyth→e6, payout identity, test vectors)
-- [`DECISIONS.md`](DECISIONS.md) D-003…D-006, D-015
+- [`DECISIONS.md`](DECISIONS.md) D-003…D-006, D-015, **D-017** (anytime sim)
 - [`../programs/meridian/README.md`](../programs/meridian/README.md) (scaffold test plan + errors)
 
 **TDD note:** When program scaffolding exists, translate **P0** rows into failing Anchor/TS tests first; do not implement product logic in the same change as this matrix.
@@ -20,8 +20,8 @@
 
 | Column | Meaning |
 | --- | --- |
-| Case ID | Stable id (`M-##` mint, `S-##` settle, `A-##` admin settle, `R-##` redeem, `V-##` vault/invariant, `X-##` cross-phase / pause) |
-| Phase | `mint` / `settle` / `admin_settle` / `redeem` / `invariant` / `pause` |
+| Case ID | Stable id (`M-##` mint, `S-##` settle, `A-##` admin settle, `R-##` redeem, `V-##` vault/invariant, `X-##` cross-phase / pause, `SIM-##` localnet simulated session) |
+| Phase | `mint` / `settle` / `admin_settle` / `redeem` / `invariant` / `pause` / `sim_session` (localnet-only) |
 | Precondition | Market + config state before the action |
 | Action | Instruction + key args |
 | Expected | On-chain status, vault USDC, Yes/No supplies & user balances, counter fields |
@@ -45,7 +45,7 @@ Amounts are **raw u64** with decimals = 6 unless noted (`1_000_000` = $1 = 1 ful
 | Staleness / conf | Config defaults: `150` slots, `500` bps (D-005) |
 | Admin delay | `admin_settle_delay_secs = 1800` unless case overrides |
 | Pyth expo | Prefer `-8` equity-style; see `units.md` §8 vectors |
-| Phoenix | Store pubkey + assert base=Yes / quote=USDC when set; **no** place/fill assertions inside Meridian tests |
+| Phoenix | Store pubkey + assert base=Yes / quote=USDC when set; **no** place/fill assertions inside Meridian tests. **Sim trade** = mint + off-book SPL Yes transfer (or future Phoenix CPI mock) — never a Meridian matching engine |
 
 **Invariant helpers (assert after every happy path and after redeem batches):**
 
@@ -166,6 +166,51 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 
 ---
 
+
+---
+
+## Cluster G — Localnet simulated session lifecycle (D-017)
+
+**Scope:** **localnet-only** / Cargo feature `localnet-test`. **Never required for mainnet / prod builds.**  
+**Doc cites:** D-017; flows §1 (daily lifecycle wall-clock is **product** time — sim replaces 9:30/16:00 ET); SCHEMA §5–7; Phoenix isolation SCHEMA §7.7 / V-08.  
+**Product intent:** Drive **open → trade → close → settle → redeem** in one continuous harness with **no wait** for real US equity hours. Prod/devnet keep real ≥4:00 PM ET settle gate + Pyth quality.
+
+### Sim semantics (TDD contract for Engineers)
+
+| Step | Meaning | **Not** |
+| --- | --- | --- |
+| **Simulated open** | Market/strike is open for **trading** (`trading_open=true` or equivalent). Authority/fixture ix under `localnet-test`. | Wall-clock 9:30 ET |
+| **Trade** | Meridian does **not** match. Represent a sim trade as: (1) `mint` for inventory + (2) **off-book SPL transfer** of Yes (Phoenix placeholder / V-08 twin), **or** a future Phoenix CPI **mock** — never invent a matching engine in Meridian. | Phoenix place/fill internals |
+| **Simulated close** | Trading window ends (`trading_open=false`). Blocks new mint (and any Meridian-gated trade entry). | Wall-clock 4:00 PM ET |
+| **Settle** | Existing MockPyth / `upsert_mock_pyth` + permissionless `settle`, **or** `admin_settle` after delay — localnet fixtures only for forced YesWins/NoWins. | Mainnet Pyth bypass |
+| **Redeem** | Existing `redeem` of winning mint; vault $1 invariants hold. | — |
+
+**Default compatibility:** `create_strike_market` may leave `trading_open=true` (today's P0/P1 mint-after-create stays green). `sim_close_session` clears it; `sim_open_session` sets it. Prefer separate `trading_open: bool` (or status) so `MarketStatus::Open` settlement machine is unchanged.
+
+**Feature gate:** `sim_open_session` / `sim_close_session` (names flexible) **must** be `#[cfg(feature = "localnet-test")]` like `upsert_mock_pyth` / `test_drain_vault`. Prod `anchor build` .so must omit them.
+
+| Case ID | Phase | Precondition | Action | Expected | Oracle/Phoenix notes | Priority | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| SIM-01 | sim_session | Market created; localnet-test | `sim_open_session` | `trading_open == true` (or equiv.); mint allowed | Not 9:30 ET | P0 | failing |
+| SIM-02 | sim_session | SIM-01 open; fees 0 | `mint` + **sim trade** = off-book Yes SPL transfer to 2nd user | `pairs_*` / vault **unchanged** by transfer; Yes balances move (V-08 twin) | Phoenix placeholder only | P0 | failing |
+| SIM-03 | sim_session | Trading open | `sim_close_session` | `trading_open == false`; trading window ended | Not 4:00 PM ET | P0 | failing |
+| SIM-04 | sim_session | After sim close; before settle | `mint(...)` | Fail `TradingClosed` (or `MarketNotOpen`); vault/supplies unchanged | Negative: trade/mint after close | P0 | failing |
+| SIM-05 | sim_session | Trading still open; expiry reached; valid MockPyth | `settle` | Fail `SessionNotClosed` (product requires close before settle) — **pin error name in impl** | If Engineers document settle-without-close allowed, update matrix + retire this row | P0 | failing |
+| SIM-06 | sim_session | Full path fee=0 | open → mint → sim trade → close → MockPyth settle (≥strike) → redeem Yes | Final vault 0 if all winners redeemed; I1/I3 hold; **no wall-clock wait** for equity hours | Forced YesWins via MockPyth | P0 | failing |
+| SIM-07 | sim_session | After close; SettledNo path | open → mint → close → MockPyth settle (<strike) → redeem No | Same vault invariants; No wins | Forced NoWins | P0 | failing |
+| SIM-08 | sim_session | After close; admin path | open → mint → close → warp past `admin_settle_delay` → `admin_settle` → redeem | Settled via admin; vault invariants | Localnet; no Pyth required | P1 | failing |
+| SIM-09 | sim_session | IDL / build | Inspect feature gate | `sim_*` present only when built with `localnet-test`; **absent** from prod `.so` / not required for mainnet | Deploy blocker twin of upsert_mock_pyth | P0 | failing |
+
+### Mapping
+
+| Path | Cases |
+| --- | --- |
+| `tests/sim_session.ts` | SIM-01…SIM-09 |
+| `tests/helpers/harness.ts` | `simOpen` / `simClose` / `simTradeOffBook` / `assertTradingOpen` hooks (TDD_RED until IDL lands) |
+
+**Run:** `yarn test` / `anchor test -- --features localnet-test` only. Do **not** gate CI mainnet builds on Cluster G.
+
+
 ## Priority rollup (plan coverage)
 
 | Phase | P0 | P1 | P2 | Total |
@@ -176,9 +221,10 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 | redeem | 7 | 1 | 1 | 9 |
 | invariant | 5 | 3 | 0 | 8 |
 | pause / lifecycle | 6 | 1 | 1 | 8 |
-| **Sum** | **37** | **10** | **3** | **50** |
+| sim_session (localnet) | 8 | 1 | 0 | 9 |
+| **Sum** | **45** | **11** | **3** | **59** |
 
-*(S-10 counted under settle P0 as unit-testable without full program.)*
+*(S-10 counted under settle P0 as unit-testable without full program. SIM-* are **localnet-only** and never gate mainnet builds.)*
 
 ---
 
@@ -192,8 +238,9 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 | `tests/redeem.ts` | R-* |
 | `tests/invariants.ts` | V-* asserted as postconditions + X-04/X-05 |
 | `tests/pause.ts` | X-01…X-03 |
+| `tests/sim_session.ts` | SIM-01…SIM-09 (**localnet-test only**) |
 
-Until Engineers land program code: **no** Anchor test execution; keep Status = `draft` / `pending code`.
+P0/P1 suites execute on localnet. Cluster G stays **failing** until Engineers land `sim_*` fixtures under `localnet-test` (D-017).
 
 ---
 
@@ -217,3 +264,4 @@ Until Engineers land program code: **no** Anchor test execution; keep Status = `
 - [ ] Invariant helpers I1–I5 run on X-04 / X-05
 - [ ] Fee=0 path green before enabling fee cases
 - [ ] No Meridian test asserts Phoenix matching internals (pubkey + mint wiring only)
+- [ ] **SIM-*** cases green on `localnet-test` only; prod `.so` still omits `sim_*` / mock fixtures (D-017)

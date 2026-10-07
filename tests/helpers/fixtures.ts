@@ -86,3 +86,22 @@ export const PYTH_TO_E6_VECTORS: Array<{
     note: "truncates to 0 — reject as InvalidPythPrice",
   },
 ];
+
+/**
+ * Localnet simulated session (D-017 / Cluster G).
+ * Engineers may expose `trading_open: bool` on StrikeMarket instead of a new status.
+ * TradingClosed listed for status-machine option only — prefer bool to avoid breaking Open settle gates.
+ */
+export const SIM_SESSION_FEATURE = "localnet-test" as const;
+
+/** Suggested Anchor error codes for sim session (pin in impl). */
+export const SimError = {
+  TradingClosed: "TradingClosed",
+  SessionNotClosed: "SessionNotClosed",
+} as const;
+
+/** Suggested localnet-only instruction names (cfg feature = localnet-test). */
+export const SIM_SESSION_INSTRUCTIONS = [
+  "sim_open_session",
+  "sim_close_session",
+] as const;

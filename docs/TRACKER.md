@@ -3,7 +3,7 @@
 Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** only.
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017).
 
-_Last refreshed: 2026-10-06 19:30 CT (D-017 anytime sim acceptance locked)._
+_Last refreshed: 2026-10-06 19:32 CT (Testers SIM suite TDD_RED on `test/sim-session-lifecycle`)._
 
 ## Done
 
@@ -26,9 +26,10 @@ _Last refreshed: 2026-10-06 19:30 CT (D-017 anytime sim acceptance locked)._
 
 ## In Progress
 
+- [ ] Testers localnet sim session TDD suite (SIM-01…SIM-09) landing on `test/sim-session-lifecycle` → MR to main (D-017)
 - [ ] `docs/SPEC.md` **not ready** (not on main) — Debu waiting to be notified when ready
 - [ ] Reviewer pass (security, non-custodial, pause, admin delay, demo readiness, TDD evidence) — **must confirm** localnet-only fixtures `upsert_mock_pyth` / `test_drain_vault` stay excluded from mainnet builds
-- [ ] Sim harness: drive simulated Open/Close + force YesWins/NoWins at known prices; E2E create→mint→Phoenix trade→settle→redeem in one continuous run (no wait for 9:30/4:00 ET) (D-017)
+- [ ] Sim harness (Eng): land `sim_open_session` / `sim_close_session` + `trading_open` under `localnet-test` to green Testers SIM-01…SIM-09 (D-017) — suite on `test/sim-session-lifecycle`
 
 ## Todo
 
@@ -38,7 +39,7 @@ _Last refreshed: 2026-10-06 19:30 CT (D-017 anytime sim acceptance locked)._
 - [ ] Node automation: morning strike creation (~8:00 ET) + Pyth settle retries
 - [ ] Dual-mode automation: calendar path (real ≥4:00 PM ET + Pyth quality) **and** hard-gated sim path (test feature / local validator / Config flag) — must not weaken prod invariants (D-017)
 - [ ] Documented one-command/scripted sim lifecycle in-repo (alongside calendar automation) (D-017)
-- [ ] Tester E2E sim cases: continuous lifecycle + YesWins/NoWins forced outcomes + real Pyth reject paths (stale/wide conf) still covered (D-017)
+- [x] Tester E2E sim cases **TDD_RED** landed: Cluster G SIM-01…SIM-09 in `tests/sim_session.ts` + TEST_MATRIX (D-017) — Eng implements to green; Pyth reject paths remain in settle suite
 - [ ] UI sim affordance (optional for V1) (D-017)
 - [ ] Tester P2 cases + invariant gates after P0/P1 land on main (D-016)
 - [ ] Peak6 PRD: demo video (distinct from `DEMO_SCRIPT.md`)

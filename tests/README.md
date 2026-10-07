@@ -2,16 +2,16 @@
 
 **Owner:** Meridian Testers  
 **Mandate:** D-016 — failing tests first; Engineers implement program paths **only** to green.  
+**Anytime sim:** D-017 — localnet simulated open→trade→close→settle→redeem (no wall-clock 9:30/4:00 ET).  
 **Case source of truth:** [`docs/TEST_MATRIX.md`](../docs/TEST_MATRIX.md).
 
 ## Status
 
 | Layer | Status | Notes |
 | --- | --- | --- |
-| **P0** | Green on `eng/p0-anchor-impl` (MR !9) | mint / settle / redeem / $1 vault / pause — 37 case IDs |
-| **P1 fees + edges** | **TDD contract** (`test/p1-fees-failing`) | Fees **M-03 / R-05 / V-06** + invited edges below. Implement only to green. Do **not** weaken P0 fee=0 asserts. |
-
-`eng/p0-anchor-impl` already ships mint/redeem fee math (fee-on-transfer-in, default **0 bps** per D-006). This P1 suite is the formal gate for **non-zero** bps + related edges. **V-07** stays `TDD_RED` until a controlled vault-drain fixture exists.
+| **P0** | Green on `main` (MR !9) | mint / settle / redeem / $1 vault / pause — 37 case IDs |
+| **P1 fees + edges** | Green on `main` (MR !11) | Fees **M-03 / R-05 / V-06** + edges; V-07 via localnet `test_drain_vault` |
+| **Sim session (localnet)** | **TDD_RED** (`test/sim-session-lifecycle`) | **SIM-01…SIM-09** — simulated open/close + Phoenix-placeholder trade + MockPyth settle + redeem. Implement **only** to green under `localnet-test`. **Never** required for mainnet builds. |
 
 ## Layout
 
@@ -23,28 +23,40 @@
 | `redeem.ts` | P0 R-01…R-04, R-06, R-07, R-09 |
 | `invariants.ts` | P0 V-01…V-05 |
 | `pause.ts` | P0 X-01, X-02, X-04, X-05, X-06 |
-| **`fees.ts`** | **P1 M-03, R-05, V-06** |
-| **`p1_edges.ts`** | **P1 S-08, X-03, M-07, M-09, M-10, V-07, V-08** |
-| `helpers/` | fixtures, I1–I5, Anchor `TestCtx` harness |
+| `fees.ts` | P1 M-03, R-05, V-06 |
+| `p1_edges.ts` | P1 S-08, X-03, M-07, M-09, M-10, V-07, V-08 |
+| **`sim_session.ts`** | **SIM-01…SIM-09 (localnet-only / D-017)** |
+| `helpers/` | fixtures, I1–I5, Anchor `TestCtx` harness (+ `simOpen` / `simClose` / `simTradeOffBook`) |
 
-## For Engineers (P1)
+## Localnet simulated session (D-017)
 
-1. Rebase onto latest `eng/p0-anchor-impl` after MR !9 merges (or merge !9 first).
-2. Run `anchor test` — green all P0; then green P1 fees/edges.
-3. **Implement only what is still red.** Do not change P0 fee=0 equalities.
-4. Keep case IDs in `it()` titles. Prefer fee-on-transfer-in so vault == outstanding liability (SCHEMA §7.3).
-5. **V-07:** either land a safe drain fixture that proves `InsufficientVault`, or document impossibility and ask Testers to retire the case.
+- **Sim open / close** are harness-driven fixtures — **not** real 9:30 / 4:00 ET.
+- **Sim trade** = mint inventory + **off-book SPL Yes transfer** (Phoenix placeholder / V-08 twin). Meridian does **not** own matching; do not invent a Phoenix matching engine.
+- **Settle** uses MockPyth (`upsert_mock_pyth`) or `admin_settle` on localnet only.
+- All `sim_*` program ixs **must** stay behind Cargo feature **`localnet-test`** (same deploy gate as `upsert_mock_pyth` / `test_drain_vault`).
+
+## For Engineers (sim session)
+
+1. Branch from latest `main`; keep P0/P1 green.
+2. Land `sim_open_session` / `sim_close_session` (names flexible) + `StrikeMarket.trading_open: bool` (default **true** on create so existing suites stay green) under `#[cfg(feature = "localnet-test")]`.
+3. Pin errors: mint after close → `TradingClosed` (or `MarketNotOpen`); settle before close → `SessionNotClosed` (SIM-05).
+4. Run `yarn test` / `anchor test -- --features localnet-test` until SIM-* green. **Do not** implement Rust in the Testers MR; **do not** weaken prod settle/oracle gates.
+5. Prod `anchor build` (no features) must omit `sim_*` symbols.
 
 ## Mocks / placeholders
 
-- **Phoenix:** pubkey wiring + off-protocol SPL transfer isolation (V-08). No Meridian matching CPI.
+- **Phoenix:** pubkey wiring + off-protocol SPL transfer isolation (V-08 / SIM-02). No Meridian matching CPI.
 - **Pyth:** MockPyth / `upsert_mock_pyth` localnet fixture only.
 
 ## Run
 
 ```bash
 yarn install
-anchor test
-# or
-yarn test:lifecycle
+# Full suite including sim session (requires localnet-test fixtures in the .so):
+yarn test
+# equivalent:
+anchor test -- --features localnet-test
+
+# Prod build check (sim / mock fixture ixs must be ABSENT):
+yarn build:prod
 ```
