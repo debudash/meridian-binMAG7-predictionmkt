@@ -39,7 +39,7 @@ describe("strike arg encoding", () => {
   });
 
   it("derives stable strike_market PDA seeds", () => {
-    const programId = new PublicKey("GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2");
+    const programId = new PublicKey("9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6");
     const equity = encodeEquitySymbol("AAPL");
     const strikes = buildStrikes({
       symbols: ["AAPL"],

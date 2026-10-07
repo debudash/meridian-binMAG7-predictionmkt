@@ -25,7 +25,7 @@ describe("meridian.prod.json web IDL", () => {
 
   it("program address matches default", () => {
     expect(MERIDIAN_IDL.address).toBe(
-      "GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2",
+      "9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6",
     );
   });
 });

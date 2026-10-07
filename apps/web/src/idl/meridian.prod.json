@@ -1,5 +1,5 @@
 {
-  "address": "GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2",
+  "address": "9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6",
   "metadata": {
     "name": "meridian",
     "version": "0.1.0",
@@ -1105,16 +1105,26 @@
     },
     {
       "code": 6017,
+      "name": "TradingClosed",
+      "msg": "Trading window closed (sim session)"
+    },
+    {
+      "code": 6018,
+      "name": "SessionNotClosed",
+      "msg": "Sim session still open — close before settle"
+    },
+    {
+      "code": 6019,
       "name": "FeeTooHigh",
       "msg": "Fee bps exceeds hard cap"
     },
     {
-      "code": 6018,
+      "code": 6020,
       "name": "ConfigTimelock",
       "msg": "Config update timelock not elapsed"
     },
     {
-      "code": 6019,
+      "code": 6021,
       "name": "AdminSettleDelayTooLow",
       "msg": "Admin settle delay below production minimum"
     }
@@ -1627,11 +1637,27 @@
             "type": "u8"
           },
           {
+            "name": "trading_open",
+            "docs": [
+              "Localnet simulated trading window (D-017). Default true on create so P0/P1 mint stays green.",
+              "Cleared by `sim_close_session`; set by `sim_open_session`."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "sim_armed",
+            "docs": [
+              "Set true by `sim_open_session`. When armed, settle/admin_settle require `!trading_open`",
+              "(SessionNotClosed). Unarmed markets (never sim-opened) keep legacy P0 settle-without-close."
+            ],
+            "type": "bool"
+          },
+          {
             "name": "reserved",
             "type": {
               "array": [
                 "u8",
-                64
+                62
               ]
             }
           }

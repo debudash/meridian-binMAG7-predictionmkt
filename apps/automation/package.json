@@ -9,7 +9,8 @@
     "start": "node dist/worker.js",
     "sim-lifecycle": "node dist/sim-lifecycle.js",
     "test": "TS_NODE_PROJECT=tsconfig.test.json mocha -r ts-node/register 'test/**/*.test.ts' --timeout 15000 --exit",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:railway": "rm -rf dist && tsc -p tsconfig.prod.json"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.31.1",

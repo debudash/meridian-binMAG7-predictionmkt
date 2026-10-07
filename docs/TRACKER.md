@@ -3,7 +3,7 @@
 Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** only.
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017).
 
-_Last refreshed: 2026-10-06 23:30 CT (rebase `eng/nextjs-ui` onto main post-!21; Next.js UI Done)._
+_Last refreshed: 2026-10-06 ~23:45 CT (sec keypair rotate + Railway IDL/health on `eng/sec-keypair-railway`)._
 
 ## Done
 
@@ -33,6 +33,7 @@ _Last refreshed: 2026-10-06 23:30 CT (rebase `eng/nextjs-ui` onto main post-!21;
 
 ## In Progress
 
+- [ ] SECURITY/Railway remediation (`eng/sec-keypair-railway`): remove committed program keypair + rotate program id; bake automation IDL; web/automation Railway health — landing ASAP (Debu don't-wait)
 - [ ] `docs/SPEC.md` **not ready** (not on main) — Debu waiting to be notified when ready
 - [ ] Reviewer continuous / demo readiness (beyond !17 nits) — security + demo walkthrough still owed
 - [ ] Phoenix Buy/Sell No composition + real on-book trade in sim E2E (sim trade today = off-book Yes SPL placeholder)

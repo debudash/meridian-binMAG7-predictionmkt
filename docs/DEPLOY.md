@@ -52,8 +52,9 @@ Clients on devnet/mainnet must load **`idl/meridian.prod.json`**, not the localn
 ### Prerequisites
 
 - Solana CLI + Anchor matching `Anchor.toml` / CI (`0.31.x`)
-- Deployer keypair via **env / secret store only** — never commit keypairs
-- Program id: `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2` (update if redeployed with new key)
+- Deployer / program keypairs via **env / secret store / gitignored `keys/` only** — **never commit secret key bytes** (see [`keys/README.md`](../keys/README.md))
+- Program id (current): `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6`
+- **Revoked:** `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2` was previously committed under `keys/meridian-keypair.json` — treat as compromised; redeploy with the current id. Git history still contains the old secret until Debu runs `git filter-repo` / BFG + force-push scrub.
 
 ### Localnet
 
@@ -89,12 +90,27 @@ Same as devnet with mainnet URL and mainnet feed/market ids. Require:
 
 Deploy **two** Railway services (staging + prod projects or environments):
 
-| Service | Role | Build | Start |
-| --- | --- | --- | --- |
-| **web** | Next.js UI | `next build` (app repo / monorepo package) | `next start` |
-| **automation** | Node worker (settle retries, sim ops on localnet only, monitoring) | `npm`/`yarn` build of automation package | `node dist/worker.js` (or equivalent) |
+| Service | Role | rootDirectory | Config | Build | Start | Health |
+| --- | --- | --- | --- | --- | --- | --- |
+| **web** | Next.js UI | `apps/web` | [`apps/web/railway.json`](../apps/web/railway.json) | `npm install && npm run build` (`next build`, Node ≥20) | `npm run start` (`next start`) | `/api/health` |
+| **automation** | Node calendar worker | `apps/automation` | [`apps/automation/railway.json`](../apps/automation/railway.json) | `npm install && npm run build:railway` | `node dist/worker.js` | `/health` (`HEALTH_PORT`/`PORT`, default 8080) |
 
 The **Solana program is not deployed by Railway** — it is deployed with Solana CLI / governance separately. Railway only talks to an already-deployed program id over RPC.
+
+### Automation IDL packaging (required when rootDirectory=`apps/automation`)
+
+Monorepo-relative `../../idl/meridian.prod.json` is **outside** the Railway service tree. Bake/sync the prod IDL into the package:
+
+```bash
+# From repo root — writes root + apps/web + apps/automation copies
+yarn build:prod-idl
+# → idl/meridian.prod.json
+# → apps/web/src/idl/meridian.prod.json
+# → apps/automation/idl/meridian.prod.json
+yarn assert:idl-sync   # fails on drift / fixture types
+```
+
+Default `MERIDIAN_IDL_PATH=idl/meridian.prod.json` (in-package). Keep start = `node dist/worker.js`. `build:railway` excludes `sim-lifecycle` / `modes/sim` from `dist/`.
 
 ### Environment variables
 
@@ -105,7 +121,7 @@ Set per Railway environment (staging → devnet, prod → mainnet). **Secrets on
 | `SOLANA_RPC_URL` | Devnet RPC (public or provider) | Mainnet RPC provider | Prefer secret if keyed |
 | `SOLANA_CLUSTER` | `devnet` | `mainnet-beta` | no |
 | `MERIDIAN_PROGRAM_ID` | Devnet program pubkey | Mainnet program pubkey | no |
-| `MERIDIAN_IDL_PATH` | path/URL to **`meridian.prod.json`** | same | no |
+| `MERIDIAN_IDL_PATH` | `idl/meridian.prod.json` (in-package bake) | same | no |
 | `PYTH_PRICE_FEED_*` / feed map | **Devnet** Pyth price account pubkeys + feed ids | **Mainnet** feeds | no |
 | `PHOENIX_MARKET_*` | Devnet Phoenix market pubkeys | Mainnet Phoenix | no |
 | `COLLATERAL_MINT` | Devnet USDC (or test mint) | Mainnet USDC | no |

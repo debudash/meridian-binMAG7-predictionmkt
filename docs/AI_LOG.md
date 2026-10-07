@@ -428,3 +428,17 @@ Key UI locks in this slice: one Phoenix Yes/USDC book with No as display transfo
 | **Rationale** | Single private forge for Meridian (Peak6) agent + human collaboration. |
 | **URL** | https://labs.gauntletai.com/debudash/peak6-meridian |
 | **Commit** | `4e449f8` — `Initial commit` |
+
+
+---
+
+## 2026-10-06T23:41:09-05:00 — SECURITY: rotate compromised program keypair + Railway IDL/health
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Grok Bot (eng; Debu authorized urgent land — don't wait) |
+| **Branch** | `eng/sec-keypair-railway` |
+| **Finding** | `keys/meridian-keypair.json` was committed → pubkey `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2` treated as **compromised / revoked**. |
+| **Actions** | (1) `git rm` secret key file; gitignore `keys/*` + `**/*keypair*.json` (keep `keys/README.md` pubkey-only policy). (2) **Rotate** program id to `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6` — update `declare_id!`, `Anchor.toml`, IDL `address`, apps defaults, DEPLOY. New secret stays gitignored under `keys/meridian-keypair.json` on deploy boxes only — **never commit**. (3) Railway automation: bake `apps/automation/idl/meridian.prod.json`; default `MERIDIAN_IDL_PATH=idl/meridian.prod.json`; `/health` + `healthcheckPath`; `build:railway` strips sim. (4) Railway web: `apps/web/railway.json` + `/api/health`. (5) `emit-prod-idl.js` syncs web+automation copies; strips `MockPythParams`; `assert-idl-sync`. |
+| **History scrub** | GitLab history **still contains** the old key bytes until Debu runs `git filter-repo` / BFG + force-push on `main`. This MR deletes from tree + documents revoke; does **not** force-push. |
+| **Rationale** | Reviewer apps report High: committed deploy key + Railway IDL path break on `rootDirectory=apps/automation`. |
