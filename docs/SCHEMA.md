@@ -2,7 +2,7 @@
 
 Primary reference for Anchor account layouts, PDA seeds, Phoenix linkage, Pyth settlement refs, fixed-point units, instruction flows, events, and invariants.
 
-Companion docs: [`accounts.md`](accounts.md) · [`flows.md`](flows.md) · [`units.md`](units.md) · [`../programs/meridian/README.md`](../programs/meridian/README.md)
+Companion docs: [`accounts.md`](accounts.md) · [`flows.md`](flows.md) · [`units.md`](units.md) · [`sim-clock.md`](sim-clock.md) · [`../programs/meridian/README.md`](../programs/meridian/README.md)
 
 **Program id (placeholder):** `Meridian11111111111111111111111111111111111` — replace at deploy.
 
@@ -42,6 +42,8 @@ Sizes are Borsh / Anchor packed sizes excluding the 8-byte Anchor discriminator 
 ```
 
 **Authority:** program PDA; writable only by instructions that check `authority` signer (or timelock later).
+
+**Lifecycle / mint window (no session status):** Meridian does **not** add a StrikeMarket status for exchange session open/close. Lifecycle remains `Open` → `SettledYes|SettledNo|Void`. **"Market open"** (mint window) = `status == Open && !paused && effective_now < expiry_ts`. **"Market close"** (mint ends) = `effective_now >= expiry_ts`. Phoenix trading hours are out of Meridian. Localnet time simulation: [`sim-clock.md`](sim-clock.md) (**D-017**). Config gains **no** sim fields — SimClock is a separate PDA behind `localnet-test` only.
 
 ---
 
@@ -123,6 +125,30 @@ Implementation may use `market_id` seeds if create ix allocates id from `Config.
 
 ---
 
+### 1.5 `SimClock` (localnet-test only — D-017)
+
+**Deploy blocker:** account + ixs compile only under `#[cfg(feature = "localnet-test")]`. Absent from prod `.so` / prod IDL. Same pattern as `upsert_mock_pyth` / `test_drain_vault`. Full proposal: [`sim-clock.md`](sim-clock.md).
+
+| Field | Type | Size | Notes |
+| --- | --- | --- | --- |
+| `authority` | `Pubkey` | 32 | Must equal `Config.authority` |
+| `unix_timestamp` | `i64` | 8 | Simulated `Clock.unix_timestamp` |
+| `slot` | `u64` | 8 | Simulated `Clock.slot` (Pyth staleness under sim) |
+| `enabled` | `bool` | 1 | If false → fall back to `Clock::get()` |
+| `bump` | `u8` | 1 | PDA bump |
+
+**PDA seeds:**
+
+```text
+["sim_clock"]
+```
+
+**Approx space:** `8` + `50` → allocate `64`.
+
+**Role:** When `localnet-test` and account present and `enabled`, `effective_clock` returns sim ts/slot for mint / settle / admin_settle (and Pyth `slot_now`). Production builds never read this account.
+
+---
+
 ## 2. Phoenix market linkage
 
 Meridian does **not** implement a CLOB. Each `StrikeMarket` references one Phoenix market.
@@ -161,7 +187,7 @@ Stored on `StrikeMarket` and gated by `Config` global bounds:
 **Accept settle iff:**
 
 1. `status == Open` (or `Settling`)
-2. `clock.unix_timestamp >= expiry_ts` (or within configured settle window)
+2. `effective_clock.unix_timestamp >= expiry_ts` (or within configured settle window); see §5.0 / [`sim-clock.md`](sim-clock.md)
 3. Pyth price account matches `pyth_price_feed` / feed id
 4. `slot_now - pyth_publish_slot <= settle_max_staleness_slots`
 5. `conf_ratio_bps = conf * 10_000 / |agg_price| <= settle_max_conf_ratio_bps`
@@ -196,6 +222,19 @@ Full rules: [`units.md`](units.md).
 
 Account metas use Anchor-style names. `[]` = remaining optional.
 
+### 5.0 `effective_clock` (time gates)
+
+`mint`, `settle`, and `admin_settle` (and any future time/slot gate) use an **`effective_clock`** helper — not raw `Clock::get()` alone when sim is active:
+
+| Build | Source |
+| --- | --- |
+| Production | `Clock::get()` only (no SimClock types) |
+| `localnet-test` | If `sim_clock: Option<Account<SimClock>>` is `Some` **and** `enabled` → sim `unix_timestamp` / `slot`; else `Clock::get()` |
+
+**Preferred Anchor shape (localnet-test):** add `sim_clock: Option<Account<SimClock>>` on Mint / Settle / AdminSettle contexts. Tests that skip init omit the account. See [`sim-clock.md`](sim-clock.md).
+
+`settled_at_ts` / `settled_slot` record the **effective** values used at settle (deterministic under warp).
+
 ### 5.1 `initialize_config`
 
 **Accounts:** `authority` (signer), `config` (PDA init), `collateral_mint`, `treasury`, `system_program`, `rent`.
@@ -224,7 +263,7 @@ Account metas use Anchor-style names. `[]` = remaining optional.
 
 ### 5.3 `mint` (create Yes/No against collateral)
 
-**Accounts:** `user` (signer), `config`, `strike_market`, `collateral_vault`, `vault_authority`, `user_collateral_ata`, `user_yes_ata`, `user_no_ata`, `yes_mint`, `no_mint`, `treasury` (if fee), `token_program`.
+**Accounts:** `user` (signer), `config`, `strike_market`, `collateral_vault`, `vault_authority`, `user_collateral_ata`, `user_yes_ata`, `user_no_ata`, `yes_mint`, `no_mint`, `treasury` (if fee), `token_program`[, `sim_clock` optional under `localnet-test`].
 
 **Args:** `amount: u64` — raw outcome tokens to mint on **each** side (and collateral to lock ≈ `amount`, plus fee).
 
@@ -232,7 +271,7 @@ Account metas use Anchor-style names. `[]` = remaining optional.
 
 - `!config.paused`
 - `strike_market.status == Open`
-- `clock.unix_timestamp < expiry_ts` (no mint after expiry)
+- `effective_clock.unix_timestamp < expiry_ts` (no mint after expiry; localnet may use SimClock — D-017)
 - Vault receives `collateral_in = amount + fee(amount)` (fee definition: fee on collateral notional)
 
 **State:**
@@ -250,15 +289,15 @@ Account metas use Anchor-style names. `[]` = remaining optional.
 
 ### 5.4 `settle` (resolve via Pyth)
 
-**Accounts:** `anyone` (signer, permissionless), `config`, `strike_market`, `pyth_price_feed` (must match market), `clock`.
+**Accounts:** `anyone` (signer, permissionless), `config`, `strike_market`, `pyth_price_feed` (must match market)[, `sim_clock` optional under `localnet-test`].
 
 **Args:** none (or optional `expected_feed_id` for safety).
 
-**Checks:** Pyth accept rules in §3; `status == Open`.
+**Checks:** Pyth accept rules in §3 (staleness uses `effective_clock.slot`); `status == Open`; `effective_clock.unix_timestamp >= expiry_ts`.
 
 **State:**
 
-- Write `settlement_price_e6`, `settled_at_ts`, `settled_slot`
+- Write `settlement_price_e6`, `settled_at_ts`, `settled_slot` (effective clock values)
 - `status = SettledYes | SettledNo`
 - **Do not** move vault funds at settle; redeem pulls collateral
 
@@ -268,11 +307,11 @@ Account metas use Anchor-style names. `[]` = remaining optional.
 
 ### 5.5 `admin_settle`
 
-**Accounts:** `authority` (signer), `config`, `strike_market`, `clock`.
+**Accounts:** `authority` (signer), `config`, `strike_market`[, `sim_clock` optional under `localnet-test`].
 
 **Args:** `settlement_price_e6: u64`, `outcome_yes: bool`.
 
-**Checks:** `now >= expiry_ts + admin_settle_delay_secs`; `status == Open` (or failed settle retries exhausted — policy: Open only).
+**Checks:** `effective_clock.unix_timestamp >= expiry_ts + admin_settle_delay_secs`; `status == Open` (or failed settle retries exhausted — policy: Open only).
 
 **Event:** `AdminSettled`.
 
@@ -300,7 +339,22 @@ Account metas use Anchor-style names. `[]` = remaining optional.
 
 ### 5.7 `pause` / `unpause` / `update_config` / `set_phoenix_market`
 
-Standard admin ix set. Emit `ConfigUpdated` or `PhoenixMarketSet`.
+Standard admin ix set. Emit `ConfigUpdated` or `PhoenixMarketSet`. Pause remains orthogonal to SimClock: blocks mint/create only; settle+redeem still allowed.
+
+---
+
+### 5.8 SimClock ixs (`localnet-test` only — D-017)
+
+All `#[cfg(feature = "localnet-test")]`. Full detail: [`sim-clock.md`](sim-clock.md).
+
+| Instruction | Args | Behavior |
+| --- | --- | --- |
+| `init_sim_clock` | — | Create `["sim_clock"]` PDA; `enabled=true`; seed ts/slot from wall `Clock::get()` once; `authority = config.authority` |
+| `set_sim_clock` | `unix_timestamp: i64`, `slot: u64` | Authority; requires `enabled`; overwrite ts/slot |
+| `warp_sim_clock` | `add_secs: i64`, `add_slots: u64` | Authority; saturating/checked add on ts/slot |
+| `disable_sim_clock` | — | Optional; `enabled=false` → fall back to `Clock::get()` |
+
+**Event:** `SimClockSet` (cfg localnet-test only).
 
 ---
 
@@ -382,6 +436,14 @@ Same as `Settled` plus `authority: Pubkey`.
 | `phoenix_base_mint` | `Pubkey` |
 | `phoenix_quote_mint` | `Pubkey` |
 
+### `SimClockSet` (`localnet-test` only)
+
+| Field | Type |
+| --- | --- |
+| `unix_timestamp` | `i64` |
+| `slot` | `u64` |
+| `authority` | `Pubkey` |
+
 ---
 
 ## 7. Invariants
@@ -417,4 +479,6 @@ Same as `Settled` plus `authority: Pubkey`.
 - Field-level expansion: [`accounts.md`](accounts.md)
 - Sequences: [`flows.md`](flows.md)
 - Pyth math: [`units.md`](units.md)
+- Localnet time sim (D-017): [`sim-clock.md`](sim-clock.md)
 - Scaffold map: [`../programs/meridian/README.md`](../programs/meridian/README.md)
+- Decisions index: [`DECISIONS.md`](DECISIONS.md)
