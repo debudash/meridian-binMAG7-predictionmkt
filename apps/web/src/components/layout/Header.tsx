@@ -3,9 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import dynamic from "next/dynamic";
+
+// Client-only: the button renders the remembered wallet's icon from localStorage,
+// which the server can't know — SSR caused a hydration mismatch once a wallet was picked.
+const WalletMultiButton = dynamic(
+  () => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton),
+  {
+    ssr: false,
+    loading: () => (
+      <span className="chip" style={{ height: 36, padding: "0 0.9rem" }}>
+        Wallet…
+      </span>
+    ),
+  },
+);
 import { getCluster } from "@/lib/solana/config";
 import { getDemoPortfolioSummary } from "@/lib/demo/portfolio";
+import { isNavActive } from "@/lib/ui/selection";
 
 const NAV = [
   { href: "/markets", label: "Markets" },
@@ -41,21 +56,27 @@ export function Header() {
             minHeight: 56,
           }}
         >
-          <Link href="/" style={{ fontWeight: 700, color: "var(--text)", letterSpacing: "-0.02em" }}>
+          <Link
+            href="/"
+            className="brand-link"
+            aria-current={isNavActive(pathname, "/") ? "page" : undefined}
+            style={{ fontWeight: 700, color: "var(--text)", letterSpacing: "-0.02em" }}
+          >
             Meridian
           </Link>
-          <nav className="desktop-nav" style={{ display: "flex", gap: "0.85rem", flex: 1 }}>
+          <nav
+            className="desktop-nav"
+            aria-label="Primary"
+            style={{ display: "flex", gap: "0.35rem", flex: 1 }}
+          >
             {NAV.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(item.href + "/");
+              const active = isNavActive(pathname, item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  style={{
-                    color: active ? "var(--text)" : "var(--text-muted)",
-                    fontWeight: active ? 600 : 500,
-                    textDecoration: "none",
-                  }}
+                  className="nav-link"
+                  aria-current={active ? "page" : undefined}
                 >
                   {item.label}
                   {item.href === "/portfolio" && showRedeemDot && (
@@ -72,11 +93,16 @@ export function Header() {
           <WalletMultiButton style={{ height: 36, fontSize: 13 }} />
         </div>
       </header>
-      <nav className="mobile-bottom-nav" aria-label="Primary">
+      <nav className="mobile-bottom-nav" aria-label="Primary (mobile)">
         {NAV.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          const active = isNavActive(pathname, item.href);
           return (
-            <Link key={item.href} href={item.href} className={active ? "active" : undefined}>
+            <Link
+              key={item.href}
+              href={item.href}
+              className={active ? "active" : undefined}
+              aria-current={active ? "page" : undefined}
+            >
               {item.label}
               {item.href === "/portfolio" && showRedeemDot && (
                 <span className="nav-dot" title="Redeemable" />

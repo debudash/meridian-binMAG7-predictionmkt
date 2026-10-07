@@ -56,10 +56,6 @@ button, input, select {
   font-weight: 560;
 }
 .btn:hover { border-color: #3a4d66; }
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
 .btn-primary {
   background: var(--accent);
   border-color: transparent;
@@ -76,6 +72,7 @@ button, input, select {
   border-radius: 999px;
   border: 1px solid var(--border);
   color: var(--text-muted);
+  white-space: nowrap;
 }
 .chip-yes { color: var(--yes); border-color: color-mix(in srgb, var(--yes) 50%, transparent); }
 .chip-no { color: var(--no); border-color: color-mix(in srgb, var(--no) 50%, transparent); }
@@ -137,7 +134,7 @@ button, input, select {
   background: color-mix(in srgb, var(--text) 6%, transparent) !important;
 }
 .book-row:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -187,8 +184,12 @@ button, input, select {
     font-weight: 560;
     text-decoration: none;
   }
-  .mobile-bottom-nav a.active {
+  .mobile-bottom-nav a.active,
+  .mobile-bottom-nav a[aria-current="page"] {
     color: var(--text);
+    background: color-mix(in srgb, var(--sel-color) var(--sel-tint), transparent);
+    box-shadow: inset 0 2px 0 var(--sel-color);
+    border-radius: 6px;
   }
   body {
     padding-bottom: 64px;
@@ -212,10 +213,6 @@ button, input, select {
   cursor: pointer;
   font-weight: 560;
   font-size: 0.85rem;
-}
-.view-toggle button[aria-pressed="true"] {
-  background: var(--bg-elevated);
-  color: var(--text);
 }
 
 .markets-table {
@@ -249,8 +246,183 @@ button, input, select {
   cursor: pointer;
   font-size: 0.8rem;
 }
-.filter-chip[aria-pressed="true"] {
+
+/* ==========================================================================
+   Selection & active states (D-022 · docs/ui/README "Selection & active states")
+   One treatment app-wide: accent ring/border + tinted background, coloured by
+   context (--sel-color: accent default; Yes/No; bid/ask). Keyboard users get a
+   separate :focus-visible ring. Disabled = dashed, desaturated, no tint — never
+   confusable with unselected (solid border) or selected (ring + tint).
+   ARIA drives the visuals: aria-pressed (toggles), aria-selected (tabs/rows),
+   aria-current (nav / current item), .is-selected (fallback).
+   ========================================================================== */
+:root {
+  --sel-color: var(--accent);
+  --sel-tint: 18%;
+  --sel-ring-width: 2px;
+  --focus-color: #8cc8ff;
+  --focus-ring: 2px solid var(--focus-color);
+}
+.sel-yes { --sel-color: var(--yes); }
+.sel-no { --sel-color: var(--no); }
+.sel-bid { --sel-color: var(--bid); }
+.sel-ask { --sel-color: var(--ask); }
+
+/* Keyboard focus — every interactive element, distinct from selection */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+:where(a, button, [tabindex]):focus:not(:focus-visible) { outline: none; }
+
+/* Selected / active (toggles, tabs, rows, current item) */
+.btn[aria-pressed="true"],
+.btn[aria-selected="true"],
+.btn.is-selected,
+.filter-chip[aria-pressed="true"],
+.view-toggle button[aria-pressed="true"] {
   color: var(--text);
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-color: var(--sel-color);
+  background: color-mix(in srgb, var(--sel-color) var(--sel-tint), var(--bg-elevated));
+  box-shadow: 0 0 0 var(--sel-ring-width) color-mix(in srgb, var(--sel-color) 55%, transparent);
+  font-weight: 650;
+}
+/* Non-colour cue: check mark on pressed chips / segmented toggles */
+.filter-chip[aria-pressed="true"]::before,
+.view-toggle button[aria-pressed="true"]::before {
+  content: "✓";
+  font-size: 0.8em;
+  margin-right: 0.15rem;
+}
+.view-toggle button[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--sel-ring-width) var(--sel-color); }
+
+/* Unselected hover (not on disabled) */
+.btn:not(:disabled):not([aria-disabled="true"]):hover,
+.filter-chip:hover,
+.view-toggle button:hover { border-color: #4a6283; }
+.btn:not(:disabled):not([aria-disabled="true"]):active { transform: translateY(1px); }
+
+/* Yes/No choice buttons (ticket intents): outlined when unselected, filled + ring when selected */
+.btn.choice.btn-yes,
+.btn.choice.btn-no {
+  background: color-mix(in srgb, var(--sel-color) 6%, transparent);
+  border-color: color-mix(in srgb, var(--sel-color) 45%, transparent);
+  color: var(--sel-color);
+}
+.btn.choice.btn-yes { --sel-color: var(--yes); }
+.btn.choice.btn-no { --sel-color: var(--no); }
+.btn.choice[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--sel-color) 30%, var(--bg-elevated));
+  border-color: var(--sel-color);
+  color: var(--text);
+}
+.btn.choice[aria-pressed="true"]::after {
+  content: "✓";
+  font-size: 0.85em;
+  color: var(--sel-color);
+}
+
+/* Disabled — dashed, grey, no tint/ring; clearly not a choice you can make */
+.btn:disabled,
+.btn[aria-disabled="true"],
+.btn.choice:disabled,
+.btn.choice[aria-pressed="true"]:disabled,
+.filter-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  filter: grayscale(1);
+  border-style: dashed;
+  border-color: #3a4656;
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+  font-weight: 500;
+  transform: none;
+}
+.btn.choice:disabled::after,
+.btn.choice[aria-pressed="true"]:disabled::after { content: none; }
+.btn-primary:disabled {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: var(--text-muted);
+}
+
+/* Primary nav: current page */
+.nav-link {
+  color: var(--text-muted);
+  font-weight: 500;
+  text-decoration: none;
+  padding: 0.35rem 0.55rem;
+  border-radius: 6px;
+}
+.nav-link:hover { color: var(--text); text-decoration: none; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.nav-link[aria-current="page"] {
+  color: var(--text);
+  font-weight: 650;
+  background: color-mix(in srgb, var(--sel-color) var(--sel-tint), transparent);
+  box-shadow: inset 0 -2px 0 var(--sel-color);
+}
+
+.brand-link { text-decoration: none; padding: 0.2rem 0.1rem; }
+.brand-link[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--sel-color); }
+
+/* Tabs (role=tab inside role=tablist) use .btn + aria-selected above */
+[role="tablist"] { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* Selectable rows / cards */
+.row-selectable { cursor: pointer; }
+.row-selectable:hover > td,
+.row-selectable:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.row-selectable[aria-selected="true"] > td,
+.row-selectable.is-selected > td {
+  background: color-mix(in srgb, var(--sel-color) 24%, transparent);
+  font-weight: 600;
+}
+.row-selectable[aria-selected="true"] > td:first-child,
+.row-selectable.is-selected > td:first-child { box-shadow: inset 3px 0 0 var(--sel-color); }
+tr.row-selectable:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+.card.is-selected,
+.card[aria-current="true"] {
+  border-color: var(--sel-color);
+  background: color-mix(in srgb, var(--sel-color) 8%, var(--bg-card));
+  box-shadow: 0 0 0 var(--sel-ring-width) color-mix(in srgb, var(--sel-color) 45%, transparent);
+}
+.card.selectable { cursor: pointer; }
+.card.selectable:hover:not(.is-selected) { border-color: #3a4d66; }
+
+/* Market cards: hover lift, pressed, keyboard focus-within, last viewed */
+.market-card { transition: border-color 120ms, transform 120ms, box-shadow 120ms; }
+.market-card:hover { border-color: #3a4d66; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
+.market-card:active { transform: translateY(0); }
+.market-card:focus-within { border-color: var(--focus-color); }
+.market-card-title { color: var(--text); }
+.market-card-title:visited { color: #c3cddb; }
+.market-card-title:hover { text-decoration: underline; }
+.chip-current {
+  color: var(--text);
+  border-color: var(--sel-color);
+  background: color-mix(in srgb, var(--sel-color) var(--sel-tint), transparent);
+}
+.markets-table tr.is-recent > td { background: color-mix(in srgb, var(--sel-color) 10%, transparent); }
+.markets-table tr.is-recent > td:first-child { box-shadow: inset 3px 0 0 var(--sel-color); }
+.markets-table tbody tr:hover > td { background: color-mix(in srgb, var(--text) 5%, transparent); }
+
+/* Wallet adapter (button, dropdown, modal list) */
+.wallet-adapter-button:not([disabled]):hover { background-color: color-mix(in srgb, var(--accent) 22%, #512da8); }
+.wallet-adapter-button:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.wallet-adapter-button[aria-expanded="true"] {
+  box-shadow: 0 0 0 var(--sel-ring-width) color-mix(in srgb, var(--sel-color) 70%, transparent);
+}
+.wallet-adapter-dropdown-list-item:hover,
+.wallet-adapter-dropdown-list-item:focus-visible {
+  background: color-mix(in srgb, var(--sel-color) 25%, #2c2d30) !important;
+  box-shadow: inset 3px 0 0 var(--sel-color);
+}
+.wallet-adapter-modal-list .wallet-adapter-button:hover,
+.wallet-adapter-modal-list .wallet-adapter-button:focus-visible {
+  background: color-mix(in srgb, var(--sel-color) 22%, #1a1f2e) !important;
+  box-shadow: inset 3px 0 0 var(--sel-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .market-card, .market-card:hover, .btn:active { transition: none; transform: none; }
 }

@@ -9,6 +9,8 @@ import { buildDemoHistory, type DemoFill } from "@/lib/demo/portfolio";
 import { useChainClock } from "@/components/providers/AppProviders";
 import { truncateAddress } from "@/lib/format";
 import { getExplorerUrl } from "@/lib/solana/config";
+import { onTablistKeyDown, selectableRowProps, tabProps } from "@/components/ui/a11y";
+import { toggleSelection } from "@/lib/ui/selection";
 
 // re-export truncate for history; explorer helper lives in config
 function txUrl(sig: string): string {
@@ -41,6 +43,7 @@ function HistoryInner() {
   );
   const [from, setFrom] = useState(searchParams?.get("from") ?? "");
   const [to, setTo] = useState(searchParams?.get("to") ?? "");
+  const [selectedRow, setSelectedRow] = useState<string | null>(null);
 
   function syncUrl(next: Partial<{ type: string; market: string; side: string; from: string; to: string }>) {
     const params = new URLSearchParams();
@@ -168,7 +171,12 @@ function HistoryInner() {
         </button>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", margin: "1rem 0" }}>
+      <div
+        role="tablist"
+        aria-label="Activity type"
+        onKeyDown={onTablistKeyDown}
+        style={{ margin: "1rem 0" }}
+      >
         {(
           [
             ["all", "All"],
@@ -182,11 +190,10 @@ function HistoryInner() {
             key={id}
             type="button"
             className="btn"
-            aria-pressed={type === id}
-            onClick={() => {
+            {...tabProps(type === id, () => {
               setType(id);
               syncUrl({ type: id });
-            }}
+            })}
           >
             {label}
           </button>
@@ -219,6 +226,7 @@ function HistoryInner() {
           }}
         />
         <select
+          aria-label="Side filter"
           value={side}
           onChange={(e) => {
             const v = e.target.value as SideFilter;
@@ -299,7 +307,7 @@ function HistoryInner() {
         </div>
       ) : (
         <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-          <table className="markets-table">
+          <table className="markets-table" role="grid" aria-label="Activity">
             <thead>
               <tr>
                 <th>Time</th>
@@ -316,7 +324,12 @@ function HistoryInner() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id}>
+                <tr
+                  key={r.id}
+                  {...selectableRowProps(selectedRow === r.id, () =>
+                    setSelectedRow((c) => toggleSelection(c, r.id)),
+                  )}
+                >
                   <td>
                     {new Date(r.ts * 1000).toLocaleString("en-US", {
                       timeZone: "America/Chicago",

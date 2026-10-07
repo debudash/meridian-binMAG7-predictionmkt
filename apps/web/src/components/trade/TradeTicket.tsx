@@ -321,10 +321,12 @@ export function TradeTicket({
     <div className="card" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
       <strong>Order ticket</strong>
       <div
+        role="group"
+        aria-label="Order intent"
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
-          gap: "0.4rem",
+          gap: "0.5rem",
         }}
       >
         {INTENTS.map((i) => {
@@ -334,15 +336,11 @@ export function TradeTicket({
             <button
               key={i}
               type="button"
-              className={`btn ${i.includes("yes") ? "btn-yes" : "btn-no"}`}
+              className={`btn choice ${i.includes("yes") ? "btn-yes" : "btn-no"}`}
               disabled={!enabled}
               aria-pressed={intent === i}
               onClick={() => setIntent(i)}
-              style={{
-                outline: intent === i ? "2px solid var(--accent)" : undefined,
-                opacity: enabled ? 1 : 0.45,
-              }}
-              title={a.copy}
+              title={a.copy ?? (enabled ? undefined : "Unavailable")}
             >
               {intentLabel(i)}
             </button>
@@ -368,7 +366,11 @@ export function TradeTicket({
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+      <div
+        role="group"
+        aria-label="Order type"
+        style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}
+      >
         <button
           type="button"
           className="btn"
