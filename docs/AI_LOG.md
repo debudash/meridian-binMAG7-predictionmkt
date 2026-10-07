@@ -1,3 +1,15 @@
+## 2026-10-07T09:55:00-05:00 — Orchestrator: TRACKER sync post-!41 SimClock (tip 7436e49)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Grok Bot (Orchestrator) |
+| **Branch** | `docs/tracker-post-41` from `origin/main` @ `7436e49` (!41) |
+| **Decision** | Cite **MR !41** on DLV-065 SimClock Done line (remove "MR pending"); refresh tip SHA; move DLV-037 demo readiness to Done (!40; video = DLV-038 Todo); In Progress empty. Todo: optional UI sim (DLV-048), demo video (DLV-038), SCHEMA §8 residual (DLV-042). Workspace mirrors updated. No prod/web/localnet changes. |
+| **Files** | `docs/TRACKER.md` · `docs/AI_LOG.md` |
+| **Related** | D-017 · DLV-065 · DLV-037 · DLV-038 · !41 · tip `7436e49` |
+
+---
+
 ## 2026-10-07T09:35:00-05:00 — Reviewers: DLV-037 demo/continuous readiness (conditional pass)
 
 | Field | Value |
@@ -29,8 +41,8 @@
 | **Branch** | `eng/dlv065-sim-clock` from `origin/main` @ `245c86d` (!38) |
 | **Decision** | Land **DLV-065 / D-017** SimClock PDA seeds `["sim_clock"]` + ixs `init_sim_clock` / `set_sim_clock` / `warp_sim_clock` / `disable_sim_clock` under `#[cfg(feature = "localnet-test")]` only. `effective_clock` wires mint / settle / admin_settle (+ Pyth `slot_now`); optional `sim_clock` account on those contexts. Harness `initSimClock`/`set`/`warp`/`disable`; SC-01…03 prove warp→settle / mint-after-expiry / admin_settle delay=1800 without wall sleep. **Does not** weaken !34 Clock-poll `waitPastExpiry` for non-sim paths. Prod `.so` / prod IDL strip fixtures (assert-prod-no-fixtures). Program id unchanged `9Rb7nx…`. |
 | **Files** | `programs/meridian/src/{state/sim_clock,utils/clock,instructions/*_sim_clock}.rs` · mint/settle/admin_settle · harness · `tests/sim_clock.ts` · emit/assert scripts · TRACKER/AI_LOG |
-| **Result** | Focused SC **4/4**; prior full suite **84/84** non-SC green; expected full **87/87** after SC fix (idempotent init + resetSimClockToNow). |
-| **Related** | D-017 · DLV-065 · !14 · !34 · !38 |
+| **Result** | Focused SC **4/4**; prior full suite **84/84** non-SC green; expected full **87/87** after SC fix (idempotent init + resetSimClockToNow). **MR !41 merged** → main @ `7436e49`. |
+| **Related** | D-017 · DLV-065 · !14 · !34 · !38 · !41 |
 
 ---
 
