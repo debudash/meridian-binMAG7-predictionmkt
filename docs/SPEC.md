@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | **Title** | Peak6 Meridian V1 SPEC |
-| **Status** | **Freeze candidate** (awaiting Debu lock ping) |
+| **Status** | **Locked** (Debu authorized 2026-10-06 CT; MR !20; wireframes approved) |
 | **Owner** | Meridian PM |
 | **Date** | 2026-10-06 (America/Chicago) |
 | **Forge** | https://labs.gauntletai.com/debudash/peak6-meridian (GitLab-only; D-001 / D-014) |
@@ -22,7 +22,7 @@ Meridian is a **non-custodial** Solana dApp for **binary Yes/No** outcome market
 - Stack: **Solana + Anchor** program · **Node** AM/PM automation · **Next.js** frontend · app/automation host = **Railway** (see [`DEPLOY.md`](DEPLOY.md)).
 - Source of truth: **Gauntlet Labs GitLab only** via `glab` (D-001 / D-014). Never GitHub / Origin for Meridian.
 
-This SPEC is the freeze-ready product/engineering contract Debu can lock. After lock, material changes require a [`DECISIONS.md`](DECISIONS.md) update.
+This SPEC is the **locked** product/engineering contract (Debu 2026-10-06 CT). Material changes require a [`DECISIONS.md`](DECISIONS.md) update.
 
 ---
 
@@ -116,7 +116,7 @@ Debu requires **UI wireframes in this SPEC freeze MR** (!20 / branch `docs/d012-
 | Coverage | One wireframe (or short multi-state set) per V1 surface: **Landing**, **Markets**, **Trade**, **Portfolio**, **History** |
 | Normative link | Wireframes must align with [`ui/01`–`05`](ui/) + [`ui/06-trading-intents-and-constraints.md`](ui/06-trading-intents-and-constraints.md) (four intents, one book, no Yes+No from Trade UI) |
 | Format | PNG/SVG (or HTML snapshot) checked into GitLab; index in [`ui/wireframes/README.md`](ui/wireframes/README.md) |
-| Freeze gate | SPEC lock waits until wireframes are on this MR **or** Debu explicitly locks without them |
+| Freeze gate | **Met** — wireframes on MR !20; Debu approved all wireframes and locked SPEC |
 
 ---
 
@@ -176,10 +176,10 @@ Full ladder: [`DEPLOY.md`](DEPLOY.md).
 
 ## 8. Freeze process
 
-1. **This MR (!20)** lands `docs/SPEC.md` as **freeze candidate** and hosts **UI wireframes** under [`ui/wireframes/`](ui/wireframes/) (same MR / branch — Debu: no separate wireframe MR).
-2. Meridian UI pushes wireframe assets to `docs/d012-spec-freeze`; PM keeps §3.10 + TRACKER in sync.
-3. **Debu lock** = Debu notifies **Grok Bot + Debu** (chat/ping) that SPEC is locked (wireframes included unless Debu waives).
+1. **MR !20** landed `docs/SPEC.md` + **UI wireframes** under [`ui/wireframes/`](ui/wireframes/) (same MR / branch — Debu: no separate wireframe MR).
+2. Meridian UI wireframe assets (Landing / Markets / Trade / Portfolio / History) are on this MR; **Debu approved all wireframes**.
+3. **Debu lock** — Debu authorized SPEC lock to Grok Bot (2026-10-06 CT) **without full review**. Status = **Locked**.
 4. After lock: material scope/stack changes require a new row (or amendment) in [`DECISIONS.md`](DECISIONS.md) and an [`AI_LOG.md`](AI_LOG.md) entry.
 5. TRACKER / TASKS may continue to move work items; they do not silently expand V1 acceptance without Debu awareness.
 
-**Status wording until Debu lock ping:** Freeze candidate — **not** yet locked. Wireframes expected on this MR before lock.
+**Status:** **Locked** (Debu-authorized, no full review required). Wireframes approved all and included on MR !20.

@@ -6,6 +6,18 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T23:50:00-05:00 — SPEC lock (Debu authorized; MR !20)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Debu Dash (lock); Grok Bot (record + merge `docs/d012-spec-freeze` !20) |
+| **Decision** | **Lock** `docs/SPEC.md` (status → **Locked**). Debu authorized lock **without full review**; **wireframes approved all** (Landing/Markets/Trade/Portfolio/History under `docs/ui/wireframes/`). TRACKER: SPEC + D-012 stubs + wireframes → **Done/locked**. No new DECISIONS D-0xx invented for the freeze. |
+| **History scrub** | Debu **skipped** full history scrub question. Tip-delete of committed keypair already done in !24. **Do not** force-push / filter-repo / BFG. |
+| **Constraints** | Rebase onto current `main` before merge; resolve TRACKER/AI_LOG carefully; preserve SPEC.md + wireframes entirely. Pipeline runner failure OK. Do **not** invent further readiness. |
+| **Related** | D-012 · MR !20 · !24 tip-delete · TRACKER SPEC Done |
+
+---
+
 ## 2026-10-06T23:41:09-05:00 — SECURITY: rotate compromised program keypair + Railway IDL/health
 
 | Field | Value |
