@@ -1,10 +1,10 @@
 # Meridian tracker
 
 Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** only.
-No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017).
-**Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)).
+No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017). **D-018** locks prod `merge_pair`, A-05 Policy A, and X-07 Settling retire.
+**Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)) — deploy deferred locally; Debu browsing fixtures @ localhost:3000.
 
-_Last refreshed: 2026-10-07 00:30 CT (Eng P2 green on `eng/p2-invariant-gates` rebased onto main post-!31).
+_Last refreshed: 2026-10-07 08:20 CT (main tip `65c1ddf` = !34 X-03/SIM-08 flake harden; workspace trackers synced).
 
 ## Done
 
@@ -30,26 +30,30 @@ _Last refreshed: 2026-10-07 00:30 CT (Eng P2 green on `eng/p2-invariant-gates` r
 - [x] Reviewer nits: real Pyth prod path, fee caps, prod IDL + fixture assert (MR !17; `eng/reviewer-nits-pyth-idl`) — `upsert_mock_pyth` / `test_drain_vault` / `sim_*` excluded from prod builds
 - [x] GitLab CI + `docs/DEPLOY.md` ladder (MR !18; `eng/ci-deploy`) — Railway staging→prod app+automation; runners may be absent on labs host
 - [x] TRACKER + AI_LOG post !14–!18 land (MR !19; `docs/tracker-post-14-18`)
-- [x] Node automation dual-mode landed (MR !21; `eng/node-automation`) — calendar ET worker + localnet-only sim lifecycle; Phoenix market create stubbed
-- [x] Next.js UI V1 scaffold landed (MR !22; `eng/nextjs-ui`) — `apps/web` App Router + prod IDL mint/redeem + intent tests; Phoenix placement stubbed
+- [x] D-012 docs stubs + UI wireframes + **SPEC locked** (MR !20; `docs/d012-spec-freeze`): `SPEC.md` **Done/locked**, `AGENTS.md`, `ARCHITECTURE.md`, `TASKS.md`, `DEMO_SCRIPT.md`, `EVALS.md`, `METRICS.md`, `RED_TEAM.md`, `DIAGRAMS.md`, `CONTEXT.md`, `CLAUDE.md`, `ORCHESTRATOR_KICKOFF.md`, `docs/ui/wireframes/` — root README Docs map updated
+- [x] Node automation dual-mode landed (MR !21; `eng/node-automation`) — calendar ET worker + localnet-only sim lifecycle; `docs/SIM_LIFECYCLE.md` one-command path
+- [x] Next.js UI V1 scaffold landed (MR !22; `eng/nextjs-ui`) — `apps/web` App Router + prod IDL mint/redeem + intent tests
 - [x] UI nits post-!22 landed (MR !23; `eng/ui-nits-post-22`) — markets/trade/portfolio polish
-- [x] SECURITY/Railway remediation landed (MR !24; `eng/sec-keypair-railway`) — rotated program id `9Rb7nx…`; tip-deleted committed keypair; Railway IDL/health. **History scrub skipped** (Debu declined filter-repo/BFG force-push; tip delete stands; no force-push)
-- [x] D-012 docs stubs + UI wireframes + **SPEC locked** (MR !20; `docs/d012-spec-freeze`): `SPEC.md` **Done/locked**, `AGENTS.md`, `ARCHITECTURE.md`, `TASKS.md`, `DEMO_SCRIPT.md`, `EVALS.md`, `METRICS.md`, `RED_TEAM.md`, `DIAGRAMS.md`, `CONTEXT.md`, `CLAUDE.md`, `ORCHESTRATOR_KICKOFF.md`, `docs/ui/wireframes/` (Landing/Markets/Trade/Portfolio/History) — root README Docs map updated
+- [x] SECURITY/Railway remediation landed (MR !24; `eng/sec-keypair-railway`) — rotated program id `9Rb7nx…`; tip-deleted committed keypair; Railway IDL/health. **History scrub skipped** (Debu declined filter-repo/BFG force-push)
 - [x] Testers: suite/fixtures/docs confirm new program id + gitignored keypair (MR !25; `test/program-id-rotate`) — current `9Rb7nx…`; revoked `GwTvo…`
-
-- [x] Eng: prod `merge_pair` greens MP-01…MP-08 (MR eng/merge-pair; D-018) — **68 passing** localnet; prod IDL includes `merge_pair`
-- [x] Eng: P2 A-05/X-07/INV gates (!32 / `eng/p2-invariant-gates`) — **74/74** localnet claimed; Policy A + Settling retired
-- [x] Eng: client Sell No `buildMergeIx` + size unify (`eng/sell-no-merge-size`) — Reviewer Highs 1–2; resting merge-on-fill still phased
+- [x] TRACKER/AI_LOG post-!20 SPEC lock confirm (MR !26; `docs/tracker-spec-lock`)
+- [x] Eng: Phoenix place + Buy No composition + indexer (MR !28; `eng/phoenix-place-indexer`) — SDK place; Buy No = mint + ask Yes @ `1−p_no`; indexer HTTP→GPA→fixtures
+- [x] Schema D-018: prod `merge_pair` + Settling retire + admin_settle Policy A (MR !29; `schema/merge-pair`)
+- [x] Tester merge_pair red suite MP-01…MP-08 (MR !30; `test/merge-pair-failing`)
+- [x] Eng: prod `merge_pair` greens MP-01…MP-08 (MR !31; `eng/merge-pair`; D-018) — prod IDL includes `merge_pair`
+- [x] Eng: P2 A-05/X-07/INV gates (MR !32; `eng/p2-invariant-gates`) — **74/74** localnet; Policy A + Settling retired
+- [x] Eng: client Sell No `buildMergeIx` + size unify (MR !33; `eng/sell-no-merge-size`) — Reviewer Highs; resting merge-on-fill still phased
+- [x] Eng: harden X-03/SIM-08 localnet timing flakes (MR !34; `eng/flake-timing-x03-sim08`) — harness-only `EXPIRY_MINT_SLACK_SECS=30` + Clock sysvar poll; **74/74** localnet (~28m)
 
 ## In Progress
 
-- [ ] Reviewer continuous / demo readiness (beyond !17 nits) — demo walkthrough still owed (keypair tip-delete done in !24)
-- [ ] Phoenix place + Buy/Sell No client composition + indexer — SDK place (!28); on-chain `merge_pair` (!31); client Sell No immediate merge + size unify (this MR); sim E2E on-book still owed
-- [ ] Phoenix Buy/Sell No **sim E2E** real on-book trade (sim trade today = off-book Yes SPL placeholder)
+- [ ] Reviewer continuous / demo readiness (beyond !17 nits / !33 Highs) — demo video + walkthrough still owed (keypair tip-delete done in !24)
 
 ## Todo
 
+- [ ] Phoenix Buy/Sell No **sim E2E** real on-book trade (sim trade today = off-book Yes SPL placeholder; client place + Sell No merge landed !28/!33)
 - [ ] Eng SimClock PDA impl (`init`/`set`/`warp` behind `localnet-test`) per `docs/sim-clock.md` (docs landed !14; not required by SIM-01…09)
 - [ ] UI sim affordance (optional for V1) (D-017)
 - [ ] Peak6 PRD: demo video (distinct from `DEMO_SCRIPT.md`)
 - [ ] Peak6 PRD: test results artifact (after suite execution on main)
+- [ ] Pin exact MAG7 Pyth feed ids + remaining SCHEMA §8 opens as needed for V1
