@@ -5,16 +5,17 @@
  * - Outcome Yes/No mint decimals == collateral decimals (default 6).
  * - 1 human contract = 1 full outcome token = 10^decimals raw atoms.
  * - Phoenix `sizeInBaseUnits` in @ellipsis-labs/phoenix-sdk *fromTemplate*
- *   helpers is expressed in **base atoms** (same raw units as SPL amount).
- *   When the market's base_lot_size is 1 atom (typical for 6-dec Yes),
- *   mint raw == phoenix base units for the same contract count.
+ *   helpers is expressed in **raw base units** (whole tokens): the SDK does
+ *   `rawBaseUnitsToBaseLotsRoundedDown(size)` = size / rawBaseUnitsPerBaseUnit
+ *   × baseLotsPerBaseUnit (market.ts). Passing atoms would oversize by 10^decimals.
+ *   So phoenixBaseUnits == contracts, while mintRaw == contracts × 10^decimals.
  */
 export const DEFAULT_OUTCOME_DECIMALS = 6;
 
 export interface ContractSizeRaw {
   /** Meridian mint / merge_pair amount (u64-compatible number) */
   mintRaw: number;
-  /** Phoenix place sizeInBaseUnits (atoms) */
+  /** Phoenix place sizeInBaseUnits (raw base units = whole contracts) */
   phoenixBaseUnits: number;
   /** Echo of input contracts */
   contracts: number;
@@ -38,7 +39,7 @@ export function contractsToRawAmounts(
   const mintRaw = Math.round(contracts * 10 ** decimals);
   return {
     mintRaw,
-    phoenixBaseUnits: mintRaw,
+    phoenixBaseUnits: contracts,
     contracts,
     decimals,
   };

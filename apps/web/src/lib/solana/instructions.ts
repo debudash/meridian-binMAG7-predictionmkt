@@ -28,6 +28,24 @@ export interface MintAccounts {
 /** Same account set as mint — merge_pair is the Open-state inverse. */
 export type MergeAccounts = MintAccounts;
 
+/**
+ * Optional `sim_clock` (localnet-test builds only). Anchor auto-resolves the PDA from IDL
+ * seeds; if the SimClock account was never initialized the program rejects it
+ * (AccountNotInitialized). Pass it only when it exists, else `null` (= wall clock).
+ */
+async function resolveOptionalSimClock(program: Program): Promise<PublicKey | null> {
+  const [simClock] = PublicKey.findProgramAddressSync(
+    [Buffer.from("sim_clock")],
+    program.programId,
+  );
+  try {
+    const info = await program.provider.connection.getAccountInfo(simClock, "confirmed");
+    return info && info.owner.equals(program.programId) ? simClock : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Mint Yes+No pair against USDC collateral (amount in base units). */
 export async function buildMintIx(
   program: Program,
@@ -49,6 +67,8 @@ export async function buildMintIx(
     accounts.user,
   );
 
+  const simClock = await resolveOptionalSimClock(program);
+
   return (program.methods as any)
     .mint(amount)
     .accounts({
@@ -65,6 +85,7 @@ export async function buildMintIx(
       treasury: accounts.treasury,
       collateralMint: accounts.collateralMint,
       tokenProgram: TOKEN_PROGRAM_ID,
+      simClock,
     });
 }
 
@@ -154,23 +175,5 @@ export async function buildRedeemIx(
     });
 }
 
-/**
- * Read-only settle status helper — does not submit settle.
- * Actual settle ix is permissionless / automation-driven.
- */
-export function settleStatusLabel(
-  status: number,
-): "open" | "settling" | "settled-yes" | "settled-no" | "void" {
-  switch (status) {
-    case 1:
-      return "settling";
-    case 2:
-      return "settled-yes";
-    case 3:
-      return "settled-no";
-    case 4:
-      return "void";
-    default:
-      return "open";
-  }
-}
+/** Re-export — implementation lives in lib/market/status (SSR-safe). */
+export { settleStatusLabel } from "@/lib/market/status";

@@ -1,6 +1,10 @@
 import { MarketsClient } from "./MarketsClient";
 import { listMarkets } from "@/lib/indexer";
 
+// Live chain data (RPC/Phoenix) — never serve cached fetches.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 export default async function MarketsPage({
   searchParams,
 }: {

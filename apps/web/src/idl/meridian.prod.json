@@ -1102,19 +1102,6 @@
       ]
     },
     {
-      "name": "SimClock",
-      "discriminator": [
-        92,
-        152,
-        145,
-        215,
-        14,
-        57,
-        125,
-        253
-      ]
-    },
-    {
       "name": "StrikeMarket",
       "discriminator": [
         109,
@@ -1244,19 +1231,6 @@
         124,
         145,
         238
-      ]
-    },
-    {
-      "name": "SimClockSet",
-      "discriminator": [
-        87,
-        148,
-        19,
-        72,
-        221,
-        214,
-        188,
-        110
       ]
     }
   ],

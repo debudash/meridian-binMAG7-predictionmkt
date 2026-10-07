@@ -4,6 +4,10 @@ import { notFound } from "next/navigation";
 import { getMarket } from "@/lib/indexer";
 import { TradeClient } from "./TradeClient";
 
+// Live chain data (RPC/Phoenix) — never serve cached fetches.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 type Props = {
   params: { marketId: string };
   searchParams?: Record<string, string | string[] | undefined>;

@@ -22,9 +22,11 @@ export async function buildClaimSeatInstructions(
 ): Promise<SeatSetupResult> {
   try {
     const PhoenixSdk = await import("@ellipsis-labs/phoenix-sdk");
-    const client = await PhoenixSdk.Client.createWithMarketAddresses(
+    // createWithoutConfig: no remote master_config (breaks on localnet).
+    const client = await PhoenixSdk.Client.createWithoutConfig(
       connection,
       [phoenixMarket],
+      false,
     );
     const marketState = client.marketStates.get(phoenixMarket.toBase58());
     if (!marketState) {
