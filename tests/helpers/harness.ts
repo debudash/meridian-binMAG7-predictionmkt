@@ -149,6 +149,9 @@ export class TestCtx {
   expiryTs!: BN;
   feedId = Buffer.from(PYTH_FEED_ID_PLACEHOLDER);
   nowUnix!: number;
+  /** Set after initSimClock — when set, mint/settle/adminSettle pass this optional account. */
+  simClockPda: PublicKey | null = null;
+  useSimClock = false;
   static marketSeq = 0;
 
   static async boot(): Promise<TestCtx> {
@@ -467,6 +470,7 @@ export class TestCtx {
         treasury: this.treasury,
         collateralMint: this.collateralMint,
         tokenProgram: TOKEN_PROGRAM_ID,
+        ...this.simClockAccounts(),
       })
       .signers([signer])
       .rpc();
@@ -480,6 +484,7 @@ export class TestCtx {
         config: this.configPda,
         strikeMarket: this.market,
         pythPriceFeed: this.pythFeed.publicKey,
+        ...this.simClockAccounts(),
       })
       .signers([settler])
       .rpc();
@@ -492,6 +497,7 @@ export class TestCtx {
         authority: authority.publicKey,
         config: this.configPda,
         strikeMarket: this.market,
+        ...this.simClockAccounts(),
       })
       .signers([authority])
       .rpc();
@@ -772,6 +778,86 @@ export class TestCtx {
   }
 
 
+
+
+  // --- Localnet SimClock (D-017 / DLV-065) ---
+
+  simClockAddress(): PublicKey {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from("sim_clock")],
+      this.program.programId
+    )[0];
+  }
+
+  async initSimClock() {
+    const pda = this.simClockAddress();
+    await this.program.methods
+      .initSimClock()
+      .accounts({
+        authority: this.authority.publicKey,
+        config: this.configPda,
+        simClock: pda,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+    this.simClockPda = pda;
+    this.useSimClock = true;
+  }
+
+  async setSimClock(unixTimestamp: number | BN, slot: number | BN) {
+    const pda = this.simClockPda ?? this.simClockAddress();
+    await this.program.methods
+      .setSimClock(new BN(unixTimestamp.toString()), new BN(slot.toString()))
+      .accounts({
+        authority: this.authority.publicKey,
+        config: this.configPda,
+        simClock: pda,
+      })
+      .rpc();
+    this.useSimClock = true;
+    this.simClockPda = pda;
+  }
+
+  async warpSimClock(addSecs: number | BN, addSlots: number | BN = 0) {
+    const pda = this.simClockPda ?? this.simClockAddress();
+    await this.program.methods
+      .warpSimClock(new BN(addSecs.toString()), new BN(addSlots.toString()))
+      .accounts({
+        authority: this.authority.publicKey,
+        config: this.configPda,
+        simClock: pda,
+      })
+      .rpc();
+    this.useSimClock = true;
+    this.simClockPda = pda;
+  }
+
+  async disableSimClock() {
+    const pda = this.simClockPda ?? this.simClockAddress();
+    await this.program.methods
+      .disableSimClock()
+      .accounts({
+        authority: this.authority.publicKey,
+        config: this.configPda,
+        simClock: pda,
+      })
+      .rpc();
+    this.useSimClock = false;
+  }
+
+  async fetchSimClock(): Promise<any> {
+    const pda = this.simClockPda ?? this.simClockAddress();
+    return await this.program.account.simClock.fetch(pda);
+  }
+
+  /** Optional SimClock account map entry for mint/settle/adminSettle. */
+  private simClockAccounts(): { simClock?: PublicKey | null } {
+    if (this.useSimClock && this.simClockPda) {
+      return { simClock: this.simClockPda };
+    }
+    // Omit / null → wall Clock::get() (preserves !34 waitPastExpiry paths).
+    return { simClock: null };
+  }
 
   // --- Localnet simulated session (D-017 / Cluster G) ---
   // Engineers: land `sim_open_session` / `sim_close_session` under `localnet-test` only.

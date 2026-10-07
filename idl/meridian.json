@@ -51,6 +51,31 @@
         {
           "name": "strike_market",
           "writable": true
+        },
+        {
+          "name": "sim_clock",
+          "docs": [
+            "Optional localnet SimClock PDA — omitted → wall Clock::get()."
+          ],
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  105,
+                  109,
+                  95,
+                  99,
+                  108,
+                  111,
+                  99,
+                  107
+                ]
+              }
+            ]
+          }
         }
       ],
       "args": [
@@ -348,6 +373,144 @@
           }
         }
       ]
+    },
+    {
+      "name": "disable_sim_clock",
+      "docs": [
+        "Localnet SimClock disable (fall back to Clock::get) — `localnet-test` only."
+      ],
+      "discriminator": [
+        142,
+        109,
+        22,
+        9,
+        107,
+        32,
+        82,
+        69
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config",
+            "sim_clock"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "sim_clock",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  105,
+                  109,
+                  95,
+                  99,
+                  108,
+                  111,
+                  99,
+                  107
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_sim_clock",
+      "docs": [
+        "Localnet SimClock init (D-017 / DLV-065) — `localnet-test` only (deploy blocker)."
+      ],
+      "discriminator": [
+        192,
+        72,
+        122,
+        145,
+        2,
+        147,
+        149,
+        23
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "sim_clock",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  105,
+                  109,
+                  95,
+                  99,
+                  108,
+                  111,
+                  99,
+                  107
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
     },
     {
       "name": "initialize_config",
@@ -657,6 +820,31 @@
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "sim_clock",
+          "docs": [
+            "Optional localnet SimClock PDA — omitted → wall Clock::get()."
+          ],
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  105,
+                  109,
+                  95,
+                  99,
+                  108,
+                  111,
+                  99,
+                  107
+                ]
+              }
+            ]
+          }
         }
       ],
       "args": [
@@ -871,6 +1059,82 @@
       ]
     },
     {
+      "name": "set_sim_clock",
+      "docs": [
+        "Localnet SimClock absolute set — `localnet-test` only (deploy blocker)."
+      ],
+      "discriminator": [
+        158,
+        229,
+        123,
+        142,
+        45,
+        97,
+        249,
+        180
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config",
+            "sim_clock"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "sim_clock",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  105,
+                  109,
+                  95,
+                  99,
+                  108,
+                  111,
+                  99,
+                  107
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "unix_timestamp",
+          "type": "i64"
+        },
+        {
+          "name": "slot",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "settle",
       "discriminator": [
         175,
@@ -914,6 +1178,31 @@
         },
         {
           "name": "pyth_price_feed"
+        },
+        {
+          "name": "sim_clock",
+          "docs": [
+            "Optional localnet SimClock PDA — omitted → wall Clock::get()."
+          ],
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  105,
+                  109,
+                  95,
+                  99,
+                  108,
+                  111,
+                  99,
+                  107
+                ]
+              }
+            ]
+          }
         }
       ],
       "args": []
@@ -1256,6 +1545,82 @@
           }
         }
       ]
+    },
+    {
+      "name": "warp_sim_clock",
+      "docs": [
+        "Localnet SimClock relative warp — `localnet-test` only (deploy blocker)."
+      ],
+      "discriminator": [
+        3,
+        70,
+        248,
+        253,
+        182,
+        189,
+        62,
+        233
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config",
+            "sim_clock"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "sim_clock",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  105,
+                  109,
+                  95,
+                  99,
+                  108,
+                  111,
+                  99,
+                  107
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "add_secs",
+          "type": "i64"
+        },
+        {
+          "name": "add_slots",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -1270,6 +1635,19 @@
         250,
         204,
         130
+      ]
+    },
+    {
+      "name": "SimClock",
+      "discriminator": [
+        92,
+        152,
+        145,
+        215,
+        14,
+        57,
+        125,
+        253
       ]
     },
     {
@@ -1403,6 +1781,19 @@
         145,
         238
       ]
+    },
+    {
+      "name": "SimClockSet",
+      "discriminator": [
+        87,
+        148,
+        19,
+        72,
+        221,
+        214,
+        188,
+        110
+      ]
     }
   ],
   "errors": [
@@ -1520,6 +1911,11 @@
       "code": 6022,
       "name": "OutcomeInconsistent",
       "msg": "outcome_yes inconsistent with settlement_price_e6 vs strike"
+    },
+    {
+      "code": 6023,
+      "name": "SimClockNotEnabled",
+      "msg": "SimClock disabled"
     }
   ],
   "types": [
@@ -1987,6 +2383,66 @@
           {
             "name": "ts",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SimClock",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "docs": [
+              "Must == Config.authority"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "unix_timestamp",
+            "docs": [
+              "Simulated Clock.unix_timestamp"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "slot",
+            "docs": [
+              "Simulated Clock.slot (Pyth staleness under sim)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "enabled",
+            "docs": [
+              "If false, effective_clock falls back to Clock::get()"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SimClockSet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "unix_timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "slot",
+            "type": "u64"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
           }
         ]
       }

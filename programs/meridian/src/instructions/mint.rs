@@ -4,6 +4,9 @@ use crate::constants::*;
 use crate::errors::MeridianError;
 use crate::events::Minted;
 use crate::state::{Config, StrikeMarket};
+#[cfg(feature = "localnet-test")]
+use crate::state::SimClock;
+use crate::utils::EffectiveClock;
 
 #[derive(Accounts)]
 pub struct MintPair<'info> {
@@ -46,6 +49,13 @@ pub struct MintPair<'info> {
     pub treasury: UncheckedAccount<'info>,
     pub collateral_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+    /// Optional localnet SimClock PDA — omitted → wall Clock::get().
+    #[cfg(feature = "localnet-test")]
+    #[account(
+        seeds = [SIM_CLOCK_SEED],
+        bump,
+    )]
+    pub sim_clock: Option<Account<'info, SimClock>>,
 }
 
 pub fn handler(ctx: Context<MintPair>, amount: u64) -> Result<()> {
@@ -57,9 +67,12 @@ pub fn handler(ctx: Context<MintPair>, amount: u64) -> Result<()> {
         MeridianError::TradingClosed
     );
 
-    let clock = Clock::get()?;
+    #[cfg(feature = "localnet-test")]
+    let eff: EffectiveClock = crate::utils::effective_clock(&ctx.accounts.sim_clock)?;
+    #[cfg(not(feature = "localnet-test"))]
+    let eff: EffectiveClock = crate::utils::effective_clock()?;
     require!(
-        clock.unix_timestamp < ctx.accounts.strike_market.expiry_ts,
+        eff.unix_timestamp < ctx.accounts.strike_market.expiry_ts,
         MeridianError::MintAfterExpiry
     );
 
