@@ -1,5 +1,7 @@
 pub const PRICE_SCALE: u64 = 1_000_000;
 pub const CONFIG_SEED: &[u8] = b"config";
+#[cfg(feature = "localnet-test")]
+pub const SIM_CLOCK_SEED: &[u8] = b"sim_clock";
 pub const STRIKE_MARKET_SEED: &[u8] = b"strike_market";
 pub const VAULT_AUTHORITY_SEED: &[u8] = b"vault_authority";
 pub const YES_MINT_SEED: &[u8] = b"yes_mint";

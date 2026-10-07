@@ -4,11 +4,11 @@ pub mod pause;
 pub mod create_strike_market;
 pub mod set_phoenix_market;
 pub mod mint;
-pub mod merge_pair;
 pub mod settle;
 pub mod admin_settle;
 pub mod redeem;
 pub mod burn_losing;
+pub mod merge_pair;
 
 #[cfg(feature = "localnet-test")]
 pub mod upsert_mock_pyth;
@@ -18,6 +18,14 @@ pub mod test_drain_vault;
 pub mod sim_open_session;
 #[cfg(feature = "localnet-test")]
 pub mod sim_close_session;
+#[cfg(feature = "localnet-test")]
+pub mod init_sim_clock;
+#[cfg(feature = "localnet-test")]
+pub mod set_sim_clock;
+#[cfg(feature = "localnet-test")]
+pub mod warp_sim_clock;
+#[cfg(feature = "localnet-test")]
+pub mod disable_sim_clock;
 
 pub use initialize_config::*;
 pub use update_config::*;
@@ -25,11 +33,11 @@ pub use pause::*;
 pub use create_strike_market::*;
 pub use set_phoenix_market::*;
 pub use mint::*;
-pub use merge_pair::*;
 pub use settle::*;
 pub use admin_settle::*;
 pub use redeem::*;
 pub use burn_losing::*;
+pub use merge_pair::*;
 
 #[cfg(feature = "localnet-test")]
 pub use upsert_mock_pyth::*;
@@ -39,3 +47,11 @@ pub use test_drain_vault::*;
 pub use sim_open_session::*;
 #[cfg(feature = "localnet-test")]
 pub use sim_close_session::*;
+#[cfg(feature = "localnet-test")]
+pub use init_sim_clock::*;
+#[cfg(feature = "localnet-test")]
+pub use set_sim_clock::*;
+#[cfg(feature = "localnet-test")]
+pub use warp_sim_clock::*;
+#[cfg(feature = "localnet-test")]
+pub use disable_sim_clock::*;

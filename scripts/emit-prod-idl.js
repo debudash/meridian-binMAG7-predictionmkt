@@ -23,7 +23,7 @@ const FIXTURE_IX = new Set([
 ]);
 
 /** Types that exist only for fixture ixs — strip from prod IDL. */
-const FIXTURE_TYPES = new Set(["MockPythParams"]);
+const FIXTURE_TYPES = new Set(["MockPythParams","SimClock","SimClockSet"]);
 
 const root = path.join(__dirname, "..");
 const srcCandidates = [

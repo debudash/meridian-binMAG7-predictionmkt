@@ -90,3 +90,11 @@ pub struct PhoenixMarketSet {
     pub phoenix_base_mint: Pubkey,
     pub phoenix_quote_mint: Pubkey,
 }
+
+#[cfg(feature = "localnet-test")]
+#[event]
+pub struct SimClockSet {
+    pub unix_timestamp: i64,
+    pub slot: u64,
+    pub authority: Pubkey,
+}

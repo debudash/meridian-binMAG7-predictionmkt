@@ -97,4 +97,28 @@ pub mod meridian {
     pub fn sim_close_session(ctx: Context<SimCloseSession>) -> Result<()> {
         instructions::sim_close_session::handler(ctx)
     }
+
+    /// Localnet SimClock init (D-017 / DLV-065) — `localnet-test` only (deploy blocker).
+    #[cfg(feature = "localnet-test")]
+    pub fn init_sim_clock(ctx: Context<InitSimClock>) -> Result<()> {
+        instructions::init_sim_clock::handler(ctx)
+    }
+
+    /// Localnet SimClock absolute set — `localnet-test` only (deploy blocker).
+    #[cfg(feature = "localnet-test")]
+    pub fn set_sim_clock(ctx: Context<SetSimClock>, unix_timestamp: i64, slot: u64) -> Result<()> {
+        instructions::set_sim_clock::handler(ctx, unix_timestamp, slot)
+    }
+
+    /// Localnet SimClock relative warp — `localnet-test` only (deploy blocker).
+    #[cfg(feature = "localnet-test")]
+    pub fn warp_sim_clock(ctx: Context<WarpSimClock>, add_secs: i64, add_slots: u64) -> Result<()> {
+        instructions::warp_sim_clock::handler(ctx, add_secs, add_slots)
+    }
+
+    /// Localnet SimClock disable (fall back to Clock::get) — `localnet-test` only.
+    #[cfg(feature = "localnet-test")]
+    pub fn disable_sim_clock(ctx: Context<DisableSimClock>) -> Result<()> {
+        instructions::disable_sim_clock::handler(ctx)
+    }
 }

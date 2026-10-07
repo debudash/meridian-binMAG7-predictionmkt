@@ -1,8 +1,13 @@
 use anchor_lang::prelude::*;
 use crate::constants::CONFIG_SEED;
+#[cfg(feature = "localnet-test")]
+use crate::constants::SIM_CLOCK_SEED;
 use crate::errors::MeridianError;
 use crate::events::AdminSettled;
 use crate::state::{Config, MarketStatus, StrikeMarket};
+#[cfg(feature = "localnet-test")]
+use crate::state::SimClock;
+use crate::utils::EffectiveClock;
 
 #[derive(Accounts)]
 pub struct AdminSettle<'info> {
@@ -15,6 +20,13 @@ pub struct AdminSettle<'info> {
     pub config: Account<'info, Config>,
     #[account(mut, has_one = config)]
     pub strike_market: Account<'info, StrikeMarket>,
+    /// Optional localnet SimClock PDA — omitted → wall Clock::get().
+    #[cfg(feature = "localnet-test")]
+    #[account(
+        seeds = [SIM_CLOCK_SEED],
+        bump,
+    )]
+    pub sim_clock: Option<Account<'info, SimClock>>,
 }
 
 pub fn handler(
@@ -29,13 +41,16 @@ pub fn handler(
         MeridianError::SessionNotClosed
     );
 
-    let clock = Clock::get()?;
+    #[cfg(feature = "localnet-test")]
+    let eff: EffectiveClock = crate::utils::effective_clock(&ctx.accounts.sim_clock)?;
+    #[cfg(not(feature = "localnet-test"))]
+    let eff: EffectiveClock = crate::utils::effective_clock()?;
     let earliest = market
         .expiry_ts
         .checked_add(ctx.accounts.config.admin_settle_delay_secs as i64)
         .ok_or(MeridianError::MathOverflow)?;
     require!(
-        clock.unix_timestamp >= earliest,
+        eff.unix_timestamp >= earliest,
         MeridianError::AdminSettleTooEarly
     );
     require!(settlement_price_e6 > 0, MeridianError::InvalidPythPrice);
@@ -48,8 +63,8 @@ pub fn handler(
     );
 
     market.settlement_price_e6 = settlement_price_e6;
-    market.settled_at_ts = clock.unix_timestamp;
-    market.settled_slot = clock.slot;
+    market.settled_at_ts = eff.unix_timestamp;
+    market.settled_slot = eff.slot;
     market.status = if outcome_yes {
         MarketStatus::SettledYes as u8
     } else {
@@ -62,8 +77,8 @@ pub fn handler(
         strike_price_e6: market.strike_price_e6,
         outcome_yes,
         pyth_conf: 0,
-        slot: clock.slot,
-        ts: clock.unix_timestamp,
+        slot: eff.slot,
+        ts: eff.unix_timestamp,
         authority: ctx.accounts.authority.key(),
     });
     Ok(())

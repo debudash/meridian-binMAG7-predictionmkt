@@ -1,8 +1,13 @@
 use anchor_lang::prelude::*;
 use crate::constants::CONFIG_SEED;
+#[cfg(feature = "localnet-test")]
+use crate::constants::SIM_CLOCK_SEED;
 use crate::errors::MeridianError;
 use crate::events::Settled;
 use crate::state::{Config, MarketStatus, StrikeMarket};
+#[cfg(feature = "localnet-test")]
+use crate::state::SimClock;
+use crate::utils::EffectiveClock;
 use crate::utils::pyth::{
     check_confidence, check_staleness, load_pyth_price, pyth_price_to_e6,
 };
@@ -16,6 +21,13 @@ pub struct Settle<'info> {
     pub strike_market: Account<'info, StrikeMarket>,
     /// CHECK: must match strike_market.pyth_price_feed; decoder gated by localnet-test vs prod
     pub pyth_price_feed: UncheckedAccount<'info>,
+    /// Optional localnet SimClock PDA — omitted → wall Clock::get().
+    #[cfg(feature = "localnet-test")]
+    #[account(
+        seeds = [SIM_CLOCK_SEED],
+        bump,
+    )]
+    pub sim_clock: Option<Account<'info, SimClock>>,
 }
 
 pub fn handler(ctx: Context<Settle>) -> Result<()> {
@@ -30,9 +42,12 @@ pub fn handler(ctx: Context<Settle>) -> Result<()> {
         MeridianError::InvalidPythAccount
     );
 
-    let clock = Clock::get()?;
+    #[cfg(feature = "localnet-test")]
+    let eff: EffectiveClock = crate::utils::effective_clock(&ctx.accounts.sim_clock)?;
+    #[cfg(not(feature = "localnet-test"))]
+    let eff: EffectiveClock = crate::utils::effective_clock()?;
     require!(
-        clock.unix_timestamp >= market.expiry_ts,
+        eff.unix_timestamp >= market.expiry_ts,
         MeridianError::ExpiryNotReached
     );
 
@@ -47,7 +62,7 @@ pub fn handler(ctx: Context<Settle>) -> Result<()> {
     }
 
     check_staleness(
-        clock.slot,
+        eff.slot,
         pyth.publish_slot,
         ctx.accounts.config.settle_max_staleness_slots,
     )?;
@@ -60,8 +75,8 @@ pub fn handler(ctx: Context<Settle>) -> Result<()> {
     let settlement_price_e6 = pyth_price_to_e6(pyth.price, pyth.expo)?;
     let outcome_yes = settlement_price_e6 >= market.strike_price_e6;
     market.settlement_price_e6 = settlement_price_e6;
-    market.settled_at_ts = clock.unix_timestamp;
-    market.settled_slot = clock.slot;
+    market.settled_at_ts = eff.unix_timestamp;
+    market.settled_slot = eff.slot;
     market.status = if outcome_yes {
         MarketStatus::SettledYes as u8
     } else {
@@ -74,8 +89,8 @@ pub fn handler(ctx: Context<Settle>) -> Result<()> {
         strike_price_e6: market.strike_price_e6,
         outcome_yes,
         pyth_conf: pyth.conf,
-        slot: clock.slot,
-        ts: clock.unix_timestamp,
+        slot: eff.slot,
+        ts: eff.unix_timestamp,
     });
     Ok(())
 }

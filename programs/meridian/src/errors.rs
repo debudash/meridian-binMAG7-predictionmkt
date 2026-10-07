@@ -48,4 +48,6 @@ pub enum MeridianError {
     AdminSettleDelayTooLow,
     #[msg("outcome_yes inconsistent with settlement_price_e6 vs strike")]
     OutcomeInconsistent,
+    #[msg("Simulated clock not enabled")]
+    SimClockNotEnabled,
 }

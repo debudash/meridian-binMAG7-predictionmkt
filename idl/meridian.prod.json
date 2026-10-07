@@ -51,6 +51,31 @@
         {
           "name": "strike_market",
           "writable": true
+        },
+        {
+          "name": "sim_clock",
+          "docs": [
+            "Optional localnet SimClock PDA — omitted → wall Clock::get()."
+          ],
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  105,
+                  109,
+                  95,
+                  99,
+                  108,
+                  111,
+                  99,
+                  107
+                ]
+              }
+            ]
+          }
         }
       ],
       "args": [
@@ -657,6 +682,31 @@
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "sim_clock",
+          "docs": [
+            "Optional localnet SimClock PDA — omitted → wall Clock::get()."
+          ],
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  105,
+                  109,
+                  95,
+                  99,
+                  108,
+                  111,
+                  99,
+                  107
+                ]
+              }
+            ]
+          }
         }
       ],
       "args": [
@@ -914,6 +964,31 @@
         },
         {
           "name": "pyth_price_feed"
+        },
+        {
+          "name": "sim_clock",
+          "docs": [
+            "Optional localnet SimClock PDA — omitted → wall Clock::get()."
+          ],
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  105,
+                  109,
+                  95,
+                  99,
+                  108,
+                  111,
+                  99,
+                  107
+                ]
+              }
+            ]
+          }
         }
       ],
       "args": []
@@ -1024,6 +1099,19 @@
         250,
         204,
         130
+      ]
+    },
+    {
+      "name": "SimClock",
+      "discriminator": [
+        92,
+        152,
+        145,
+        215,
+        14,
+        57,
+        125,
+        253
       ]
     },
     {
@@ -1157,6 +1245,19 @@
         145,
         238
       ]
+    },
+    {
+      "name": "SimClockSet",
+      "discriminator": [
+        87,
+        148,
+        19,
+        72,
+        221,
+        214,
+        188,
+        110
+      ]
     }
   ],
   "errors": [
@@ -1274,6 +1375,11 @@
       "code": 6022,
       "name": "OutcomeInconsistent",
       "msg": "outcome_yes inconsistent with settlement_price_e6 vs strike"
+    },
+    {
+      "code": 6023,
+      "name": "SimClockNotEnabled",
+      "msg": "Simulated clock not enabled"
     }
   ],
   "types": [
