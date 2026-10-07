@@ -25,7 +25,8 @@ Meridian is a non-custodial Solana dApp for binary Yes/No stock outcome markets 
 | [`docs/AGENTS.md`](docs/AGENTS.md) | Specialist roster + ownership |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Components + trust boundaries |
 | [`docs/SCHEMA.md`](docs/SCHEMA.md) | On-chain schema (accounts, ixs, invariants) |
-| [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) | P0 / P1 / SIM cases |
+| [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) | P0 / P1 / SIM / MP / P2 cases |
+| [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) | Peak6 PRD DLV-039 localnet results (74/74) |
 | [`docs/DEPLOY.md`](docs/DEPLOY.md) | Deploy ladder; **Railway** app + automation |
 | [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | Localnet / anytime-sim demo walkthrough |
 | [`docs/EVALS.md`](docs/EVALS.md) | How we judge V1 pass |

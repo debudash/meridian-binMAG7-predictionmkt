@@ -4,7 +4,7 @@ Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** o
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017). **D-018** locks prod `merge_pair`, A-05 Policy A, and X-07 Settling retire.
 **Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)) — deploy deferred locally; Debu browsing fixtures @ localhost:3000.
 
-_Last refreshed: 2026-10-07 08:20 CT (main tip `65c1ddf` = !34 X-03/SIM-08 flake harden; workspace trackers synced).
+_Last refreshed: 2026-10-07 09:15 CT (main tip `92d414e`; DLV-039 test results artifact)._
 
 ## Done
 
@@ -45,6 +45,8 @@ _Last refreshed: 2026-10-07 08:20 CT (main tip `65c1ddf` = !34 X-03/SIM-08 flake
 - [x] Eng: client Sell No `buildMergeIx` + size unify (MR !33; `eng/sell-no-merge-size`) — Reviewer Highs; resting merge-on-fill still phased
 - [x] Eng: harden X-03/SIM-08 localnet timing flakes (MR !34; `eng/flake-timing-x03-sim08`) — harness-only `EXPIRY_MINT_SLACK_SECS=30` + Clock sysvar poll; **74/74** localnet (~28m)
 
+- [x] Peak6 PRD: test results artifact DLV-039 (`docs/TEST_RESULTS.md`) — 74/74 cite tip `65c1ddf`/`92d414e` (!34 flake harden)
+
 ## In Progress
 
 - [ ] Reviewer continuous / demo readiness (beyond !17 nits / !33 Highs) — demo video + walkthrough still owed (keypair tip-delete done in !24)
@@ -55,5 +57,4 @@ _Last refreshed: 2026-10-07 08:20 CT (main tip `65c1ddf` = !34 X-03/SIM-08 flake
 - [ ] Eng SimClock PDA impl (`init`/`set`/`warp` behind `localnet-test`) per `docs/sim-clock.md` (docs landed !14; not required by SIM-01…09)
 - [ ] UI sim affordance (optional for V1) (D-017)
 - [ ] Peak6 PRD: demo video (distinct from `DEMO_SCRIPT.md`)
-- [ ] Peak6 PRD: test results artifact (after suite execution on main)
 - [ ] Pin exact MAG7 Pyth feed ids + remaining SCHEMA §8 opens as needed for V1
