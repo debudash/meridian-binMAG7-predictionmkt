@@ -1269,6 +1269,11 @@
       "code": 6021,
       "name": "AdminSettleDelayTooLow",
       "msg": "Admin settle delay below production minimum"
+    },
+    {
+      "code": 6022,
+      "name": "OutcomeInconsistent",
+      "msg": "outcome_yes inconsistent with settlement_price_e6 vs strike"
     }
   ],
   "types": [

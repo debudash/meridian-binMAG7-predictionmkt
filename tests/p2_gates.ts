@@ -7,13 +7,13 @@
  * Do **not** change Rust in this suite MR — Engineers implement only to green (D-016).
  * Do **not** invent a Phoenix matcher.
  *
- * Expected RED until Eng pins:
- *   - A-05: prefer reject inconsistent outcome_yes vs price_e6/strike (or flip to accept+log + DECISIONS)
- *   - X-07: Settling enum unused — pin treat-like-Open or retire
- * May already PASS:
- *   - R-08 / INV-P2-I3 if burn_losing present (prod IDL includes it)
- *   - INV-PROD-01 (prod IDL already omits fixtures; mocha twin of CI, not a duplicate job)
- *   - INV-FEE-TRUNC (pure trunc math + optional live residual)
+ * Eng pin (this MR):
+ *   - A-05: Policy A reject OutcomeInconsistent (D-018)
+ *   - X-07: Settling retired/unused (discriminant kept; no transitions)
+ * Expected PASS with Eng impl:
+ *   - R-08 / INV-P2-I3 (burn_losing on tip IDL)
+ *   - INV-PROD-01 (prod IDL omits fixtures)
+ *   - INV-FEE-TRUNC (trunc toward zero)
  */
 import * as fs from "fs";
 import * as path from "path";
@@ -55,12 +55,8 @@ describe("P2 gates (TEST_MATRIX A-05 / R-08 / X-07 + INV)", function () {
   before(() => assertIdlHasInstructions("p2-gates-suite"));
 
   /**
-   * A-05 — PIN POLICY (Engineers must lock ONE):
-   *   Policy A (preferred safer / this assert): reject inconsistent
-   *     outcome_yes vs (price_e6 >= strike) with a clear error
-   *     (pin name e.g. OutcomeInconsistent / InvalidOutcome).
-   *   Policy B: accept + emit/log documenting override; update DECISIONS + flip this test.
-   * Current tip silently accepts — not locked → TDD_RED on Policy A.
+   * A-05 — Policy A locked (D-018): reject inconsistent
+   *   outcome_yes vs (price_e6 >= strike) with OutcomeInconsistent.
    */
   it("A-05: admin_settle outcome_yes inconsistent with price_e6 vs strike — pin reject (XOR accept+log)", async () => {
     const caseId = "A-05";
@@ -168,30 +164,31 @@ describe("P2 gates (TEST_MATRIX A-05 / R-08 / X-07 + INV)", function () {
   });
 
   /**
-   * X-07 — Settling status if implemented.
-   * Enum value exists (MarketStatus.Settling=1) but no ix currently transitions to it;
-   * is_open() excludes Settling. Honest TDD_RED until Eng pins.
+   * X-07 — Settling **retired / unused** (D-018).
+   * Discriminant 1 kept for layout stability; no ix writes Settling; is_open() is Open-only.
+   * create→Open; settle→Settled*. Do not invent Settling transitions or Phoenix matcher.
    */
-  it("X-07: Settling status — pin treat-like-Open for settle; TDD_RED if unused", async () => {
+  it("X-07: Settling status — retired unused (pinned)", async () => {
     const caseId = "X-07";
+    // Layout: Settling discriminant retained (=1) but unused — SCHEMA/accounts mark retired.
     expect(MarketStatus.Settling).to.equal(1);
+    expect(MarketStatus.Open).to.equal(0);
+    expect(MarketStatus.SettledYes).to.equal(2);
 
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    await ctx.createMarket();
-    const status = (await ctx.marketState()).status as number;
-    expect(status).to.equal(MarketStatus.Open);
+    const expiry = Math.floor(Date.now() / 1000) + 2;
+    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    expect((await ctx.marketState()).status).to.equal(MarketStatus.Open);
 
-    // No public path sets Settling today. Pin contract for when/if Eng wires it:
-    // - Settling treated like Open for reads + settle/admin_settle completion
-    // - OR SCHEMA/accounts retire Settling and this case becomes skip.
-    throw new TddRedError(
-      caseId,
-      "Settling (status=1) is in the enum but unused (create→Open; settle→Settled*). " +
-        "is_open() currently excludes Settling, so a future Settling transition would block settle. " +
-        "Engineers: (a) wire optional Settling + treat like Open for settle completion, or " +
-        "(b) mark Settling unused in SCHEMA/accounts and retire this case. Do not invent Phoenix matcher."
-    );
+    // Live path never visits Settling: Open → Settled*.
+    await ctx.mint(ONE);
+    await ctx.waitPastExpiry();
+    await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });
+    await ctx.settle();
+    const st = (await ctx.marketState()).status as number;
+    expect(st, `${caseId}: settle skips Settling`).to.equal(MarketStatus.SettledYes);
+    expect(st).to.not.equal(MarketStatus.Settling);
   });
 
   /**

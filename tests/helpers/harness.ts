@@ -392,7 +392,8 @@ export class TestCtx {
 
   async waitPastExpiry() {
     const target = Number(this.expiryTs.toString()) + 1;
-    const waitMs = Math.max(0, target * 1000 - Date.now()) + 500;
+    // +1500ms slack: localnet Clock can lag wall time (SIM-08 AdminSettleTooEarly flake).
+    const waitMs = Math.max(0, target * 1000 - Date.now()) + 1500;
     if (waitMs > 0) await sleep(waitMs);
   }
 

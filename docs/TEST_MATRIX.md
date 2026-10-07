@@ -1,11 +1,6 @@
 # Meridian Test Matrix — Mint / Settle / Redeem + $1 Vault
 
-**Status:** P0/P1/SIM + Cluster I (`merge_pair`) green on `main` (68/68 localnet post-!31). **P2 cluster + INV gates** = `tests/p2_gates.ts` — TDD until Eng pins A-05 / X-07 (D-018 Policy A / Settling retire).  
-**Audience:** Meridian Testers → Anchor/TS integration tests.  
-**Stack:** Solana + Anchor; Phoenix CLOB (integrate, no matching in Meridian); Pyth equity closes; USDC collateral; MAG7 binary Yes/No.  
-**Program id (tip):** `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6` (post !24 rotate; suite confirm !25). Revoked: `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2`.
-
-**Coordination:** A-05 Policy A + X-07 Settling retire covered by P2 suite !27; Schema !29 docs align — **do not double-flip** those cases in this MR.
+**Status:** P0/P1/SIM + Cluster I (`merge_pair`) green on `main` (68/68 localnet post-!31). **P2 cluster + INV gates** = `tests/p2_gates.ts` — Eng pin A-05 Policy A + X-07 Settling retired (D-018) on `eng/p2-invariant-gates`.  
 **Audience:** Meridian Testers → Anchor/TS integration tests.  
 **Stack:** Solana + Anchor; Phoenix CLOB (integrate, no matching in Meridian); Pyth equity closes; USDC collateral; MAG7 binary Yes/No.  
 **Program id (tip):** `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6` (post !24 rotate; suite confirm !25). Revoked: `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2`.
@@ -117,7 +112,7 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 | A-02 | admin_settle | Delay not elapsed | `admin_settle(...)` | Fail `AdminSettleTooEarly` | Clock | P0 | draft |
 | A-03 | admin_settle | Non-authority signer | `admin_settle(...)` | Fail `Unauthorized` | — | P0 | draft |
 | A-04 | admin_settle | Market already settled via Pyth | `admin_settle(...)` | Fail; cannot override (I4) | — | P0 | draft |
-| A-05 | admin_settle | Authority sets `outcome_yes` inconsistent with `price_e6` vs strike | `admin_settle` | **PIN:** prefer **reject** (`OutcomeInconsistent` or pinned name) XOR **accept+log** + DECISIONS; suite asserts Policy A until Eng locks | Emergency path | P2 | failing |
+| A-05 | admin_settle | Authority sets `outcome_yes` inconsistent with `price_e6` vs strike | `admin_settle` | **D-018 Policy A:** reject `OutcomeInconsistent` when `outcome_yes != (price_e6 >= strike)` | Emergency path | P2 | passing |
 
 ---
 
@@ -134,7 +129,7 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 | R-05 | redeem | `redeem_fee_bps = 10` | `redeem(amount)` | `fee = amount * 10 / 10000`; user gets `amount - fee`; treasury += fee from vault; `pairs_redeemed += amount` | Vault drops by full `amount` (user+treasury) | P1 | draft |
 | R-06 | redeem | Partial redeem then remainder | two `redeem` calls | Counters/vault monotonic; final vault == `pairs_minted - pairs_redeemed` (fee=0) | — | P0 | draft |
 | R-07 | redeem | Redeem more than user winning balance | `redeem` | Fail; vault unchanged | — | P0 | draft |
-| R-08 | redeem | Optional `burn_losing(amount)` after settle | burn loser | Supply of loser ↓; **no** USDC; `pairs_redeemed` unchanged; vault I3 intact | Ix present on tip IDL | P2 | pending |
+| R-08 | redeem | Optional `burn_losing(amount)` after settle | burn loser | Supply of loser ↓; **no** USDC; `pairs_redeemed` unchanged; vault I3 intact | Ix present on tip IDL | P2 | passing |
 | R-09 | redeem | Full redeem of all winning supply (fee=0) | redeem all winners | Vault → 0 (ignoring dust); `pairs_redeemed == pairs_minted` | Multi-user aggregate | P0 | draft |
 
 ---
@@ -168,7 +163,7 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 | X-04 | lifecycle | End-to-end fee=0 | create → mint → (optional set_phoenix) → warp expiry → settle ≥strike → redeem Yes | Final vault 0 if all winners redeemed; supplies/counters consistent; events ordered | Happy path README scaffold #2 | P0 | draft |
 | X-05 | lifecycle | End-to-end SettledNo | mint → settle <strike → redeem No | Same as X-04 with No winner | — | P0 | draft |
 | X-06 | lifecycle | Mint → settle → second settle | — | Second settle fails (I4) | — | P0 | draft |
-| X-07 | lifecycle | `Settling` status if implemented | treat like Open for reads; settle completes | Enum present, **unused** on tip — Eng pin treat-like-Open **or** retire | accounts.md status table | P2 | failing |
+| X-07 | lifecycle | `Settling` status if implemented | **retired unused** (discriminant kept); Open→Settled* only | **D-018:** retire Settling; no transitions; SCHEMA/accounts document unused | accounts.md status table | P2 | passing |
 
 ---
 
@@ -251,9 +246,9 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 
 | Case ID | Phase | Precondition | Action | Expected | Oracle/Phoenix notes | Priority | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| INV-P2-I3 | invariant | SettledYes; user holds loser No | `burn_losing` then redeem Yes | I3 vault ≥ outstanding after burn; I1 redeem still 1:1; burn must not break vault | Companion R-08 | P2 | pending |
-| INV-PROD-01 | invariant | Committed `idl/meridian.prod.json` | Parse prod IDL ix names | Fixture ixs (`sim_*`, `upsert_mock_pyth`, `test_drain_vault`, …) **absent**; localnet IDL may keep them | Mocha twin of CI assert; no `.so` strings | P2 | pending |
-| INV-FEE-TRUNC | invariant | Fee bps=10; amount with residual | unit + mint(999) | `fee = amount * bps / 10_000` trunc toward 0; fee(999)=0 → treasury unchanged; vault += amount | Documents M-03/R-05 1-lamport edge | P2 | pending |
+| INV-P2-I3 | invariant | SettledYes; user holds loser No | `burn_losing` then redeem Yes | I3 vault ≥ outstanding after burn; I1 redeem still 1:1; burn must not break vault | Companion R-08 | P2 | passing |
+| INV-PROD-01 | invariant | Committed `idl/meridian.prod.json` | Parse prod IDL ix names | Fixture ixs (`sim_*`, `upsert_mock_pyth`, `test_drain_vault`, …) **absent**; localnet IDL may keep them | Mocha twin of CI assert; no `.so` strings | P2 | passing |
+| INV-FEE-TRUNC | invariant | Fee bps=10; amount with residual | unit + mint(999) | `fee = amount * bps / 10_000` trunc toward 0; fee(999)=0 → treasury unchanged; vault += amount | Documents M-03/R-05 1-lamport edge | P2 | passing |
 
 ## Priority rollup (plan coverage)
 
@@ -292,7 +287,7 @@ P0/P1/SIM suites green on `main` (localnet). Cluster I (`merge_pair`) **green** 
 | `tests/sim_session.ts` | SIM-01…SIM-09 (**localnet-test only**) — green on tip (!16) |
 | `tests/p2_gates.ts` | A-05, R-08, X-07 + INV-P2-I3, INV-PROD-01, INV-FEE-TRUNC |
 
-P0/P1/SIM suites green on `main` (localnet). Cluster H / P2 A-05+X-07 stay **failing** until Engineers pin policy (D-016).
+P0/P1/SIM suites green on `main` (localnet). Cluster H / P2 pinned by Eng (D-018) on `eng/p2-invariant-gates`.
 
 ---
 
@@ -321,5 +316,4 @@ P0/P1/SIM suites green on `main` (localnet). Cluster H / P2 A-05+X-07 stay **fai
 - [ ] Fee=0 path green before enabling fee cases
 - [ ] No Meridian test asserts Phoenix matching internals (pubkey + mint wiring only)
 - [ ] **SIM-*** cases green on `localnet-test` only; prod `.so` still omits `sim_*` / mock fixtures (D-017)
-- [x] **MP-*** (`merge_pair` / D-018) green on prod IDL; pause + post-expiry + fee path covered; no Phoenix matcher invented
-- [ ] P2 A-05 / R-08 / X-07 + INV gates green (or X-07 retired)
+- [x] P2 A-05 / R-08 / X-07 + INV gates green (D-018 Policy A + Settling retired)

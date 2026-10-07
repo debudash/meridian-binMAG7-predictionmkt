@@ -6,6 +6,18 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-07T00:30:00-05:00 — Engineers: green P2 A-05/R-08/X-07 + INV gates (D-018)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers; Grok Bot |
+| **Branch** | `eng/p2-invariant-gates` from `origin/test/p2-invariant-gates` @ `1f6fc77`, rebased onto `main` @ `9f175d7` (!31 merge_pair) |
+| **Decision** | Implement Schema **D-018** P2 slices only: A-05 **Policy A** (`OutcomeInconsistent`) + X-07 **retire Settling** (unused/reserved; discriminant kept; Open-only `is_open`). **Did not** re-implement `merge_pair` (already green on main !31). No Phoenix matcher. Program id unchanged `9Rb7nx…`. |
+| **Impl** | `errors.rs` + `admin_settle.rs` consistency check; X-07 suite flip documenting retirement; R-08 / INV-* via existing `burn_losing` + fee trunc / prod IDL. `waitPastExpiry` +1.5s slack (localnet Clock lag). |
+| **Related** | D-016 · D-018 · !27 suite · !31 merge_pair · TEST_MATRIX Cluster H |
+
+---
+
 ## 2026-10-07T00:19:00-05:00 — Eng: prod merge_pair greens MP-01…MP-08 (D-018)
 
 | Field | Value |

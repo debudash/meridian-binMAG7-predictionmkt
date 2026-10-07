@@ -46,4 +46,6 @@ pub enum MeridianError {
     ConfigTimelock,
     #[msg("Admin settle delay below production minimum")]
     AdminSettleDelayTooLow,
+    #[msg("outcome_yes inconsistent with settlement_price_e6 vs strike")]
+    OutcomeInconsistent,
 }
