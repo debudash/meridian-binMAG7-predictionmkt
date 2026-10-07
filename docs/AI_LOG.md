@@ -6,6 +6,18 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-07T00:19:00-05:00 — Eng: prod merge_pair greens MP-01…MP-08 (D-018)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Decision** | Implement prod **`merge_pair(amount)`** (D-018 / Schema !29): burn equal Yes+No; vault pays `amount − redeem_fee_bps` (fee→treasury); `pairs_minted −= amount`; emit `Merged`. Pause blocks; **no expiry gate** (OK after `expiry_ts` while Open); settled → `MarketNotOpen`. Distinct from `redeem` / `burn_losing`. Not localnet-gated — appears in `idl/meridian.prod.json`. Harness `mergePair` already wired by Testers !30 — Eng only landed Rust ix + IDL; did **not** rewrite MP asserts. **Did not** touch A-05 / X-07 (P2 !27). No Phoenix matcher. |
+| **Result** | Localnet **68 passing / 0 failing** (P0/P1/SIM + Cluster I MP-01…08). Branch `eng/merge-pair` from `origin/test/merge-pair-failing` @ `5c8c00d` (same stack pattern as !10→!11). |
+| **Files** | `programs/meridian/src/instructions/merge_pair.rs` · `lib.rs` / `mod.rs` / `events.rs` · `idl/meridian.json` + `meridian.prod.json` (+ apps sync) · `tests/helpers/harness.ts` (`EXPECTED_INSTRUCTIONS`) · `docs/TEST_MATRIX.md` · `docs/TRACKER.md` · `docs/AI_LOG.md` |
+| **Related** | D-018 · D-016 · Testers !30 · Schema !29 · program id `9Rb7nx…` |
+
+---
+
 ## 2026-10-07T00:06:00-05:00 — Testers: merge_pair red suite (D-018 / MP-01…MP-08)
 
 | Field | Value |

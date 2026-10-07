@@ -49,6 +49,11 @@ pub mod meridian {
         instructions::mint::handler(ctx, amount)
     }
 
+    pub fn merge_pair(ctx: Context<MergePair>, amount: u64) -> Result<()> {
+        instructions::merge_pair::handler(ctx, amount)
+    }
+
+
     pub fn settle(ctx: Context<Settle>) -> Result<()> {
         instructions::settle::handler(ctx)
     }

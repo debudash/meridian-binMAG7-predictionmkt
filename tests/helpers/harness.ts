@@ -58,6 +58,7 @@ export const EXPECTED_INSTRUCTIONS = [
   "create_strike_market",
   "set_phoenix_market",
   "mint",
+  "merge_pair",
   "settle",
   "admin_settle",
   "redeem",
