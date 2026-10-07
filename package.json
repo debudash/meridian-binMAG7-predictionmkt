@@ -20,7 +20,9 @@
     "web:build": "npm run build --prefix apps/web",
     "web:test": "npm run test --prefix apps/web",
     "web:typecheck": "npm run typecheck --prefix apps/web",
-    "assert:idl-sync": "bash scripts/assert-idl-sync.sh"
+    "assert:idl-sync": "bash scripts/assert-idl-sync.sh",
+    "test:phoenix-onbook": "yarn run mocha -r ts-node/register -t 240000 'tests/phoenix_onbook_e2e.ts' --exit",
+    "test:phoenix-compose": "yarn run mocha -r ts-node/register -t 10000 'tests/unit/phoenix_compose.ts' --exit"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.31.1",

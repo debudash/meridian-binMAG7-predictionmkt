@@ -857,9 +857,20 @@ export class TestCtx {
   }
 
   /**
-   * Sim trade representation (Phoenix placeholder): off-book SPL Yes transfer.
-   * Does NOT invoke Phoenix matching. Vault / pairs_* must stay unchanged (SCHEMA §7.7).
-   * Optional future: Phoenix CPI mock — still not a Meridian matcher.
+   * Preferred sim trade (DLV-064): intent → mint? → book-sim Yes/USDC fill → merge?
+   * See `tests/helpers/phoenix_onbook.ts`. No Meridian matcher / no Phoenix CPI.
+   */
+  async simTradeOnBook(
+    opts: import("./phoenix_onbook").SimTradeOnBookOpts
+  ): Promise<import("./phoenix_onbook").SimTradeOnBookResult> {
+    const { simTradeOnBook } = await import("./phoenix_onbook");
+    return simTradeOnBook(this, opts);
+  }
+
+  /**
+   * **Demoted non-prod fallback** — raw off-book SPL Yes transfer (pre-DLV-064 placeholder).
+   * Prefer `simTradeOnBook` for Buy/Sell Yes/No sim E2E. Still valid as V-08 twin
+   * (vault/pairs unchanged by transfer). Does NOT invoke Phoenix matching.
    */
   async simTradeOffBook(
     toUser: Keypair,

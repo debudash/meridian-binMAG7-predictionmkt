@@ -4,7 +4,8 @@
  *
  * LOCALNET-ONLY / `localnet-test`. Never required for mainnet builds.
  * Simulated open/close are NOT wall-clock 9:30 / 4:00 ET.
- * Sim trade = mint + off-book Yes SPL transfer (Phoenix placeholder) — no Meridian matcher.
+ * Sim trade: prefer on-book `simTradeOnBook` (DLV-064); SIM-02 still uses demoted
+ * off-book Yes SPL as V-08 twin — no Meridian matcher.
  *
  * GREEN: eng `sim_open_session` / `sim_close_session` + `StrikeMarket.trading_open`
  * behind `#[cfg(feature = "localnet-test")]` (MR !16). Prod builds omit `sim_*`.

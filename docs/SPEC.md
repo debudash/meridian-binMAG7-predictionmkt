@@ -150,7 +150,7 @@ Debu requires **UI wireframes in this SPEC freeze MR** (!20 / branch `docs/d012-
 These may resolve after SPEC lock without rewriting V1 scope:
 
 1. Exact **MAG7 Pyth feed ids** (placeholders until pinned).
-2. Phoenix **Buy/Sell No** composition completeness + real on-book trade in sim E2E (today: off-book Yes SPL placeholder in SIM suite).
+2. Phoenix **Buy/Sell No** on-book sim E2E — **landed DLV-064** (book-sim + PHX-*; client place/merge !28/!33). Residual: full Phoenix.so market create on localnet (`docs/phoenix-onbook-sim.md`).
 3. Indexer / history data URL (if any).
 4. Optional **UI sim** affordance.
 5. **SimClock PDA** eng impl (`init`/`set`/`warp`) per [`sim-clock.md`](sim-clock.md) — docs landed; **not** required by SIM-01…09.

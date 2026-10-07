@@ -29,7 +29,7 @@ yarn test
 | 2 | Create StrikeMarket (MAG7 symbol, strike e6, expiry, Phoenix pubkey, Pyth account) | status=Open; trading_open=true |
 | 3 | **Sim open** (`sim_open_session`) if required by harness | Session armed for sim gates |
 | 4 | **Mint** Yes/No for amount N (fee=0) | Vault += N; Yes supply == No supply == N |
-| 5 | **Trade** | Phoenix SDK place when market set: Buy/Sell Yes; Buy No = mint+ask; Sell No market = bid+`merge_pair`. SIM suite may still use off-book Yes SPL placeholder (non-prod) |
+| 5 | **Trade** | **On-book (preferred):** `simTradeOnBook` / Phoenix SDK place — Buy/Sell Yes; Buy No = mint+ask; Sell No market = bid+`merge_pair` ([`phoenix-onbook-sim.md`](phoenix-onbook-sim.md)). Off-book Yes SPL = **demoted non-prod fallback** only |
 | 6 | **Sim close** (`sim_close_session`) | Mint blocked; settle allowed |
 | 7 | **Settle** with mock/forced Pyth price → YesWins or NoWins | status SettledYes or SettledNo; immutable |
 | 8 | **Redeem** winning mint amount | USDC out == amount (fee=0); vault decreases |
@@ -40,6 +40,7 @@ yarn test
 - Non-custodial PDA vault; admin cannot drain in **prod** builds.
 - $1 binary invariant after mint / trade / redeem.
 - Phoenix is integrated CLOB (V1 spot assumption); Meridian does not match.
+- Localnet on-book sim uses book-sim fills (+ real mint/merge); full Phoenix.so market create is residual — see [`phoenix-onbook-sim.md`](phoenix-onbook-sim.md).
 - Sim is feature-gated; Railway/prod use real ≥4:00 PM ET + Pyth quality ([`DEPLOY.md`](DEPLOY.md)).
 
 ## Out of scope for this script
