@@ -48,27 +48,34 @@ describe("planIntentComposition", () => {
     expect(plan.notes.some((n) => /Transient Yes\+No/i.test(n))).toBe(true);
   });
 
-  it("Sell No → bid Yes at 1−p_no; merge blocked (Schema TODO)", () => {
+  it("Sell No market → bid Yes + immediate merge_pair", () => {
     const pNo = 0.35;
     const plan = planIntentComposition({
       intent: "sell-no",
       price: pNo,
       size: 8,
-      orderType: "ioc" as never,
-    });
-    // orderType passthrough — use market
-    const plan2 = planIntentComposition({
-      intent: "sell-no",
-      price: pNo,
-      size: 8,
       orderType: "market",
     });
-    expect(plan2.phoenixSide).toBe("bid");
-    expect(plan2.yesPrice).toBeCloseTo(0.65, 8);
-    expect(plan2.needsMerge).toBe(true);
-    expect(plan2.mergeBlocked).toBe(true);
-    expect(plan2.packaging).toBe("phoenix-then-merge-todo");
-    expect(plan2.notes.some((n) => /Schema/i.test(n))).toBe(true);
+    expect(plan.phoenixSide).toBe("bid");
+    expect(plan.yesPrice).toBeCloseTo(0.65, 8);
+    expect(plan.needsMerge).toBe(true);
+    expect(plan.mergeBlocked).toBe(false);
+    expect(plan.packaging).toBe("phoenix-then-merge");
+    expect(plan.notes.some((n) => /merge_pair/i.test(n))).toBe(true);
+  });
+
+  it("Sell No limit → resting bid; merge-on-fill caveat", () => {
+    const plan = planIntentComposition({
+      intent: "sell-no",
+      price: 0.35,
+      size: 8,
+      orderType: "limit",
+    });
+    expect(plan.phoenixSide).toBe("bid");
+    expect(plan.needsMerge).toBe(true);
+    expect(plan.mergeBlocked).toBe(true);
+    expect(plan.packaging).toBe("phoenix-then-merge-todo");
+    expect(plan.notes.some((n) => /resting|not automatic/i.test(n))).toBe(true);
   });
 
   it("snaps Yes↔No price transform with tick math", () => {

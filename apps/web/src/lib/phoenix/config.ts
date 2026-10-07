@@ -40,5 +40,9 @@ export function getPhoenixProgramId(): string {
 export const PHOENIX_NOT_CONFIGURED_MESSAGE =
   "Phoenix market not configured. Set NEXT_PUBLIC_PHOENIX_ENABLED and a market pubkey (or leave ENABLED unset with phoenixMarket on the strike).";
 
+/**
+ * Resting Sell No only: bid is submitted; merge_pair-on-fill is phased.
+ * Immediate (market) Sell No packs merge_pair in the same tx — no this caveat.
+ */
 export const SELL_NO_MERGE_CAVEAT =
-  "Sell No places a Bid Yes at 1−p_no. Atomic merge Yes+No→USDC awaits Schema (no merge ix in meridian.prod.json). You may hold Yes+No until merge lands.";
+  "Sell No resting orders place Bid Yes at 1−p_no only. merge_pair on fill is not automatic yet — after fills, merge Yes+No→USDC via Meridian, or use Market for immediate bid+merge_pair.";

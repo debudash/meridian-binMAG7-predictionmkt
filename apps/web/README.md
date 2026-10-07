@@ -9,7 +9,7 @@ Next.js (App Router) + TypeScript UI for Peak6 Meridian binary Yes/No markets.
 - Solana wallet adapter + versioned transactions
 - Anchor program client for `mint` / `redeem` / read settle status
 - Phoenix CLOB as Yes/USDC book (D-015) — `@ellipsis-labs/phoenix-sdk` place/cancel when market configured
-- Intent composition: Buy/Sell Yes = bid/ask; **Buy No** = Meridian mint + ask Yes @ `1−p_no`; **Sell No** = bid Yes @ `1−p_no` (merge Yes+No→USDC is Schema TODO — no invent merge ix)
+- Intent composition: Buy/Sell Yes = bid/ask; **Buy No** = Meridian mint + ask Yes @ `1−p_no`; **Sell No** = bid Yes @ `1−p_no` then **`merge_pair`** (same tx when market/immediate; resting = bid only, merge-on-fill phased)
 - Indexer: `listMarkets` / `getMarket` via `NEXT_PUBLIC_INDEXER_URL` or RPC `StrikeMarket` GPA; fixtures when live data empty
 - Pyth for display / settlement status (provider shell; feeds via env)
 

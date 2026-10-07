@@ -6,6 +6,19 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-07T07:45:00-05:00 — Engineers: Sell No merge_pair client + size unify (Reviewer Highs)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers; Grok Bot |
+| **Branch** | `eng/sell-no-merge-size` from `origin/main` @ `3051584` |
+| **Decision** | Land Reviewer CONDITIONAL PASS Highs: (1) `buildMergeIx` + Sell No immediate `phoenix-then-merge` (market); resting limit/post-only keeps honest merge-on-fill caveat; fix stale “no merge ix / Schema TODO” copy. (2) Unify `contractsToRawAmounts` so mint raw == Phoenix `sizeInBaseUnits` (decimals=6 atoms). Medium: `PAUSE_BLOCKS` += `merge_pair`. No program id / keypair changes. |
+| **Result** | web vitest green; resting merge-on-fill still phased. |
+| **Files** | `apps/web/src/lib/solana/instructions.ts` · `phoenix/{compose,client,config,types,size}.ts` · `TradeTicket.tsx` · `tests/helpers/invariants.ts` · TRACKER/AI_LOG/DEMO_SCRIPT |
+| **Related** | D-018 · Reviewer `/workspace/meridian-review-main-3051584.md` · !28 · !31 · !32 |
+
+---
+
 ## 2026-10-07T00:30:00-05:00 — Engineers: green P2 A-05/R-08/X-07 + INV gates (D-018)
 
 | Field | Value |

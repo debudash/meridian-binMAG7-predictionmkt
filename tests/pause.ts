@@ -31,6 +31,7 @@ describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", function () {
     const ctx = await TestCtx.boot();
     expect(PAUSE_BLOCKS).to.include("mint");
     expect(PAUSE_BLOCKS).to.include("create_strike_market");
+    expect(PAUSE_BLOCKS).to.include("merge_pair");
     await ctx.setupProtocol();
     await ctx.createMarket();
     await ctx.pause();

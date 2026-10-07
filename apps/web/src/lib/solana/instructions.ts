@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Meridian user instructions wired where Schema is clear: mint, redeem.
+ * Meridian user instructions: mint, merge_pair, redeem.
  * Settle is permissionless/read-status; create_strike is automation (not UI).
- * Buy/Sell No composition TBD — TODO(schema/phoenix).
+ * Buy No = mint + Phoenix ask; Sell No = Phoenix bid + merge_pair (immediate).
  *
  * Account names match idl/meridian.prod.json exactly.
  */
@@ -24,6 +24,9 @@ export interface MintAccounts {
   treasury: PublicKey;
   collateralMint: PublicKey;
 }
+
+/** Same account set as mint — merge_pair is the Open-state inverse. */
+export type MergeAccounts = MintAccounts;
 
 /** Mint Yes+No pair against USDC collateral (amount in base units). */
 export async function buildMintIx(
@@ -48,6 +51,49 @@ export async function buildMintIx(
 
   return (program.methods as any)
     .mint(amount)
+    .accounts({
+      user: accounts.user,
+      config,
+      strikeMarket: accounts.strikeMarket,
+      collateralVault: accounts.collateralVault,
+      vaultAuthority,
+      userCollateralAta,
+      userYesAta,
+      userNoAta,
+      yesMint: accounts.yesMint,
+      noMint: accounts.noMint,
+      treasury: accounts.treasury,
+      collateralMint: accounts.collateralMint,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    });
+}
+
+/**
+ * Merge Yes+No → USDC while market Open (D-018 / merge_pair).
+ * Amount in outcome raw units (same scale as mint).
+ */
+export async function buildMergeIx(
+  program: Program,
+  accounts: MergeAccounts,
+  amount: BN,
+) {
+  const [config] = configPda();
+  const [vaultAuthority] = vaultAuthorityPda(accounts.strikeMarket);
+  const userCollateralAta = getAssociatedTokenAddressSync(
+    accounts.collateralMint,
+    accounts.user,
+  );
+  const userYesAta = getAssociatedTokenAddressSync(
+    accounts.yesMint,
+    accounts.user,
+  );
+  const userNoAta = getAssociatedTokenAddressSync(
+    accounts.noMint,
+    accounts.user,
+  );
+
+  return (program.methods as any)
+    .mergePair(amount)
     .accounts({
       user: accounts.user,
       config,
