@@ -3,6 +3,7 @@
 import { MarketCard } from "@/components/market/MarketCard";
 import type { MarketView } from "@/lib/market/types";
 import { useLastViewedMarket } from "@/components/ui/useLastViewedMarket";
+import { useWalletPositions } from "@/hooks/useWalletPositions";
 
 export function LandingClient({
   featured,
@@ -14,6 +15,9 @@ export function LandingClient({
   strip?: boolean;
 }) {
   const lastViewed = useLastViewedMarket();
+  const livePositions = useWalletPositions(
+    strip && closingSoon ? closingSoon : featured ? [featured] : [],
+  );
   if (strip && closingSoon) {
     if (closingSoon.length === 0) {
       return <p className="muted">No markets are open right now. Check back soon.</p>;
@@ -27,7 +31,12 @@ export function LandingClient({
         }}
       >
         {closingSoon.map((m) => (
-          <MarketCard key={m.marketId} market={m} lastViewed={m.marketId === lastViewed} />
+          <MarketCard
+            key={m.marketId}
+            market={m}
+            lastViewed={m.marketId === lastViewed}
+            livePosition={livePositions?.get(m.marketId)}
+          />
         ))}
       </div>
     );
@@ -43,5 +52,11 @@ export function LandingClient({
     );
   }
 
-  return <MarketCard market={featured} lastViewed={featured.marketId === lastViewed} />;
+  return (
+    <MarketCard
+      market={featured}
+      lastViewed={featured.marketId === lastViewed}
+      livePosition={livePositions?.get(featured.marketId)}
+    />
+  );
 }

@@ -12,6 +12,8 @@ import { expiryChipLabel, expiryKey } from "@/lib/market/fixtures";
 import { formatOutcomePrice } from "@/lib/format";
 import { noPriceFromYes } from "@/lib/market/bookTransform";
 import { useLastViewedMarket } from "@/components/ui/useLastViewedMarket";
+import { useWalletPositions } from "@/hooks/useWalletPositions";
+import { MarketBuyCell } from "@/components/market/MarketBuyLinks";
 
 type StatusFilter = "open" | "closing-soon" | "closed" | "settled" | "all";
 type ViewMode = "cards" | "table" | "ladder";
@@ -59,6 +61,8 @@ export function MarketsClient({
   );
   const [expiry, setExpiry] = useState<string>(initialExpiry ?? "");
   const lastViewed = useLastViewedMarket();
+  // One batched balance read for every listed market (null when disconnected).
+  const livePositions = useWalletPositions(markets);
 
   const allUnderlyings = useMemo(() => {
     const set = new Set(markets.map((m) => m.underlyingSymbol));
@@ -332,7 +336,12 @@ export function MarketsClient({
           }}
         >
           {filtered.map((m) => (
-            <MarketCard key={m.marketId} market={m} lastViewed={m.marketId === lastViewed} />
+            <MarketCard
+              key={m.marketId}
+              market={m}
+              lastViewed={m.marketId === lastViewed}
+              livePosition={livePositions?.get(m.marketId)}
+            />
           ))}
         </div>
       ) : view === "table" ? (
@@ -349,6 +358,7 @@ export function MarketsClient({
                 <th>OI</th>
                 <th>Closes</th>
                 <th>Status</th>
+                <th>Trade</th>
               </tr>
             </thead>
             <tbody>
@@ -390,6 +400,9 @@ export function MarketsClient({
                     <td className="tabular">{m.openInterest?.toLocaleString() ?? "—"}</td>
                     <td>{cd.relativeLabel}</td>
                     <td>{cd.state}</td>
+                    <td>
+                      <MarketBuyCell market={m} livePosition={livePositions?.get(m.marketId)} />
+                    </td>
                   </tr>
                 );
               })}
@@ -433,6 +446,7 @@ export function MarketsClient({
                       <th>No ask</th>
                       <th>Implied</th>
                       <th>Vol</th>
+                      <th>Trade</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -483,6 +497,12 @@ export function MarketsClient({
                           </td>
                           <td className="tabular">
                             {m.volume24hUsdc?.toLocaleString() ?? "—"}
+                          </td>
+                          <td>
+                            <MarketBuyCell
+                              market={m}
+                              livePosition={livePositions?.get(m.marketId)}
+                            />
                           </td>
                         </tr>
                       );
