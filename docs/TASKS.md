@@ -15,7 +15,7 @@ Statuses: **Todo** / **In Progress** / **Done** only (no Blocked).
 
 - [x] **PM:** Debu SPEC lock — Done on tip (!20) — Owner: Meridian PM / Debu
 - [ ] **Reviewers:** Continuous security + demo readiness beyond !17 — Owner: Meridian Reviewers
-- [ ] **Engineers:** Phoenix Buy/Sell No composition + real on-book trade in sim E2E — Owner: Meridian Engineers
+- [x] **Engineers:** Phoenix Buy/Sell No on-book sim E2E (DLV-064 book-sim + PHX-*; Phoenix.so create residual) — Owner: Meridian Engineers
 - [ ] **Engineers:** implement `merge_pair` only after Testers red suite MR — Owner: Meridian Engineers
 
 ## Todo

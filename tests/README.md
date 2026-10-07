@@ -57,7 +57,7 @@ Do **not** commit keypair JSON. Testers own fixture/README alignment only — En
 ## Localnet simulated session (D-017)
 
 - **Sim open / close** are harness-driven fixtures — **not** real 9:30 / 4:00 ET.
-- **Sim trade** = mint inventory + **off-book SPL Yes transfer** (Phoenix placeholder / V-08 twin). Meridian does **not** own matching; do not invent a Phoenix matching engine.
+- **Sim trade (preferred):** `simTradeOnBook` / PHX-* on-book book-sim (DLV-064). **Demoted:** off-book SPL Yes transfer (V-08 twin). Meridian does **not** own matching.
 - **Settle** uses MockPyth (`upsert_mock_pyth`) or `admin_settle` on localnet only.
 - All `sim_*` program ixs **must** stay behind Cargo feature **`localnet-test`** (same deploy gate as `upsert_mock_pyth` / `test_drain_vault`).
 
@@ -95,3 +95,8 @@ anchor test -- --features localnet-test
 # Prod build check (sim / mock fixture ixs must be ABSENT):
 yarn build:prod
 ```
+
+### DLV-064 on-book
+
+- `tests/phoenix_onbook_e2e.ts` — PHX-01…06
+- `docs/phoenix-onbook-sim.md`

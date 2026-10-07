@@ -6,7 +6,7 @@
  * Program id tip: 9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6.
  * Do **not** change Rust in this suite MR — Engineers implement only to green (D-016).
  * Do **not** invent a Phoenix matcher. Meridian tests only `merge_pair`;
- * client Sell No = Phoenix bid Yes then merge_pair (composition stays off-book / placeholder).
+ * client Sell No = Phoenix bid Yes then merge_pair (on-book / book-sim — DLV-064; not a Meridian matcher).
  *
  * Coordination: A-05 Policy A + X-07 Settling retire covered by P2 suite !27;
  * Schema !29 docs align — this MR does **not** double-flip those cases.

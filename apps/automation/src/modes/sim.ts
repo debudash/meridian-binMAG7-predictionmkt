@@ -182,8 +182,9 @@ export async function runSimLifecycle(opts: {
   log("sim_open_session", { sig: openSig });
 
   log(
-    "mint path (manual / harness): call meridian mint(amount) while trading_open && now < expiry_ts; " +
-      "Phoenix trade is off-book / beside Meridian (D-015). PDAs: " +
+    "mint + on-book trade (manual / harness): meridian mint(amount) while trading_open; " +
+      "prefer simTradeOnBook (Buy/Sell Yes/No book-sim + Sell No merge_pair) — docs/phoenix-onbook-sim.md; " +
+      "off-book Yes SPL demoted. Phoenix market create still residual (D-015). PDAs: " +
       JSON.stringify(
         Object.fromEntries(
           Object.entries(marketPdas(opts.program.programId, market)).map(([k, v]) => [

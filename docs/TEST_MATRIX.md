@@ -181,7 +181,7 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 | Step | Meaning | **Not** |
 | --- | --- | --- |
 | **Simulated open** | Market/strike is open for **trading** (`trading_open=true` or equivalent). Authority/fixture ix under `localnet-test`. | Wall-clock 9:30 ET |
-| **Trade** | Meridian does **not** match. Represent a sim trade as: (1) `mint` for inventory + (2) **off-book SPL transfer** of Yes (Phoenix placeholder / V-08 twin), **or** a future Phoenix CPI **mock** — never invent a matching engine in Meridian. | Phoenix place/fill internals |
+| **Trade** | Meridian does **not** match. Prefer **on-book sim** (`simTradeOnBook` / PHX-*): compose + book-sim Yes↔USDC fill + mint/merge as needed (DLV-064). Off-book Yes SPL = demoted V-08 twin only. Never invent a Meridian matching engine. Full Phoenix.so localnet create = residual. | Phoenix place/fill internals |
 | **Simulated close** | Trading window ends (`trading_open=false`). Blocks new mint (and any Meridian-gated trade entry). | Wall-clock 4:00 PM ET |
 | **Settle** | Existing MockPyth / `upsert_mock_pyth` + permissionless `settle`, **or** `admin_settle` after delay — localnet fixtures only for forced YesWins/NoWins. | Mainnet Pyth bypass |
 | **Redeem** | Existing `redeem` of winning mint; vault $1 invariants hold. | — |
@@ -193,7 +193,7 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 | Case ID | Phase | Precondition | Action | Expected | Oracle/Phoenix notes | Priority | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | SIM-01 | sim_session | Market created; localnet-test | `sim_open_session` | `trading_open == true` (or equiv.); mint allowed | Not 9:30 ET | P0 | failing |
-| SIM-02 | sim_session | SIM-01 open; fees 0 | `mint` + **sim trade** = off-book Yes SPL transfer to 2nd user | `pairs_*` / vault **unchanged** by transfer; Yes balances move (V-08 twin) | Phoenix placeholder only | P0 | failing |
+| SIM-02 | sim_session | SIM-01 open; fees 0 | `mint` + **sim trade** = demoted off-book Yes SPL (V-08 twin); prefer PHX-* on-book | `pairs_*` / vault **unchanged** by transfer; Yes balances move | On-book = PHX-02…05 / book-sim | P0 | passing |
 | SIM-03 | sim_session | Trading open | `sim_close_session` | `trading_open == false`; trading window ended | Not 4:00 PM ET | P0 | failing |
 | SIM-04 | sim_session | After sim close; before settle | `mint(...)` | Fail `TradingClosed` (or `MarketNotOpen`); vault/supplies unchanged | Negative: trade/mint after close | P0 | failing |
 | SIM-05 | sim_session | Trading still open; expiry reached; valid MockPyth | `settle` | Fail `SessionNotClosed` (product requires close before settle) — **pin error name in impl** | If Engineers document settle-without-close allowed, update matrix + retire this row | P0 | failing |

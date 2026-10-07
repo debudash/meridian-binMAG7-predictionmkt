@@ -41,7 +41,7 @@ Optional: `PHOENIX_MARKETS`, `ADMIN_SETTLE_*` for fallback after settle failure.
 2. `create_strike_market` — one strike from config placeholders
 3. `set_phoenix_market` — if `PHOENIX_MARKETS` provides a pubkey (Phoenix **create** still TODO)
 4. `sim_open_session` — sets `trading_open` (as landed on main via eng/sim-session)
-5. **Mint path (documented):** call `mint(amount)` via harness/CLI while session open; Phoenix trade remains beside Meridian (off-book / spot wiring — D-015)
+5. **Mint + on-book trade (documented):** call `mint(amount)` while session open; prefer harness **`simTradeOnBook`** (Buy/Sell Yes/No compose + book-sim fill + Sell No `merge_pair`) — [`phoenix-onbook-sim.md`](phoenix-onbook-sim.md). Off-book Yes SPL is demoted fallback. Phoenix **market create** on validator still residual; client SDK place when `phoenixMarket` set (D-015)
 6. `sim_close_session` — closes trading session
 7. `settle` (real decoder path against mock feed on localnet) or `admin_settle` after delay if configured
 

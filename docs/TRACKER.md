@@ -47,13 +47,14 @@ _Last refreshed: 2026-10-07 09:15 CT (main tip `92d414e`; DLV-039 test results a
 
 - [x] Peak6 PRD: test results artifact DLV-039 (`docs/TEST_RESULTS.md`) — 74/74 cite tip `65c1ddf`/`92d414e` (!34 flake harden)
 
+- [x] Eng: Phoenix Buy/Sell No **on-book sim E2E** DLV-064 (`eng/dlv064-phoenix-onbook-e2e`) — `simTradeOnBook` + PHX-01…06; off-book demoted; residual Phoenix.so market create in `docs/phoenix-onbook-sim.md`
+
 ## In Progress
 
 - [ ] Reviewer continuous / demo readiness (beyond !17 nits / !33 Highs) — demo video + walkthrough still owed (keypair tip-delete done in !24)
 
 ## Todo
 
-- [ ] Phoenix Buy/Sell No **sim E2E** real on-book trade (sim trade today = off-book Yes SPL placeholder; client place + Sell No merge landed !28/!33)
 - [ ] Eng SimClock PDA impl (`init`/`set`/`warp` behind `localnet-test`) per `docs/sim-clock.md` (docs landed !14; not required by SIM-01…09)
 - [ ] UI sim affordance (optional for V1) (D-017)
 - [ ] Peak6 PRD: demo video (distinct from `DEMO_SCRIPT.md`)
