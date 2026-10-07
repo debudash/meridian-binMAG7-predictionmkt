@@ -19,6 +19,7 @@ import {
   createAssociatedTokenAccountInstruction,
   createInitializeMint2Instruction,
   createMintToInstruction,
+  createTransferInstruction,
   getAssociatedTokenAddressSync,
   getAccount,
   getMint,
@@ -37,6 +38,8 @@ import {
   PYTH_FEED_ID_PLACEHOLDER,
   PHOENIX_MARKET_PLACEHOLDER,
   MarketStatus,
+  SIM_SESSION_INSTRUCTIONS,
+  SimError,
 } from "./fixtures";
 
 export class TddRedError extends Error {
@@ -668,6 +671,155 @@ export class TestCtx {
   }
 
 
+
+  // --- Localnet simulated session (D-017 / Cluster G) ---
+  // Engineers: land `sim_open_session` / `sim_close_session` under `localnet-test` only.
+  // Prefer StrikeMarket.trading_open: bool (default true on create so P0/P1 stay green).
+
+  /** Resolve sim open/close method from IDL (name flexible). */
+  private simSessionMethod(kind: "open" | "close"): any {
+    const m = this.program.methods as Record<string, (...a: any[]) => any>;
+    const candidates =
+      kind === "open"
+        ? ["simOpenSession", "simOpen", "sim_open_session"]
+        : ["simCloseSession", "simClose", "sim_close_session"];
+    for (const name of candidates) {
+      if (typeof m[name] === "function") return m[name].bind(m);
+    }
+    return null;
+  }
+
+  /**
+   * Simulated open — market/strike open for trading (NOT wall-clock 9:30 ET).
+   * localnet-test fixture only.
+   */
+  async simOpen(caseId: string = "SIM") {
+    const fn = this.simSessionMethod("open");
+    if (!fn) {
+      throw new TddRedError(
+        caseId,
+        "IDL missing sim_open_session (or sim_open) — Engineers: land localnet-test fixture; never ship on mainnet"
+      );
+    }
+    await fn()
+      .accounts({
+        authority: this.authority.publicKey,
+        config: this.configPda,
+        strikeMarket: this.market,
+      })
+      .signers([this.authority])
+      .rpc();
+  }
+
+  /**
+   * Simulated close — trading window ends (NOT wall-clock 4:00 PM ET).
+   * localnet-test fixture only.
+   */
+  async simClose(caseId: string = "SIM") {
+    const fn = this.simSessionMethod("close");
+    if (!fn) {
+      throw new TddRedError(
+        caseId,
+        "IDL missing sim_close_session (or sim_close) — Engineers: land localnet-test fixture; never ship on mainnet"
+      );
+    }
+    await fn()
+      .accounts({
+        authority: this.authority.publicKey,
+        config: this.configPda,
+        strikeMarket: this.market,
+      })
+      .signers([this.authority])
+      .rpc();
+  }
+
+  /**
+   * Read trading-open flag. Engineers: expose `tradingOpen` bool on StrikeMarket
+   * (preferred) or document status equivalent.
+   */
+  async isTradingOpen(caseId: string = "SIM"): Promise<boolean> {
+    const m = await this.marketState();
+    if (typeof (m as any).tradingOpen === "boolean") return (m as any).tradingOpen;
+    if (typeof (m as any).trading_open === "boolean") return (m as any).trading_open;
+    throw new TddRedError(
+      caseId,
+      "StrikeMarket missing trading_open / tradingOpen — Engineers: add bool (default true on create) under schema + localnet sim ixs"
+    );
+  }
+
+  async assertTradingOpen(caseId: string) {
+    expect(await this.isTradingOpen(caseId), `${caseId}: expected trading open`).to.equal(true);
+  }
+
+  async assertTradingClosed(caseId: string) {
+    expect(await this.isTradingOpen(caseId), `${caseId}: expected trading closed`).to.equal(false);
+  }
+
+  /**
+   * Sim trade representation (Phoenix placeholder): off-book SPL Yes transfer.
+   * Does NOT invoke Phoenix matching. Vault / pairs_* must stay unchanged (SCHEMA §7.7).
+   * Optional future: Phoenix CPI mock — still not a Meridian matcher.
+   */
+  async simTradeOffBook(
+    toUser: Keypair,
+    yesAmount: BN,
+    fromUser: Keypair = this.user
+  ) {
+    const src = getAssociatedTokenAddressSync(this.yesMint, fromUser.publicKey);
+    const dst = getAssociatedTokenAddressSync(this.yesMint, toUser.publicKey);
+    // Ensure destination ATA exists
+    try {
+      await getAccount(this.provider.connection, dst);
+    } catch {
+      await this.provider.sendAndConfirm(
+        new Transaction().add(
+          createAssociatedTokenAccountInstruction(
+            this.authority.publicKey,
+            dst,
+            toUser.publicKey,
+            this.yesMint
+          )
+        )
+      );
+    }
+    await this.provider.sendAndConfirm(
+      new Transaction().add(
+        createTransferInstruction(
+          src,
+          dst,
+          fromUser.publicKey,
+          BigInt(yesAmount.toString()),
+          [],
+          TOKEN_PROGRAM_ID
+        )
+      ),
+      [fromUser]
+    );
+  }
+
+  /** Assert IDL lists suggested sim session ixs (TDD_RED if absent). */
+  assertSimSessionIdl(caseId: string = "SIM-09") {
+    const idl = loadMeridianIdl();
+    const names = new Set(idl.instructions.map((i) => i.name));
+    const openOk =
+      names.has("sim_open_session") ||
+      names.has("simOpenSession") ||
+      names.has("sim_open");
+    const closeOk =
+      names.has("sim_close_session") ||
+      names.has("simCloseSession") ||
+      names.has("sim_close");
+    if (!openOk || !closeOk) {
+      throw new TddRedError(
+        caseId,
+        `localnet-test IDL must include sim open/close (want ${SIM_SESSION_INSTRUCTIONS.join(
+          ", "
+        )}); got [${[...names].join(", ")}]. Prod builds must omit these ixs.`
+      );
+    }
+  }
+
+
 }
 
-export { MarketStatus, ONE, BN };
+export { MarketStatus, ONE, BN, SimError, SIM_SESSION_INSTRUCTIONS };

@@ -6,6 +6,15 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T19:32:00-05:00 — Testers: localnet sim session lifecycle TDD (SIM-01…SIM-09)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Testers; Grok Bot (glab land) |
+| **Decision** | Extend TEST_MATRIX Cluster G + failing `tests/sim_session.ts` (SIM-01…SIM-09) for **localnet-only** simulated open→trade→close→settle→redeem (D-017). Harness hooks `simOpen` / `simClose` / `simTradeOffBook` throw **TDD_RED** until Eng lands `sim_*` under `localnet-test`. Sim trade = mint + off-book Yes SPL transfer (Phoenix placeholder) — **no** Meridian matching engine. Negatives: mint after close; settle before close. Distinct from mainnet; never gate prod builds. |
+| **Result** | Branch `test/sim-session-lifecycle` → MR to `main`. Engineers implement **only** to green. |
+| **Related** | D-016, D-017, MR !5–!11 |
+
 ## 2026-10-06T19:30:00-05:00 — D-017 SimClock / effective_clock for localnet market open-close (Meridian Schema)
 
 | Field | Value |
@@ -14,6 +23,7 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 | **Decision** | **D-017:** Simulate mint-window open/close without wall-clock waits. No new `StrikeMarket` status for session hours — lifecycle stays `Open` → `SettledYes|SettledNo|Void`. Meridian "market open" = `status==Open && !paused && effective_now < expiry_ts`; "close" = `effective_now >= expiry_ts`. Add **SimClock** PDA seeds `["sim_clock"]` (`authority`, `unix_timestamp`, `slot`, `enabled`, `bump`); authority = `Config.authority`. Ixs `init_sim_clock` / `set_sim_clock` / `warp_sim_clock` / optional `disable_sim_clock` all `#[cfg(feature = "localnet-test")]` (same deploy-blocker pattern as mock Pyth). Time gates on mint/settle/admin_settle (+ Pyth `slot_now`) use **`effective_clock`**; prod builds use `Clock::get()` only. Preferred Anchor shape: `sim_clock: Option<Account<SimClock>>` under localnet-test. `settled_at_ts`/`settled_slot` record effective values. Event `SimClockSet`. Pause unchanged. Full proposal: [`sim-clock.md`](sim-clock.md). |
 | **Result** | Schema docs updated: `docs/sim-clock.md` created; SCHEMA / accounts / flows / programs README / DECISIONS / AI_LOG aligned. Engineers implement behind `localnet-test`. |
 | **Related** | D-017 · D-014 · D-016 · localnet fixtures (upsert_mock_pyth, test_drain_vault) |
+
 
 ---
 
