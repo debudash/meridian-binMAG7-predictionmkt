@@ -8,7 +8,8 @@
     "test:unit": "mocha -r ts-node/register 'tests/unit/**/*.ts' --timeout 10000 --exit",
     "test:lifecycle": "mocha -r ts-node/register 'tests/{mint,settle,redeem,invariants,pause}.ts' --timeout 120000 --exit",
     "build:localnet": "anchor build -- --features localnet-test",
-    "build:prod": "anchor build"
+    "build:prod": "anchor build",
+    "deploy:build": "anchor build"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.31.1",
