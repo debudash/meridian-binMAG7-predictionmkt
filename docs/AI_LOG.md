@@ -6,6 +6,19 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-07T00:30:00-05:00 — Engineers: green P2 A-05/R-08/X-07 + INV gates (D-018)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers; Grok Bot |
+| **Branch** | `eng/p2-invariant-gates` from `origin/test/p2-invariant-gates` @ `1f6fc77`, rebased onto `main` @ `9f175d7` (!31 merge_pair) |
+| **Decision** | Implement Schema **D-018** P2 slices only: A-05 **Policy A** (`OutcomeInconsistent`) + X-07 **retire Settling** (unused/reserved; discriminant kept; Open-only `is_open`). **Did not** re-implement `merge_pair` (already green on main !31). No Phoenix matcher. Program id unchanged `9Rb7nx…`. |
+| **Impl** | `errors.rs` + `admin_settle.rs` consistency check; X-07 suite flip documenting retirement; R-08 / INV-* via existing `burn_losing` + fee trunc / prod IDL. `waitPastExpiry` +1.5s slack (localnet Clock lag). |
+| **Result** | Localnet **74 passing / 0 failing** (P0/P1/SIM + MP-01…08 + P2 A-05/R-08/X-07 + INV-*). |
+| **Related** | D-016 · D-018 · !27 suite · !31 merge_pair · TEST_MATRIX Cluster H |
+
+---
+
 ## 2026-10-07T00:19:00-05:00 — Eng: prod merge_pair greens MP-01…MP-08 (D-018)
 
 | Field | Value |
@@ -50,6 +63,14 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 | **Related** | D-014 · D-015 · SPEC §3.4 · `docs/ui/06` · branch `eng/phoenix-place-indexer` |
 
 ---
+## 2026-10-06T23:55:00-05:00 — Testers: P2 + invariant gates TDD suite
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Testers; Grok Bot (`glab` commits API) |
+| **Decision** | Land failing/pinning P2 suite on `test/p2-invariant-gates` from tip `main` (program id `9Rb7nx…`). Cases: **A-05** (prefer reject inconsistent `outcome_yes` vs price/strike; XOR accept+log + DECISIONS), **R-08** (`burn_losing`), **X-07** (Settling unused — pin or retire), **INV-P2-I3** / **INV-PROD-01** / **INV-FEE-TRUNC**. Harness adds `burnLosing`. No Rust; no Phoenix matcher; no P0/P1/SIM re-impl. |
+| **Result** | Suite MR for Engineers to green (D-016). |
+| **Related** | D-016 · TEST_MATRIX · !25 program-id · !16 SIM green |
 
 ## 2026-10-06T23:52:00-05:00 — SPEC lock confirmed on main (!20 @ aa97a22)
 

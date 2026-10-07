@@ -53,6 +53,7 @@ export const PHOENIX_MARKET_PLACEHOLDER = new PublicKey(
   Buffer.alloc(32, 0x50)
 );
 
+/** Settling=1 retired/unused (D-018 / X-07); discriminant kept for layout. */
 export const MarketStatus = {
   Open: 0,
   Settling: 1,

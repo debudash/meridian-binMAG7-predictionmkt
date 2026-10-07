@@ -4,6 +4,7 @@ use anchor_lang::prelude::*;
 #[repr(u8)]
 pub enum MarketStatus {
     Open = 0,
+    /// Retired / unused (X-07 / D-018). Kept for discriminant stability; never written.
     Settling = 1,
     SettledYes = 2,
     SettledNo = 3,

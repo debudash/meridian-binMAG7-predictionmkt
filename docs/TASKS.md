@@ -13,7 +13,8 @@ Statuses: **Todo** / **In Progress** / **Done** only (no Blocked).
 
 ## In Progress
 
-- [ ] **PM:** Debu SPEC lock ping after freeze candidate lands — Owner: Meridian PM / Debu
+- [ ] **Testers:** P2 cases + invariant gates suite MR (`test/p2-invariant-gates`) — A-05 / R-08 / X-07 + INV-* — Owner: Meridian Testers
+- [x] **PM:** Debu SPEC lock — Done on tip (!20) — Owner: Meridian PM / Debu
 - [ ] **Reviewers:** Continuous security + demo readiness beyond !17 — Owner: Meridian Reviewers
 - [ ] **Engineers:** Phoenix Buy/Sell No composition + real on-book trade in sim E2E — Owner: Meridian Engineers
 - [ ] **Testers:** `merge_pair` red suite MP-01…MP-08 (D-018) — Owner: Meridian Testers

@@ -40,6 +40,13 @@ pub fn handler(
     );
     require!(settlement_price_e6 > 0, MeridianError::InvalidPythPrice);
 
+    // A-05 / D-018 Policy A: outcome_yes must match implied Yes (price_e6 >= strike).
+    let implied_yes = settlement_price_e6 >= market.strike_price_e6;
+    require!(
+        outcome_yes == implied_yes,
+        MeridianError::OutcomeInconsistent
+    );
+
     market.settlement_price_e6 = settlement_price_e6;
     market.settled_at_ts = clock.unix_timestamp;
     market.settled_slot = clock.slot;

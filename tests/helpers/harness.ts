@@ -392,7 +392,8 @@ export class TestCtx {
 
   async waitPastExpiry() {
     const target = Number(this.expiryTs.toString()) + 1;
-    const waitMs = Math.max(0, target * 1000 - Date.now()) + 500;
+    // +1500ms slack: localnet Clock can lag wall time (SIM-08 AdminSettleTooEarly flake).
+    const waitMs = Math.max(0, target * 1000 - Date.now()) + 1500;
     if (waitMs > 0) await sleep(waitMs);
   }
 
@@ -513,6 +514,26 @@ export class TestCtx {
         noMint: this.noMint,
         treasury: this.treasury,
         collateralMint: this.collateralMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([signer])
+      .rpc();
+  }
+
+  /**
+   * P2 helper: burn losing outcome tokens after settle (R-08). No USDC; pairs_redeemed unchanged.
+   * `losing` must be the non-winning mint for the settled market.
+   */
+  async burnLosing(amount: BN, losing: "yes" | "no", signer: Keypair = this.user): Promise<string> {
+    const losingMint = losing === "yes" ? this.yesMint : this.noMint;
+    return await this.program.methods
+      .burnLosing(amount)
+      .accounts({
+        user: signer.publicKey,
+        config: this.configPda,
+        strikeMarket: this.market,
+        userLosingAta: getAssociatedTokenAddressSync(losingMint, signer.publicKey),
+        losingMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([signer])
