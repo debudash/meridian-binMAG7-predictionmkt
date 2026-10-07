@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::constants::MOCK_PYTH_MAGIC;
+use crate::constants::{MOCK_PYTH_MAGIC, PYTH_PRICE_MAGIC};
 use crate::errors::MeridianError;
 
 /// Convert Pyth mantissa+expo → PRICE_SCALE (1e6). Toward-zero for negative shift.
@@ -24,7 +24,17 @@ pub fn pyth_price_to_e6(price: i64, expo: i32) -> Result<u64> {
     Ok(e6_u64)
 }
 
-/// Compact mock Pyth price account for tests / placeholders (D-005 gates).
+/// Normalized view used by settle (mock or real).
+#[derive(Clone, Copy, Debug)]
+pub struct PythPriceView {
+    pub price: i64,
+    pub conf: u64,
+    pub expo: i32,
+    pub publish_slot: u64,
+    pub feed_id: [u8; 32],
+}
+
+/// Compact mock Pyth price account for localnet-test only (D-005 gates).
 /// Layout (little-endian):
 /// magic:u32 | price:i64 | conf:u64 | expo:i32 | publish_slot:u64 | feed_id:[u8;32]
 #[derive(Clone, Copy, Debug)]
@@ -64,6 +74,50 @@ impl MockPythPrice {
             feed_id,
         })
     }
+
+    pub fn view(&self) -> PythPriceView {
+        PythPriceView {
+            price: self.price,
+            conf: self.conf,
+            expo: self.expo,
+            publish_slot: self.publish_slot,
+            feed_id: self.feed_id,
+        }
+    }
+}
+
+/// Localnet-test: mock layout only.
+#[cfg(feature = "localnet-test")]
+pub fn load_pyth_price(data: &[u8]) -> Result<PythPriceView> {
+    Ok(MockPythPrice::unpack(data)?.view())
+}
+
+/// Production / non-localnet: legacy Pyth Price account (magic 0xa1b2c3d4).
+/// Rejects Meridian mock magic so a mis-deployed mock account cannot settle.
+///
+/// Layout offsets aligned with pyth-sdk-solana `Price` (legacy):
+/// - magic @ 0 (u32)
+/// - expo @ 20 (i32)
+/// - agg.price @ 208 (i64), agg.conf @ 216 (u64), agg.pub_slot @ 232 (u64)
+/// Feed id is not embedded in legacy Price; caller matches `pyth_price_feed` pubkey.
+/// `feed_id` returned as zeros — settle compares only when market.pyth_feed_id != 0.
+#[cfg(not(feature = "localnet-test"))]
+pub fn load_pyth_price(data: &[u8]) -> Result<PythPriceView> {
+    require!(data.len() >= 240, MeridianError::InvalidPythAccount);
+    let magic = u32::from_le_bytes(data[0..4].try_into().unwrap());
+    require!(magic != MOCK_PYTH_MAGIC, MeridianError::InvalidPythAccount);
+    require!(magic == PYTH_PRICE_MAGIC, MeridianError::InvalidPythAccount);
+    let expo = i32::from_le_bytes(data[20..24].try_into().unwrap());
+    let price = i64::from_le_bytes(data[208..216].try_into().unwrap());
+    let conf = u64::from_le_bytes(data[216..224].try_into().unwrap());
+    let publish_slot = u64::from_le_bytes(data[232..240].try_into().unwrap());
+    Ok(PythPriceView {
+        price,
+        conf,
+        expo,
+        publish_slot,
+        feed_id: [0u8; 32],
+    })
 }
 
 pub fn check_staleness(slot_now: u64, publish_slot: u64, max_staleness: u64) -> Result<()> {

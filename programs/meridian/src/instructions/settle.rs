@@ -4,7 +4,7 @@ use crate::errors::MeridianError;
 use crate::events::Settled;
 use crate::state::{Config, MarketStatus, StrikeMarket};
 use crate::utils::pyth::{
-    check_confidence, check_staleness, pyth_price_to_e6, MockPythPrice,
+    check_confidence, check_staleness, load_pyth_price, pyth_price_to_e6,
 };
 
 #[derive(Accounts)]
@@ -14,7 +14,7 @@ pub struct Settle<'info> {
     pub config: Account<'info, Config>,
     #[account(mut, has_one = config)]
     pub strike_market: Account<'info, StrikeMarket>,
-    /// CHECK: must match strike_market.pyth_price_feed; mock layout unpacked
+    /// CHECK: must match strike_market.pyth_price_feed; decoder gated by localnet-test vs prod
     pub pyth_price_feed: UncheckedAccount<'info>,
 }
 
@@ -37,11 +37,14 @@ pub fn handler(ctx: Context<Settle>) -> Result<()> {
     );
 
     let data = ctx.accounts.pyth_price_feed.try_borrow_data()?;
-    let pyth = MockPythPrice::unpack(&data)?;
-    require!(
-        pyth.feed_id == market.pyth_feed_id,
-        MeridianError::InvalidPythAccount
-    );
+    let pyth = load_pyth_price(&data)?;
+    // Localnet mock carries feed_id; prod legacy Price returns zeros — skip compare when zero.
+    if pyth.feed_id != [0u8; 32] {
+        require!(
+            pyth.feed_id == market.pyth_feed_id,
+            MeridianError::InvalidPythAccount
+        );
+    }
 
     check_staleness(
         clock.slot,

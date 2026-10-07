@@ -25,7 +25,11 @@ pub struct Redeem<'info> {
         bump = strike_market.vault_bump
     )]
     pub vault_authority: UncheckedAccount<'info>,
-    #[account(mut, token::authority = user)]
+    #[account(
+        mut,
+        token::authority = user,
+        constraint = user_collateral_ata.mint == config.collateral_mint
+    )]
     pub user_collateral_ata: Account<'info, TokenAccount>,
     #[account(mut, token::authority = user)]
     pub user_winning_ata: Account<'info, TokenAccount>,

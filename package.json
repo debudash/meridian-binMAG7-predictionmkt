@@ -8,7 +8,9 @@
     "test:unit": "mocha -r ts-node/register 'tests/unit/**/*.ts' --timeout 10000 --exit",
     "test:lifecycle": "mocha -r ts-node/register 'tests/{mint,settle,redeem,invariants,pause}.ts' --timeout 120000 --exit",
     "build:localnet": "anchor build -- --features localnet-test",
-    "build:prod": "anchor build",
+    "build:prod": "anchor build && node scripts/emit-prod-idl.js && bash scripts/assert-prod-no-fixtures.sh",
+    "build:prod-idl": "node scripts/emit-prod-idl.js",
+    "assert:prod-fixtures": "bash scripts/assert-prod-no-fixtures.sh",
     "deploy:build": "anchor build"
   },
   "dependencies": {
