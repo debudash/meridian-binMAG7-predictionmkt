@@ -33,6 +33,8 @@ pub struct InitializeConfig<'info> {
 }
 
 pub fn handler(ctx: Context<InitializeConfig>, params: InitConfigParams) -> Result<()> {
+    require!(params.mint_fee_bps <= MAX_FEE_BPS, MeridianError::FeeTooHigh);
+    require!(params.redeem_fee_bps <= MAX_FEE_BPS, MeridianError::FeeTooHigh);
     require!(
         ctx.accounts.collateral_mint.decimals == 6,
         MeridianError::InvalidCollateralDecimals
@@ -50,7 +52,8 @@ pub fn handler(ctx: Context<InitializeConfig>, params: InitConfigParams) -> Resu
     config.admin_settle_delay_secs = params.admin_settle_delay_secs;
     config.next_market_id = 1;
     config.bump = ctx.bumps.config;
-    config.reserved = [0u8; 48];
+    config.last_config_update_ts = 0;
+    config.reserved = [0u8; 40];
     emit!(ConfigInitialized {
         authority: config.authority,
         collateral_mint: config.collateral_mint,

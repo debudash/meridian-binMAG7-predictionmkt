@@ -1358,6 +1358,21 @@
       "code": 6018,
       "name": "SessionNotClosed",
       "msg": "Sim session still open — close before settle"
+    },
+    {
+      "code": 6019,
+      "name": "FeeTooHigh",
+      "msg": "Fee bps exceeds hard cap"
+    },
+    {
+      "code": 6020,
+      "name": "ConfigTimelock",
+      "msg": "Config update timelock not elapsed"
+    },
+    {
+      "code": 6021,
+      "name": "AdminSettleDelayTooLow",
+      "msg": "Admin settle delay below production minimum"
     }
   ],
   "types": [
@@ -1455,11 +1470,18 @@
             "type": "u8"
           },
           {
+            "name": "last_config_update_ts",
+            "docs": [
+              "Unix ts of last sensitive update_config (prod timelock)."
+            ],
+            "type": "i64"
+          },
+          {
             "name": "reserved",
             "type": {
               "array": [
                 "u8",
-                48
+                40
               ]
             }
           }

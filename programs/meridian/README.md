@@ -155,3 +155,11 @@ anchor build
 
 Authority-only checks are **not** sufficient for deploy safety — these ixs are `#[cfg(feature = "localnet-test")]`.
 
+## Deploy rule (Reviewer / D-017)
+
+**FORBIDDEN on devnet staging and mainnet:** `anchor build -- --features localnet-test` or `yarn build:localnet`.
+
+Production deploy path: `yarn build:prod` (no features) → assert `.so` / `idl/meridian.prod.json` contain no fixture ix names (`upsert_mock_pyth`, `test_drain_vault`, `sim_*`, `sim_clock`).
+
+See [`docs/DEPLOY.md`](../../docs/DEPLOY.md) for the full Railway / cluster ladder.
+

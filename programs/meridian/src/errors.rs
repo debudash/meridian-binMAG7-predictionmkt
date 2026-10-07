@@ -40,4 +40,10 @@ pub enum MeridianError {
     TradingClosed,
     #[msg("Sim session still open — close before settle")]
     SessionNotClosed,
+    #[msg("Fee bps exceeds hard cap")]
+    FeeTooHigh,
+    #[msg("Config update timelock not elapsed")]
+    ConfigTimelock,
+    #[msg("Admin settle delay below production minimum")]
+    AdminSettleDelayTooLow,
 }

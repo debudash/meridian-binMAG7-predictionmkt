@@ -6,6 +6,15 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T20:10:00-05:00 — Reviewer nits: real Pyth prod path + fee caps + prod IDL
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers; Grok Bot (`eng/reviewer-nits-pyth-idl`) |
+| **Decision** | Land Reviewer approve-with-nits on main @ 14d6928: (1) **HIGH** settle decoder — `load_pyth_price` mock under `localnet-test` only; prod parses legacy Pyth Price magic `0xa1b2c3d4` and **rejects** mock magic. (2) **MEDIUM** `idl/meridian.prod.json` via `scripts/emit-prod-idl.js` + `scripts/assert-prod-no-fixtures.sh` (`yarn build:prod`). (3) **MEDIUM** `update_config` fee cap `MAX_FEE_BPS=1000`; prod-only timelock `CONFIG_TIMELOCK_SECS=3600` + min admin delay 60s (`#[cfg(not(feature = "localnet-test"))]`); localnet suite unchanged. (4) Redeem `user_collateral_ata` mint == `config.collateral_mint`. Deploy forbid note in program README — full ladder in follow-up `eng/ci-deploy`. |
+| **Result** | `anchor test -- --features localnet-test`: **51/51**. Prod `.so` + prod IDL assert: no fixture strings. |
+| **Related** | Review report `/workspace/meridian-review-main-14d6928.md` · SIM eng !16 · D-017 |
+
 ## 2026-10-06T20:10:00-05:00 — Testers nits on MR !16 (SIM expiry + header)
 
 | Field | Value |

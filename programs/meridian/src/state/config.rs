@@ -15,5 +15,7 @@ pub struct Config {
     pub admin_settle_delay_secs: u64,
     pub next_market_id: u64,
     pub bump: u8,
-    pub reserved: [u8; 48],
+    /// Unix ts of last sensitive update_config (prod timelock).
+    pub last_config_update_ts: i64,
+    pub reserved: [u8; 40],
 }

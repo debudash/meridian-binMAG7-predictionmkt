@@ -1,5 +1,7 @@
 use anchor_lang::prelude::*;
-use crate::constants::CONFIG_SEED;
+use crate::constants::{
+    CONFIG_SEED, CONFIG_TIMELOCK_SECS, MAX_FEE_BPS, MIN_ADMIN_SETTLE_DELAY_SECS_PROD,
+};
 use crate::errors::MeridianError;
 use crate::events::ConfigUpdated;
 use crate::state::Config;
@@ -27,6 +29,32 @@ pub struct UpdateConfig<'info> {
 }
 
 pub fn handler(ctx: Context<UpdateConfig>, params: UpdateConfigParams) -> Result<()> {
+    require!(params.mint_fee_bps <= MAX_FEE_BPS, MeridianError::FeeTooHigh);
+    require!(params.redeem_fee_bps <= MAX_FEE_BPS, MeridianError::FeeTooHigh);
+
+    // Production hardening (Reviewer S2): fee caps always; timelock + min delay outside localnet-test.
+    #[cfg(not(feature = "localnet-test"))]
+    {
+        require!(
+            params.admin_settle_delay_secs >= MIN_ADMIN_SETTLE_DELAY_SECS_PROD,
+            MeridianError::AdminSettleDelayTooLow
+        );
+        let clock = Clock::get()?;
+        let earliest = ctx
+            .accounts
+            .config
+            .last_config_update_ts
+            .saturating_add(CONFIG_TIMELOCK_SECS);
+        // First update (ts==0) allowed immediately after initialize.
+        if ctx.accounts.config.last_config_update_ts != 0 {
+            require!(
+                clock.unix_timestamp >= earliest,
+                MeridianError::ConfigTimelock
+            );
+        }
+        ctx.accounts.config.last_config_update_ts = clock.unix_timestamp;
+    }
+
     let config = &mut ctx.accounts.config;
     config.mint_fee_bps = params.mint_fee_bps;
     config.redeem_fee_bps = params.redeem_fee_bps;
