@@ -28,7 +28,7 @@ The user always picks **an intent**, never a raw Phoenix side. The UI translates
 |---|---|---|---|
 | Market | IOC with limit = worst acceptable price (slippage cap) | "Market" | Yes |
 | Limit | Limit (GTC) | "Limit" | — |
-| Post-only | Limit post-only | Checkbox "Post only" under Limit | off |
+| ~~Post-only~~ | Limit post-only | **Hidden in V1** (D-021, simplification per Debu) — no checkbox; always sent as post-only = false | off (forced) |
 
 - Market orders always carry a **max price** (buy) / **min price** (sell) derived from slippage setting (default 2¢, `OPEN:` default value). Shown as "Worst price".
 - Prices snap to `market.tickSize`; sizes snap to `market.lotSize` (`TODO(schema)`).

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Intent } from "@/lib/intents/types";
@@ -15,6 +15,16 @@ import { useConnection } from "@solana/wallet-adapter-react";
 import type { OrderBookSnapshot } from "@/lib/market/types";
 import { formatOutcomePrice } from "@/lib/format";
 import { noPriceFromYes, type Perspective } from "@/lib/market/bookTransform";
+import {
+  bookKeys,
+  bookSelectionReducer,
+  initialBookSelection,
+  resolveHighlightKey,
+  rowKey,
+  ticketKey,
+  ticketPriceForRow,
+  type TicketPriceState,
+} from "@/lib/market/bookSelection";
 import { yesDefinition, noDefinition, oneLineExplainer } from "@/lib/copy/payoff";
 import { useIntentAvailability } from "@/hooks/useIntentAvailability";
 import { useLivePosition } from "@/hooks/useLivePosition";
@@ -81,6 +91,20 @@ export function TradeClient({
     () => liveBook ?? fixtureBook(market),
     [liveBook, market],
   );
+  // Book row selection ⇄ ticket price (DLV-071). Keys are Yes-price ticks, so the
+  // highlight survives the 4s refresh and both Yes/No perspectives.
+  const [ticketState, setTicketState] = useState<TicketPriceState | null>(null);
+  const [selection, dispatchSelection] = useReducer(bookSelectionReducer, initialBookSelection);
+  const levelKeys = useMemo(() => bookKeys(book, market.tickSize), [book, market.tickSize]);
+  const tKey = ticketKey(ticketState, market.tickSize);
+  useEffect(() => {
+    dispatchSelection({ type: "book", keys: levelKeys });
+  }, [levelKeys]);
+  useEffect(() => {
+    dispatchSelection({ type: "ticket", key: tKey });
+  }, [tKey]);
+  const highlightKey = resolveHighlightKey(selection, tKey, levelKeys);
+
   const liveMid =
     liveBook && liveBook.bids[0] && liveBook.asks[0]
       ? (liveBook.bids[0].price + liveBook.asks[0].price) / 2
@@ -122,14 +146,21 @@ export function TradeClient({
 
   const onSelectPrice = useCallback(
     (price: number, side: "bid" | "ask") => {
+      const key = rowKey(price, perspective, market.tickSize);
+      if (key == null) return;
+      dispatchSelection({ type: "click", key, highlightedKey: highlightKey });
+      if (key === highlightKey) return; // same row again → deselect only
       // Click ask → Buy of current perspective; bid → Sell. If blocked, keep intent, fill price only.
       const buyIntent: Intent = perspective === "yes" ? "buy-yes" : "buy-no";
       const sellIntent: Intent = perspective === "yes" ? "sell-yes" : "sell-no";
       const preferred = side === "ask" ? buyIntent : sellIntent;
-      setFillPrice(price);
-      setFillIntentHint(availability[preferred].enabled ? preferred : null);
+      const hint = availability[preferred].enabled ? preferred : null;
+      // Ticket quotes in its intent's terms (No intents in No price = 1 − Yes).
+      const targetIntent: Intent = hint ?? ticketState?.intent ?? buyIntent;
+      setFillPrice(ticketPriceForRow(price, perspective, targetIntent, market.tickSize));
+      setFillIntentHint(hint);
     },
-    [perspective, availability],
+    [perspective, availability, market.tickSize, highlightKey, ticketState?.intent],
   );
 
   const clearFill = useCallback(() => {
@@ -245,6 +276,7 @@ export function TradeClient({
           perspective={perspective}
           tickSize={market.tickSize}
           onSelectPrice={onSelectPrice}
+          selectedKey={highlightKey}
         />
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <TradeTicket
@@ -261,6 +293,7 @@ export function TradeClient({
             onConsumedFill={clearFill}
             liveBook={liveBook}
             usdcBalance={livePosition?.usdc}
+            onTicketChange={setTicketState}
           />
           <PositionPanel
             market={market}

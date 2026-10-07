@@ -15,6 +15,8 @@ export {
   displayNoPrice,
   effectiveYesLimitPrice,
   isImmediateFillOrder,
+  ticketPhoenixOrderType,
+  POST_ONLY_ENABLED,
 } from "./compose";
 export { placePhoenixOrder, fetchPhoenixBook } from "./client";
 export { buildClaimSeatInstructions } from "./seat";
