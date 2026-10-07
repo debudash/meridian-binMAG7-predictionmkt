@@ -5,7 +5,7 @@ Statuses: **Todo** / **In Progress** / **Done** only (no Blocked).
 
 ## Done (selected)
 
-- [x] Schema docs + UI specs + DECISIONS D-001…D-017 (various MRs)
+- [x] Schema docs + UI specs + DECISIONS D-001…D-017 (various MRs); **D-018** on Schema !29 (open)
 - [x] P0/P1 TDD suites + eng green (MR !5–!11) — 51 cases
 - [x] D-017 + SimClock docs + SIM suite + eng green (MR !13–!16) — 60/60 localnet
 - [x] Reviewer nits + CI + DEPLOY (MR !17–!18); TRACKER sync (!19)
@@ -16,6 +16,8 @@ Statuses: **Todo** / **In Progress** / **Done** only (no Blocked).
 - [ ] **PM:** Debu SPEC lock ping after freeze candidate lands — Owner: Meridian PM / Debu
 - [ ] **Reviewers:** Continuous security + demo readiness beyond !17 — Owner: Meridian Reviewers
 - [ ] **Engineers:** Phoenix Buy/Sell No composition + real on-book trade in sim E2E — Owner: Meridian Engineers
+- [ ] **Testers:** `merge_pair` red suite MP-01…MP-08 (D-018) — Owner: Meridian Testers
+- [ ] **Engineers:** implement `merge_pair` only after Testers red suite MR — Owner: Meridian Engineers
 
 ## Todo
 
@@ -25,7 +27,8 @@ Statuses: **Todo** / **In Progress** / **Done** only (no Blocked).
 - [ ] Documented one-command/scripted sim lifecycle in-repo — Engineers / PM
 - [ ] Eng SimClock PDA impl (optional vs SIM-01…09) — Engineers
 - [ ] UI sim affordance (optional V1) — UI / Engineers
-- [ ] Tester P2 cases + invariant gates — Testers
+- [ ] Tester P2 cases + invariant gates (!27 open) — Testers / Eng green
+- [ ] Eng green `merge_pair` (MP-*) after red suite — Engineers
 - [ ] Peak6 PRD: demo video (distinct from DEMO_SCRIPT) — PM / Debu
 - [ ] Peak6 PRD: test results artifact from main — Testers / PM
 

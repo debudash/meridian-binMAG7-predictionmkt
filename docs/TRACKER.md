@@ -4,7 +4,7 @@ Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** o
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017).
 **Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)).
 
-_Last refreshed: 2026-10-06 23:55 CT (eng/phoenix-place-indexer In Progress — composition + indexer + Railway templates).
+_Last refreshed: 2026-10-07 00:05 CT (Testers merge_pair red suite In Progress — D-018 / Schema !29).
 
 ## Done
 
@@ -40,13 +40,16 @@ _Last refreshed: 2026-10-06 23:55 CT (eng/phoenix-place-indexer In Progress — 
 ## In Progress
 
 - [ ] Reviewer continuous / demo readiness (beyond !17 nits) — demo walkthrough still owed (keypair tip-delete done in !24)
-- [ ] Phoenix place + Buy No mint/sell composition + indexer (`eng/phoenix-place-indexer`) — client SDK place wired; Sell No merge Schema TODO; sim E2E on-book still owed
+- [ ] Phoenix place + Buy No mint/sell composition + indexer (`eng/phoenix-place-indexer`) — client SDK place wired; Sell No merge Schema TODO (!29); sim E2E on-book still owed
 - [ ] Phoenix Buy/Sell No **sim E2E** real on-book trade (sim trade today = off-book Yes SPL placeholder)
+- [ ] Testers: `merge_pair` failing suite (D-018 / MP-01…MP-08) — branch `test/merge-pair-failing` from Schema !29; Eng implement only after red suite lands
+- [ ] Schema !29 `schema/merge-pair` (D-018 docs) — open; Testers branch from tip
+- [ ] Testers P2 A-05/X-07/R-08 + INV gates (!27) — Eng green separately; **do not double-flip** in merge_pair MR
 
 ## Todo
 
 - [ ] Eng SimClock PDA impl (`init`/`set`/`warp` behind `localnet-test`) per `docs/sim-clock.md` (docs landed !14; not required by SIM-01…09)
 - [ ] UI sim affordance (optional for V1) (D-017)
-- [ ] Tester P2 cases + invariant gates after P0/P1 land on main (D-016)
+- [ ] Eng: implement prod `merge_pair` to green MP-* (after this red suite)
 - [ ] Peak6 PRD: demo video (distinct from `DEMO_SCRIPT.md`)
 - [ ] Peak6 PRD: test results artifact (after suite execution on main)

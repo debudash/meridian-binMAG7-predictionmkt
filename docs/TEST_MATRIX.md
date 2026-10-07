@@ -1,15 +1,18 @@
 # Meridian Test Matrix — Mint / Settle / Redeem + $1 Vault
 
-**Status:** plan only (draft). **Execution waits until Engineers land program code** on `main`.  
-**Audience:** Meridian Testers → Anchor/TS integration tests later.  
-**Stack:** Solana + Anchor; Phoenix CLOB (integrate, no matching in Meridian); Pyth equity closes; USDC collateral; MAG7 binary Yes/No.
+**Status:** P0/P1/SIM green on `main`. **Cluster I `merge_pair` (D-018 / Schema !29)** = this suite (`tests/merge_pair.ts`) — **TDD_RED** until Engineers land prod `merge_pair`.  
+**Audience:** Meridian Testers → Anchor/TS integration tests.  
+**Stack:** Solana + Anchor; Phoenix CLOB (integrate, no matching in Meridian); Pyth equity closes; USDC collateral; MAG7 binary Yes/No.  
+**Program id (tip):** `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6` (post !24 rotate; suite confirm !25). Revoked: `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2`.
+
+**Coordination:** A-05 Policy A + X-07 Settling retire covered by P2 suite !27; Schema !29 docs align — **do not double-flip** those cases in this MR.
 
 **Source of truth (docs on `main`):**
 - [`SCHEMA.md`](SCHEMA.md) §§5–7 (instructions, events, invariants)
 - [`flows.md`](flows.md) §§2–5, §7 (mint / settle / redeem / pause)
 - [`accounts.md`](accounts.md) (status machine, writers, vault PDA)
 - [`units.md`](units.md) (fee math, Pyth→e6, payout identity, test vectors)
-- [`DECISIONS.md`](DECISIONS.md) D-003…D-006, D-015, **D-017** (anytime sim)
+- [`DECISIONS.md`](DECISIONS.md) D-003…D-006, D-015, **D-017** (anytime sim), **D-018** (`merge_pair` / Sell No)
 - [`../programs/meridian/README.md`](../programs/meridian/README.md) (scaffold test plan + errors)
 
 **TDD note:** When program scaffolding exists, translate **P0** rows into failing Anchor/TS tests first; do not implement product logic in the same change as this matrix.
@@ -20,8 +23,8 @@
 
 | Column | Meaning |
 | --- | --- |
-| Case ID | Stable id (`M-##` mint, `S-##` settle, `A-##` admin settle, `R-##` redeem, `V-##` vault/invariant, `X-##` cross-phase / pause, `SIM-##` localnet simulated session) |
-| Phase | `mint` / `settle` / `admin_settle` / `redeem` / `invariant` / `pause` / `sim_session` (localnet-only) |
+| Case ID | Stable id (`M-##` mint, `S-##` settle, `A-##` admin settle, `R-##` redeem, `V-##` vault/invariant, `X-##` cross-phase / pause, `SIM-##` localnet simulated session, `MP-##` merge_pair / D-018) |
+| Phase | `mint` / `settle` / `admin_settle` / `redeem` / `invariant` / `pause` / `sim_session` (localnet-only) / `merge_pair` |
 | Precondition | Market + config state before the action |
 | Action | Instruction + key args |
 | Expected | On-chain status, vault USDC, Yes/No supplies & user balances, counter fields |
@@ -51,11 +54,11 @@ Amounts are **raw u64** with decimals = 6 unless noted (`1_000_000` = $1 = 1 ful
 
 ```text
 I1  Binary $1: redeem(amount) with fee=0 → collateral_out == amount
-I2  Supply (status==Open): yes_mint.supply == no_mint.supply == pairs_minted  (absent unpaired burns)
+I2  Supply (status==Open): yes_mint.supply == no_mint.supply == pairs_minted  (+mint / −merge_pair; absent unpaired burns)
 I3  Vault: collateral_vault.amount >= (pairs_minted - pairs_redeemed)
     Prefer equality when fees skim to treasury at mint/redeem (fee-on-transfer-in)
 I4  Settlement immutability: SettledYes|SettledNo|Void → settle/admin_settle must fail; fields frozen
-I5  Pause: blocks mint + create_strike_market; settle + redeem still succeed
+I5  Pause: blocks mint + create_strike_market + **merge_pair**; settle + redeem still succeed
 ```
 
 Cite: SCHEMA §7; flows §2/§5/§7; units §3.
@@ -211,6 +214,32 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 **Run:** `yarn test` / `anchor test -- --features localnet-test` only. Do **not** gate CI mainnet builds on Cluster G.
 
 
+
+## Cluster I — `merge_pair` (D-018 / Sell No unwind)
+
+**Doc cites:** SCHEMA §5.3.1, §7; flows §2b–2c; accounts Open/`pairs_minted`; **D-018**.  
+**Suite:** `tests/merge_pair.ts` + harness `mergePair` (TDD_RED until IDL lands).  
+**Scope:** Meridian tests **only** `merge_pair`. Client Sell No = Phoenix bid Yes then `merge_pair` — **do not** invent Phoenix matching (placeholder/off-book OK).  
+**Coordination:** A-05 Policy A + X-07 Settling retire covered by P2 suite !27; Schema !29 docs align — do **not** re-test or flip those here.
+
+| Case ID | Phase | Precondition | Action | Expected (on-chain / vault / balances) | Oracle/Phoenix notes | Priority | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| MP-01 | merge_pair | Market `Open`; `!paused`; fees 0; user holds ≥ `amount` Yes+No | `merge_pair(amount)` | Burn `amount` Yes+No; user USDC += `amount`; vault −=`amount`; `pairs_minted −= amount`; yes.supply == no.supply == pairs_minted; emit `Merged` | Phoenix unused | P0 | failing |
+| MP-02 | merge_pair | `now >= expiry_ts`, still `Open`; prior mint | `mint` then `merge_pair` | Mint fails `MintAfterExpiry`; **merge succeeds** (no expiry gate) | Contrast mint gate | P0 | failing |
+| MP-03 | merge_pair | `config.paused == true`; user holds pairs | `merge_pair(...)` | Fail `Paused`; vault/supplies/`pairs_minted` unchanged | Pause like mint | P0 | failing |
+| MP-04 | merge_pair | Status `SettledYes` / `SettledNo` | `merge_pair(...)` | Fail `MarketNotOpen` | Post-settle use redeem | P0 | failing |
+| MP-05 | merge_pair | `redeem_fee_bps = 10`; Open; holds pairs | `merge_pair(amount)` | `fee = amount * 10 / 10000`; user gets `amount − fee`; treasury += fee from vault; vault −= full `amount`; `pairs_minted −= amount` | Fee-on-payout twin of R-05 | P1 | failing |
+| MP-06 | merge_pair | After partial merge (fee=0) | assert I2/I3 | `yes.supply == no.supply == pairs_minted`; vault == outstanding pairs | Vault liability holds | P0 | failing |
+| MP-07 | merge_pair | `amount = 0` **or** insufficient Yes/No | `merge_pair` | Fail `ZeroAmount` / token burn; no partial state | Prefer hard reject | P1 | failing |
+| MP-08 | merge_pair | Open then SettledYes | Open: `redeem` fails / `merge_pair` OK; Settled: `merge_pair` fails / `redeem` OK | Distinct from `redeem` / `burn_losing` (R-08 stays P2 !27) | No burn_losing here | P0 | failing |
+
+### Mapping
+
+| Path | Cases |
+| --- | --- |
+| `tests/merge_pair.ts` | MP-01…MP-08 |
+| `tests/helpers/harness.ts` | `mergePair` hook (TDD_RED until prod IDL lands) |
+
 ## Priority rollup (plan coverage)
 
 | Phase | P0 | P1 | P2 | Total |
@@ -222,7 +251,8 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 | invariant | 5 | 3 | 0 | 8 |
 | pause / lifecycle | 6 | 1 | 1 | 8 |
 | sim_session (localnet) | 8 | 1 | 0 | 9 |
-| **Sum** | **45** | **11** | **3** | **59** |
+| merge_pair (D-018) | 6 | 2 | 0 | 8 |
+| **Sum** | **51** | **13** | **3** | **67** |
 
 *(S-10 counted under settle P0 as unit-testable without full program. SIM-* are **localnet-only** and never gate mainnet builds.)*
 
@@ -239,8 +269,9 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 | `tests/invariants.ts` | V-* asserted as postconditions + X-04/X-05 |
 | `tests/pause.ts` | X-01…X-03 |
 | `tests/sim_session.ts` | SIM-01…SIM-09 (**localnet-test only**) |
+| `tests/merge_pair.ts` | MP-01…MP-08 (**D-018**; TDD_RED until Eng) |
 
-P0/P1 suites execute on localnet. Cluster G stays **failing** until Engineers land `sim_*` fixtures under `localnet-test` (D-017).
+P0/P1/SIM suites green on `main` (localnet). Cluster I (`merge_pair`) stays **failing** until Engineers land D-018. **A-05 / X-07** owned by P2 suite !27 — do not double-flip here.
 
 ---
 
@@ -249,7 +280,9 @@ P0/P1 suites execute on localnet. Cluster G stays **failing** until Engineers la
 | Gap | Impact | Interim test stance |
 | --- | --- | --- |
 | Strike `>=` vs `>` still open in SCHEMA §8 | S-03 locks on **≥** (D-005) | Fail test if Engineers flip without DECISIONS update |
-| Admin `outcome_yes` vs price consistency | A-05 underspecified | P2; assert emitted fields match args |
+| Admin `outcome_yes` vs price consistency | A-05 → Policy A in Schema !29 | **Covered by P2 suite !27** — do not re-test in Cluster I |
+| `Settling` enum unused | X-07 → retire in Schema !29 | **Covered by P2 suite !27** — do not re-test in Cluster I |
+| `merge_pair` prod ix (D-018) | Sell No unwind | Cluster I MP-01…MP-08 TDD_RED until Eng |
 | `burn_losing` optional v1 | R-08 | Skip if ix absent |
 | `Void` redeem policy out of v1 | No void cases | Do not invent refund math |
 | Exact MAG7 Pyth feed ids not pinned | S-07 uses fixtures | Pin before mainnet eval |
@@ -265,3 +298,4 @@ P0/P1 suites execute on localnet. Cluster G stays **failing** until Engineers la
 - [ ] Fee=0 path green before enabling fee cases
 - [ ] No Meridian test asserts Phoenix matching internals (pubkey + mint wiring only)
 - [ ] **SIM-*** cases green on `localnet-test` only; prod `.so` still omits `sim_*` / mock fixtures (D-017)
+- [ ] **MP-*** (`merge_pair` / D-018) green on prod IDL; pause + post-expiry + fee path covered; no Phoenix matcher invented

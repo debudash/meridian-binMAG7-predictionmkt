@@ -6,6 +6,16 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-07T00:06:00-05:00 — Testers: merge_pair red suite (D-018 / MP-01…MP-08)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Testers |
+| **Decision** | Land failing suite for prod **`merge_pair`** (Schema !29 / D-018) on branch `test/merge-pair-failing` from `schema/merge-pair` tip. Cases **MP-01…MP-08**: Open happy; post-expiry OK; pause fails; settled fails; fee-on-payout (`redeem_fee_bps`); I2/I3; zero/insufficient; distinct from redeem. Harness `mergePair` → **TDD_RED** until IDL lands. Meridian tests only `merge_pair` — no Phoenix matcher. **Coordination:** A-05 Policy A + X-07 Settling retire covered by P2 suite !27; Schema !29 docs align — do **not** double-flip those in this MR. Eng implements only after this red suite (D-016). |
+| **Files** | `tests/merge_pair.ts` · `tests/helpers/harness.ts` · `docs/TEST_MATRIX.md` · `tests/README.md` · `docs/TRACKER.md` · `docs/TASKS.md` · `docs/AI_LOG.md` |
+| **Related** | D-018 · D-016 · Schema !29 · P2 !27 · tip program id `9Rb7nx…` |
+
+---
 ## 2026-10-07T00:05:00-05:00 — D-018 merge_pair + Settling retire + admin_settle Policy A
 
 | Field | Value |
