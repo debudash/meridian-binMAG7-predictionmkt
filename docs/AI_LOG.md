@@ -6,6 +6,15 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T20:20:00-05:00 — CI + DEPLOY ladder (Railway / localnet→devnet→prod)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers; Grok Bot (`eng/ci-deploy`) |
+| **Decision** | Land `.gitlab-ci.yml` (`prod-build-no-fixtures` + `localnet-anchor-test` with Solana/Anchor cache) and `docs/DEPLOY.md` describing Debu's ladder: localnet (box+CI) → devnet staging (prod build, real Pyth/Phoenix) → Railway staging→devnet → Railway prod. Railway runs Next.js + Node automation only; program deploys on-chain separately. **Forbidden:** `--features localnet-test` on devnet/mainnet. Includes Reviewer deploy checklist + prod IDL/`.so` fixture assert scripts. |
+| **Result** | Branch + MR for ops/CI contract. Runner availability on `labs.gauntletai.com` may be none — YAML still lands. |
+| **Related** | Reviewer-nits !17 · SIM !16 · D-017 |
+
 ## 2026-10-06T20:10:00-05:00 — Reviewer nits: real Pyth prod path + fee caps + prod IDL
 
 | Field | Value |
