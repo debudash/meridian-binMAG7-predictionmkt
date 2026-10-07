@@ -31,6 +31,15 @@ pub struct Minted {
 }
 
 #[event]
+pub struct Merged {
+    pub market: Pubkey,
+    pub user: Pubkey,
+    pub amount: u64,
+    pub fee: u64,
+    pub pairs_minted_after: u64,
+}
+
+#[event]
 pub struct Settled {
     pub market: Pubkey,
     pub settlement_price_e6: u64,

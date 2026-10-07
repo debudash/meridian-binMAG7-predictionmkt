@@ -6,6 +6,39 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-07T00:19:00-05:00 — Eng: prod merge_pair greens MP-01…MP-08 (D-018)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Decision** | Implement prod **`merge_pair(amount)`** (D-018 / Schema !29): burn equal Yes+No; vault pays `amount − redeem_fee_bps` (fee→treasury); `pairs_minted −= amount`; emit `Merged`. Pause blocks; **no expiry gate** (OK after `expiry_ts` while Open); settled → `MarketNotOpen`. Distinct from `redeem` / `burn_losing`. Not localnet-gated — appears in `idl/meridian.prod.json`. Harness `mergePair` already wired by Testers !30 — Eng only landed Rust ix + IDL; did **not** rewrite MP asserts. **Did not** touch A-05 / X-07 (P2 !27). No Phoenix matcher. |
+| **Result** | Localnet **68 passing / 0 failing** (P0/P1/SIM + Cluster I MP-01…08). Branch `eng/merge-pair` from `origin/test/merge-pair-failing` @ `5c8c00d` (same stack pattern as !10→!11). |
+| **Files** | `programs/meridian/src/instructions/merge_pair.rs` · `lib.rs` / `mod.rs` / `events.rs` · `idl/meridian.json` + `meridian.prod.json` (+ apps sync) · `tests/helpers/harness.ts` (`EXPECTED_INSTRUCTIONS`) · `docs/TEST_MATRIX.md` · `docs/TRACKER.md` · `docs/AI_LOG.md` |
+| **Related** | D-018 · D-016 · Testers !30 · Schema !29 · program id `9Rb7nx…` |
+
+---
+
+## 2026-10-07T00:06:00-05:00 — Testers: merge_pair red suite (D-018 / MP-01…MP-08)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Testers |
+| **Decision** | Land failing suite for prod **`merge_pair`** (Schema !29 / D-018) on branch `test/merge-pair-failing` from `schema/merge-pair` tip. Cases **MP-01…MP-08**: Open happy; post-expiry OK; pause fails; settled fails; fee-on-payout (`redeem_fee_bps`); I2/I3; zero/insufficient; distinct from redeem. Harness `mergePair` → **TDD_RED** until IDL lands. Meridian tests only `merge_pair` — no Phoenix matcher. **Coordination:** A-05 Policy A + X-07 Settling retire covered by P2 suite !27; Schema !29 docs align — do **not** double-flip those in this MR. Eng implements only after this red suite (D-016). |
+| **Files** | `tests/merge_pair.ts` · `tests/helpers/harness.ts` · `docs/TEST_MATRIX.md` · `tests/README.md` · `docs/TRACKER.md` · `docs/TASKS.md` · `docs/AI_LOG.md` |
+| **Related** | D-018 · D-016 · Schema !29 · P2 !27 · tip program id `9Rb7nx…` |
+
+---
+## 2026-10-07T00:05:00-05:00 — D-018 merge_pair + Settling retire + admin_settle Policy A
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Schema |
+| **Decision** | **D-018:** Lock prod ix **`merge_pair`** (not `burn_pair`; not localnet-gated) as Open-state inverse of `mint`: burn `amount` Yes+No, pay `collateral_out = amount − fee` with `fee = amount * redeem_fee_bps / 10_000` (fee-on-payout → treasury), require `vault.amount >= amount`, decrement **`pairs_minted`** (redefined while Open as outstanding pair liability: +mint / −merge). Pause blocks merge like mint/create. **Allow merge after `expiry_ts`** while `status == Open` (only status+pause matter; contrast mint's expiry gate). Event `Merged { market, user, amount, fee, pairs_minted_after }`. Distinct from `burn_losing` / `redeem`. Client: Meridian does **not** wrap Phoenix — **Buy No** = `mint` + ask Yes @ `1−p_no` (!28); **Sell No** = bid Yes @ `1−p_no` then `merge_pair` (same tx if immediate; resting = bid, merge on fill). Resolved UI 06 Buy/Sell No mechanism TODOs. **X-07:** status `1` `Settling` = unused/reserved; state machine Open → SettledYes / SettledNo / Void only. **A-05 Policy A:** `admin_settle` requires `outcome_yes == (settlement_price_e6 >= strike_price_e6)` else `OutcomeInconsistent`. |
+| **Files** | `docs/SCHEMA.md` · `docs/accounts.md` · `docs/flows.md` · `programs/meridian/README.md` · `docs/ui/06-trading-intents-and-constraints.md` · `docs/DECISIONS.md` · `docs/AI_LOG.md` |
+| **Related** | D-018 · Eng !28 Sell No ask · UI 06 · X-07 · A-05 · D-015 Phoenix V1 · D-014 glab |
+
+---
+
 ## 2026-10-06T23:55:00-05:00 — Phoenix place + indexer beyond stubs (Eng)
 
 | Field | Value |

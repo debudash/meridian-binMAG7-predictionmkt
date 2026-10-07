@@ -1,6 +1,6 @@
 # Meridian Instruction Flows
 
-Sequence diagrams for mint, Phoenix trading (beside Meridian), settle, and redeem. Account lists and state machines match [`SCHEMA.md`](SCHEMA.md).
+Sequence diagrams for mint, **merge_pair**, Phoenix trading (beside Meridian), settle, and redeem. Account lists and state machines match [`SCHEMA.md`](SCHEMA.md).
 
 ---
 
@@ -60,7 +60,79 @@ sequenceDiagram
 
 **State transition:** `pairs_minted` increases; `status` unchanged (`Open`).
 
-**Invariant:** `yes.supply == no.supply`; vault balance covers outstanding pairs.
+**Invariant:** while Open, `yes.supply == no.supply == pairs_minted`; vault covers outstanding pairs.
+
+---
+
+## 2b. `merge_pair` (inverse of mint while Open)
+
+Burn equal Yes+No and return collateral. **Prod ix** (D-018). Pause blocks; **no** `expiry_ts` gate (allowed after expiry while still `Open`).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User
+    participant Mer as Meridian
+    participant Vault as Collateral vault PDA
+    participant Yes as Yes mint
+    participant No as No mint
+    participant Treasury
+
+    User->>Mer: merge_pair(amount)
+    Mer->>Mer: check !paused, status==Open, amount>0, vault.amount>=amount
+    Note over Mer: No expiry gate (unlike mint)
+    Mer->>Yes: burn amount from user Yes ATA
+    Mer->>No: burn amount from user No ATA
+    opt redeem_fee_bps > 0
+        Mer->>Treasury: fee = amount * redeem_fee_bps / 10_000 from vault
+    end
+    Mer->>Vault: transfer amount - fee USDC → user
+    Mer->>Mer: pairs_minted -= amount
+    Mer-->>User: Merged event
+```
+
+**mint ↔ merge_pair symmetry:**
+
+| | `mint` | `merge_pair` |
+| --- | --- | --- |
+| Status | `Open` | `Open` |
+| Pause | blocks | blocks |
+| Expiry | `effective_now < expiry_ts` | **no gate** (OK after expiry) |
+| Tokens | mint Yes+No | burn Yes+No |
+| Collateral | user → vault (+ mint fee) | vault → user (− redeem fee) |
+| `pairs_minted` | `+= amount` | `-= amount` |
+
+**Distinct from:** `burn_losing` (post-settle, no payout) and `redeem` (post-settle, winning side).
+
+---
+
+## 2c. Sell No client composition (D-018)
+
+Meridian does **not** wrap Phoenix in one program ix. Sell No = Phoenix bid Yes then `merge_pair`.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User
+    participant Client as Client / UI
+    participant Phx as Phoenix (Yes/USDC)
+    participant Mer as Meridian
+
+    Note over User,Mer: Sell No at p_no — economically bid Yes @ 1-p_no, then merge
+    User->>Client: Sell No (q, p_no)
+    alt Immediate fill (IOC / market)
+        Client->>Phx: bid Yes @ 1-p_no size q (fills → user holds Yes)
+        Client->>Mer: merge_pair(q) (same tx OK)
+        Mer-->>User: USDC out; Yes+No burned
+    else Resting limit
+        Client->>Phx: bid Yes @ 1-p_no (resting only)
+        Note over Client: On fill (partial or full): client calls merge_pair for filled qty
+        Phx-->>Client: fill Yes
+        Client->>Mer: merge_pair(filled)
+    end
+```
+
+**Buy No (already shipped Eng !28):** client `mint` + Phoenix ask Yes @ `1 − p_no`. Transient Yes+No inside one tx is OK (UI 06 §1).
 
 ---
 
@@ -125,7 +197,7 @@ sequenceDiagram
     Mer-->>Caller: Settled event
 ```
 
-**State transition:** `Open` → `SettledYes` | `SettledNo`. Vault unchanged at settle.
+**State transition:** `Open` → `SettledYes` | `SettledNo` (`Settling` unused/reserved — X-07). Vault unchanged at settle.
 
 ### Admin settle (delayed override)
 
@@ -139,6 +211,7 @@ sequenceDiagram
     Auth->>Mer: admin_settle(price_e6, outcome_yes)
     Mer->>Clock: effective_clock (SimClock if localnet enabled, else Clock sysvar)
     Mer->>Mer: require effective_now >= expiry_ts + admin_settle_delay_secs
+    Mer->>Mer: Policy A — outcome_yes == (price_e6 >= strike) else OutcomeInconsistent
     Mer->>Mer: write settlement fields + status
     Mer-->>Auth: AdminSettled event
 ```
@@ -205,7 +278,7 @@ stateDiagram-v2
     Paused --> Running: unpause
 
     note right of Paused
-      Blocked: create_strike_market, mint
+      Blocked: create_strike_market, mint, merge_pair
       Allowed: settle, redeem, admin_settle
     end note
 ```
@@ -249,7 +322,7 @@ sequenceDiagram
     Note over Auth,Sim: admin_settle: keep delay=1800; warp past expiry+delay (no wall sleep)
 ```
 
-**Pause note:** `pause` does not consult SimClock. While paused, mint/create fail even if `effective_now < expiry_ts`; settle/redeem/admin_settle remain allowed.
+**Pause note:** `pause` does not consult SimClock. While paused, mint/create/**merge_pair** fail even if `effective_now < expiry_ts`; settle/redeem/admin_settle remain allowed.
 
 ---
 
@@ -258,6 +331,8 @@ sequenceDiagram
 | Step | Client action |
 | --- | --- |
 | Mint | Ensure Yes/No/USDC ATAs exist; pass vault + mint PDAs |
+| Buy No | `mint` + Phoenix ask Yes @ `1−p_no` (same tx if immediate) |
+| Sell No | Phoenix bid Yes @ `1−p_no` then `merge_pair` (same tx if immediate; resting = bid, merge on fill) |
 | Trade | Use Phoenix SDK against `StrikeMarket.phoenix_market` |
 | Settle | Pass canonical Pyth price account; handle stale/conf errors with retry |
 | Redeem | Select winning mint from `status`; burn + receive USDC |

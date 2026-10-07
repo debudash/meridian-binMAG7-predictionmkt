@@ -3,6 +3,7 @@
 **Owner:** Meridian Testers  
 **Mandate:** D-016 — failing tests first; Engineers implement program paths **only** to green.  
 **Anytime sim:** D-017 — localnet simulated open→trade→close→settle→redeem (no wall-clock 9:30/4:00 ET).  
+**merge_pair:** D-018 — Open-state Yes+No → USDC (Sell No unwind); TDD first.  
 **Case source of truth:** [`docs/TEST_MATRIX.md`](../docs/TEST_MATRIX.md).
 
 ## Status
@@ -11,7 +12,9 @@
 | --- | --- | --- |
 | **P0** | Green on `main` (MR !9) | mint / settle / redeem / $1 vault / pause — 37 case IDs |
 | **P1 fees + edges** | Green on `main` (MR !11) | Fees **M-03 / R-05 / V-06** + edges; V-07 via localnet `test_drain_vault` |
-| **Sim session (localnet)** | **TDD_RED** (`test/sim-session-lifecycle`) | **SIM-01…SIM-09** — simulated open/close + Phoenix-placeholder trade + MockPyth settle + redeem. Implement **only** to green under `localnet-test`. **Never** required for mainnet builds. |
+| **Sim session (localnet)** | Green on `main` (MR !16) | **SIM-01…SIM-09** under `localnet-test`. **Never** required for mainnet builds. |
+| **`merge_pair` (D-018)** | **TDD_RED** (`test/merge-pair-failing`) | **MP-01…MP-08** — Open merge, post-expiry OK, pause/settled fails, fee path, I2/I3, zero/insufficient, distinct from redeem. Eng implement **only** to green. **No** Phoenix matcher. |
+| **A-05 / X-07** | Owned by P2 suite !27 | Schema !29 docs align — **do not double-flip** in the merge_pair MR |
 
 ## Program id / localnet deploy
 
@@ -43,7 +46,8 @@ Do **not** commit keypair JSON. Testers own fixture/README alignment only — En
 | `fees.ts` | P1 M-03, R-05, V-06 |
 | `p1_edges.ts` | P1 S-08, X-03, M-07, M-09, M-10, V-07, V-08 |
 | **`sim_session.ts`** | **SIM-01…SIM-09 (localnet-only / D-017)** |
-| `helpers/` | fixtures, I1–I5, Anchor `TestCtx` harness (+ `simOpen` / `simClose` / `simTradeOffBook`) |
+| **`merge_pair.ts`** | **MP-01…MP-08 (D-018 / Cluster I)** |
+| `helpers/` | fixtures, I1–I5, Anchor `TestCtx` harness (+ `simOpen` / `simClose` / `simTradeOffBook` / `mergePair`) |
 
 ## Localnet simulated session (D-017)
 
@@ -59,6 +63,15 @@ Do **not** commit keypair JSON. Testers own fixture/README alignment only — En
 3. Pin errors: mint after close → `TradingClosed` (or `MarketNotOpen`); settle before close → `SessionNotClosed` (SIM-05).
 4. Run `yarn test` / `anchor test -- --features localnet-test` until SIM-* green. **Do not** implement Rust in the Testers MR; **do not** weaken prod settle/oracle gates.
 5. Prod `anchor build` (no features) must omit `sim_*` symbols.
+
+
+## For Engineers (`merge_pair` / D-018)
+
+1. Prefer branch after Schema !29 (`schema/merge-pair`) lands, or rebase onto D-018 docs.
+2. Keep P0/P1/SIM green. Implement prod **`merge_pair`** only to green **MP-01…MP-08**.
+3. Pin: pause blocks; **no expiry gate** while Open; fee-on-payout via `redeem_fee_bps`; `pairs_minted −=`; I2/I3.
+4. **Do not** re-implement A-05 / X-07 here — owned by eng P2 green vs !27.
+5. **Do not** invent Phoenix matching; Meridian tests only `merge_pair` (Sell No = client bid + merge).
 
 ## Mocks / placeholders
 

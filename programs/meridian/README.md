@@ -24,10 +24,11 @@ programs/meridian/
     │   ├── create_strike_market.rs
     │   ├── set_phoenix_market.rs
     │   ├── mint.rs            # uses effective_clock
+    │   ├── merge_pair.rs      # prod inverse of mint (D-018); no expiry gate
     │   ├── settle.rs          # uses effective_clock
-    │   ├── admin_settle.rs    # uses effective_clock
+    │   ├── admin_settle.rs    # uses effective_clock; Policy A (A-05)
     │   ├── redeem.rs
-    │   ├── burn_losing.rs     # optional v1
+    │   ├── burn_losing.rs     # optional v1; post-settle, no payout
     │   ├── init_sim_clock.rs  # localnet-test only
     │   ├── set_sim_clock.rs   # localnet-test only
     │   ├── warp_sim_clock.rs  # localnet-test only
@@ -47,7 +48,7 @@ programs/meridian/
 | Module | Types |
 | --- | --- |
 | `config` | `Config` |
-| `strike_market` | `StrikeMarket`, `MarketStatus` |
+| `strike_market` | `StrikeMarket`, `MarketStatus` (`Settling`=unused/reserved X-07) |
 | `sim_clock` | `SimClock` (`localnet-test` only) |
 
 PDA seeds and field tables: [`docs/accounts.md`](../../docs/accounts.md).
@@ -68,6 +69,7 @@ pub mod meridian {
     pub fn set_phoenix_market(ctx: Context<SetPhoenixMarket>, phoenix_market: Pubkey) -> Result<()> { … }
 
     pub fn mint(ctx: Context<MintPair>, amount: u64) -> Result<()> { … }
+    pub fn merge_pair(ctx: Context<MergePair>, amount: u64) -> Result<()> { … }  // D-018; prod
     pub fn settle(ctx: Context<Settle>) -> Result<()> { … }
     pub fn admin_settle(ctx: Context<AdminSettle>, settlement_price_e6: u64, outcome_yes: bool) -> Result<()> { … }
     pub fn redeem(ctx: Context<Redeem>, amount: u64) -> Result<()> { … }
@@ -85,7 +87,7 @@ pub mod meridian {
 }
 ```
 
-**Not in scope:** Phoenix place/cancel/fill — users call Phoenix program directly.
+**Not in scope:** Phoenix place/cancel/fill — users call Phoenix program directly. **Buy/Sell No** are client-composed (`mint`+ask / bid+`merge_pair`) — Meridian does **not** wrap Phoenix (D-018).
 
 **Engineers:** implement SimClock + `effective_clock` behind `localnet-test` exactly like mock Pyth / `test_drain_vault` — prod `anchor build` must omit sim symbols from the `.so`. See [`docs/sim-clock.md`](../../docs/sim-clock.md) (D-017).
 
@@ -93,11 +95,12 @@ pub mod meridian {
 
 | Code name | When |
 | --- | --- |
-| `Paused` | mint / create while paused |
-| `MarketNotOpen` | mint on non-Open |
+| `Paused` | mint / create / **merge_pair** while paused |
+| `MarketNotOpen` | mint / merge_pair on non-Open |
 | `MarketNotSettled` | redeem before settle |
 | `ExpiryNotReached` | settle too early |
-| `MintAfterExpiry` | mint at/after expiry |
+| `MintAfterExpiry` | mint at/after expiry (merge_pair has **no** this gate) |
+| `ZeroAmount` | mint / merge_pair / redeem with `amount == 0` |
 | `InvalidPythAccount` | feed mismatch |
 | `StalePythPrice` | staleness gate |
 | `PythConfidenceTooWide` | conf ratio gate |
@@ -105,9 +108,10 @@ pub mod meridian {
 | `MathOverflow` | scale convert / fee math |
 | `InvalidWinningMint` | redeem wrong side |
 | `AdminSettleTooEarly` | delay not elapsed |
+| `OutcomeInconsistent` | admin_settle Policy A: `outcome_yes` ≠ `(price_e6 >= strike)` |
 | `Unauthorized` | authority mismatch |
 | `InvalidPhoenixMints` | base/quote ≠ Yes/USDC |
-| `InsufficientVault` | should not happen if invariants hold |
+| `InsufficientVault` | merge_pair / redeem when vault.amount < required |
 
 ## `events`
 
@@ -122,9 +126,9 @@ Defined in [`docs/SCHEMA.md`](../../docs/SCHEMA.md) §6. Keep field order stable
 ## Test plan (scaffold)
 
 1. Unit: `pyth_price_to_e6` vectors in [`docs/units.md`](../../docs/units.md)
-2. Integration: mint → settle (≥ / < strike) → redeem; fee=0 path
-3. Negative: stale Pyth, pause blocks mint, admin_settle before delay
-4. Invariant: vault balance vs `pairs_minted - pairs_redeemed`
+2. Integration: mint → settle (≥ / < strike) → redeem; fee=0 path; **mint → merge_pair** round-trip
+3. Negative: stale Pyth, pause blocks mint/**merge_pair**, admin_settle before delay, **OutcomeInconsistent**, merge after Settled*
+4. Invariant: while Open, vault / supply vs `pairs_minted`; after settle vs `pairs_minted - pairs_redeemed`
 5. SimClock (localnet): SC-01 warp past expiry → settle; SC-02 mint fails after warp; SC-03 admin_settle delay=1800 after warp (no wall sleep)
 
 ## Docs

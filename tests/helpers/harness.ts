@@ -58,6 +58,7 @@ export const EXPECTED_INSTRUCTIONS = [
   "create_strike_market",
   "set_phoenix_market",
   "mint",
+  "merge_pair",
   "settle",
   "admin_settle",
   "redeem",
@@ -478,6 +479,46 @@ export class TestCtx {
       .rpc();
   }
 
+  /**
+   * D-018 / Cluster I: merge_pair — Open-state inverse of mint (Sell No unwind).
+   * Prod ix (not localnet-gated). Accounts mirror mint. Fee uses redeem_fee_bps (fee-on-payout).
+   * TDD_RED if IDL lacks merge_pair — Engineers implement only to green; no Phoenix matcher.
+   */
+  async mergePair(amount: BN, caseId: string = "MP", signer: Keypair = this.user): Promise<string> {
+    const m = this.program.methods as Record<string, (...a: any[]) => any>;
+    const fn =
+      (typeof m.mergePair === "function" && m.mergePair.bind(m)) ||
+      (typeof m.merge_pair === "function" && m.merge_pair.bind(m)) ||
+      null;
+    if (!fn) {
+      throw new TddRedError(
+        caseId,
+        "IDL missing prod merge_pair — Engineers: land D-018 ix (burn Yes+No → USDC amount−redeem_fee; pairs_minted−=; pause blocks; OK after expiry while Open). Distinct from redeem/burn_losing. No Phoenix matcher in Meridian."
+      );
+    }
+    const userCol = getAssociatedTokenAddressSync(this.collateralMint, signer.publicKey);
+    const userYes = getAssociatedTokenAddressSync(this.yesMint, signer.publicKey);
+    const userNo = getAssociatedTokenAddressSync(this.noMint, signer.publicKey);
+    return await fn(amount)
+      .accounts({
+        user: signer.publicKey,
+        config: this.configPda,
+        strikeMarket: this.market,
+        collateralVault: this.vault,
+        vaultAuthority: this.vaultAuthority,
+        userCollateralAta: userCol,
+        userYesAta: userYes,
+        userNoAta: userNo,
+        yesMint: this.yesMint,
+        noMint: this.noMint,
+        treasury: this.treasury,
+        collateralMint: this.collateralMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([signer])
+      .rpc();
+  }
+
   async setPhoenix(pk: PublicKey = PHOENIX_MARKET_PLACEHOLDER) {
     await this.program.methods
       .setPhoenixMarket(pk)
@@ -559,6 +600,7 @@ export class TestCtx {
       Settled: "Settle",
       AdminSettled: "AdminSettle",
       Redeemed: "Redeem",
+      Merged: "MergePair",
     };
     const ix = ixMap[eventName] ?? eventName;
     const hasIx = logs.some((l) => l.includes(`Instruction: ${ix}`));
