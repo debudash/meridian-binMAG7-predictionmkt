@@ -1,6 +1,7 @@
 /**
  * Phoenix V1 spot client — place/cancel via @ellipsis-labs/phoenix-sdk.
  * No Meridian CPI for plain Yes trades (ARCHITECTURE).
+ * Buy No: mint then place; Sell No immediate: place then merge_pair.
  */
 import { BN } from "@coral-xyz/anchor";
 import {
@@ -9,7 +10,11 @@ import {
   type Connection,
   type TransactionInstruction,
 } from "@solana/web3.js";
-import { buildMintIx, type MintAccounts } from "@/lib/solana/instructions";
+import {
+  buildMergeIx,
+  buildMintIx,
+  type MintAccounts,
+} from "@/lib/solana/instructions";
 import type { MeridianProgram } from "@/lib/solana/program";
 import {
   PHOENIX_NOT_CONFIGURED_MESSAGE,
@@ -22,6 +27,7 @@ import {
   planIntentComposition,
 } from "./compose";
 import { buildClaimSeatInstructions } from "./seat";
+import { contractsToRawAmounts, DEFAULT_OUTCOME_DECIMALS } from "./size";
 import type {
   ComposePlanSummary,
   PhoenixPlaceOrderRequest,
@@ -37,14 +43,14 @@ export interface PlaceContext {
     connection: Connection,
     opts?: { skipPreflight?: boolean },
   ) => Promise<string>;
-  /** Required for Buy No mint leg */
+  /** Required for Buy No mint / Sell No merge legs */
   program?: MeridianProgram;
   mintAccounts?: MintAccounts;
   /** Include seat/ATA setup ixs when missing (default true) */
   ensureSeat?: boolean;
   /**
-   * USDC decimals for mint amount (default 6).
-   * Mint amount = size * 10^decimals (1 USDC per contract pair).
+   * Outcome / collateral decimals (default 6).
+   * Used by contractsToRawAmounts for mint, merge, and Phoenix sizeInBaseUnits.
    */
   collateralDecimals?: number;
 }
@@ -70,6 +76,7 @@ async function buildPhoenixPlaceIx(
   trader: PublicKey,
   plan: ComposePlanSummary,
   limitYesPrice: number,
+  sizeInBaseUnits: number,
 ): Promise<{ ix: TransactionInstruction; setup: TransactionInstruction[] }> {
   const PhoenixSdk = await import("@ellipsis-labs/phoenix-sdk");
   const client = await PhoenixSdk.Client.createWithMarketAddresses(connection, [
@@ -89,7 +96,7 @@ async function buildPhoenixPlaceIx(
     ix = client.getPostOnlyOrderInstructionfromTemplate(key, trader, {
       side,
       priceAsFloat: limitYesPrice,
-      sizeInBaseUnits: plan.size,
+      sizeInBaseUnits,
       clientOrderId: Date.now() % 1_000_000,
       rejectPostOnly: true,
       useOnlyDepositedFunds: false,
@@ -98,7 +105,7 @@ async function buildPhoenixPlaceIx(
     ix = client.getImmediateOrCancelOrderIxfromTemplate(key, trader, {
       side,
       priceAsFloat: limitYesPrice,
-      sizeInBaseUnits: plan.size,
+      sizeInBaseUnits,
       sizeInQuoteUnits: 0,
       minBaseUnitsToFill: 0,
       minQuoteUnitsToFill: 0,
@@ -110,7 +117,7 @@ async function buildPhoenixPlaceIx(
     ix = client.getLimitOrderInstructionfromTemplate(key, trader, {
       side,
       priceAsFloat: limitYesPrice,
-      sizeInBaseUnits: plan.size,
+      sizeInBaseUnits,
       selfTradeBehavior: selfTrade,
       clientOrderId: Date.now() % 1_000_000,
       useOnlyDepositedFunds: false,
@@ -165,6 +172,8 @@ export async function placePhoenixOrder(
     req.worstPrice,
     req.tickSize ?? 0.01,
   );
+  const decimals = ctx.collateralDecimals ?? DEFAULT_OUTCOME_DECIMALS;
+  const sized = contractsToRawAmounts(plan.size, decimals);
 
   try {
     const market = new PublicKey(req.phoenixMarket);
@@ -174,6 +183,7 @@ export async function placePhoenixOrder(
       ctx.publicKey,
       plan,
       limitYes,
+      sized.phoenixBaseUnits,
     );
 
     const ixs: TransactionInstruction[] = [];
@@ -192,18 +202,36 @@ export async function placePhoenixOrder(
           plan,
         };
       }
-      const decimals = ctx.collateralDecimals ?? 6;
-      const amount = new BN(Math.round(plan.size * 10 ** decimals));
-      const mintBuilder = await buildMintIx(ctx.program, ctx.mintAccounts, amount);
+      const mintBuilder = await buildMintIx(
+        ctx.program,
+        ctx.mintAccounts,
+        new BN(sized.mintRaw),
+      );
       const mintIx = await mintBuilder.instruction();
       ixs.push(mintIx);
     }
 
     ixs.push(placeIx);
 
-    // Sell No: bid leg only — merge is Schema TODO
-    if (plan.mergeBlocked) {
-      // Still submit the bid; surface caveat clearly
+    // Sell No immediate: append merge_pair after Phoenix place (same tx).
+    if (plan.needsMerge && !plan.mergeBlocked) {
+      if (!ctx.program || !ctx.mintAccounts) {
+        return {
+          ok: false,
+          reason: "merge-accounts-missing",
+          message:
+            "Sell No immediate merge requires Meridian merge accounts (same set as mint: strikeMarket, vault, yes/no mints, treasury, collateral).",
+          mapped,
+          plan,
+        };
+      }
+      const mergeBuilder = await buildMergeIx(
+        ctx.program,
+        ctx.mintAccounts,
+        new BN(sized.mintRaw),
+      );
+      const mergeIx = await mergeBuilder.instruction();
+      ixs.push(mergeIx);
     }
 
     const tx = new Transaction().add(...ixs);
@@ -218,6 +246,9 @@ export async function placePhoenixOrder(
     let message = `Submitted ${plan.packaging} (${plan.phoenixSide} Yes @ ${limitYes.toFixed(2)} × ${plan.size}).`;
     if (plan.needsMint) {
       message += " Mint + ask packed in one tx (transient Yes+No OK).";
+    }
+    if (plan.needsMerge && !plan.mergeBlocked) {
+      message += " Bid + merge_pair packed in one tx (immediate Sell No).";
     }
     if (plan.mergeBlocked) {
       message += ` ${SELL_NO_MERGE_CAVEAT}`;

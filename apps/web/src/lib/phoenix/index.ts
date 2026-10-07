@@ -14,9 +14,15 @@ export {
   snapYesPrice,
   displayNoPrice,
   effectiveYesLimitPrice,
+  isImmediateFillOrder,
 } from "./compose";
 export { placePhoenixOrder, fetchPhoenixBook } from "./client";
 export { buildClaimSeatInstructions } from "./seat";
+export {
+  contractsToRawAmounts,
+  DEFAULT_OUTCOME_DECIMALS,
+} from "./size";
+export type { ContractSizeRaw } from "./size";
 export type {
   PhoenixPlaceOrderRequest,
   PhoenixPlaceOrderResult,

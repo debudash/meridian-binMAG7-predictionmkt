@@ -4,7 +4,8 @@
  *
  * Buy No: mint q via Meridian, then Phoenix ask Yes at 1−p_no.
  * Transient Yes+No inside the (multi-ix) tx is OK per 06 §1.
- * Sell No: bid Yes at 1−p_no; merge is Schema TODO (do not invent on-chain merge).
+ * Sell No: bid Yes at 1−p_no; immediate (market) → merge_pair same tx;
+ * resting (limit/post-only) → bid only, merge-on-fill still phased.
  */
 import type { Intent } from "@/lib/intents/types";
 import { intentToBookAction, noPriceFromYes, toTicks, fromTicks } from "@/lib/market/bookTransform";
@@ -24,6 +25,11 @@ export interface ComposeInput {
 /** Snap yes-book price to tick grid. */
 export function snapYesPrice(yesPrice: number, tickSize = 0.01): number {
   return fromTicks(toTicks(yesPrice, tickSize), tickSize);
+}
+
+/** Market / IOC-style orders attempt immediate fill → pack merge_pair. */
+export function isImmediateFillOrder(orderType: PhoenixOrderType): boolean {
+  return orderType === "market";
 }
 
 /**
@@ -88,6 +94,23 @@ export function planIntentComposition(input: ComposeInput): ComposePlanSummary {
     }
     case "sell-no": {
       notes.push("Phoenix bid Yes at 1−p_no (economic sell of No).");
+      if (isImmediateFillOrder(input.orderType)) {
+        notes.push(
+          "Immediate path: append Meridian merge_pair after Phoenix place (phoenix-then-merge).",
+        );
+        return {
+          intent: input.intent,
+          phoenixSide: "bid",
+          yesPrice,
+          size: input.size,
+          orderType: input.orderType,
+          needsMint: false,
+          needsMerge: true,
+          mergeBlocked: false,
+          notes,
+          packaging: "phoenix-then-merge",
+        };
+      }
       notes.push(SELL_NO_MERGE_CAVEAT);
       return {
         intent: input.intent,

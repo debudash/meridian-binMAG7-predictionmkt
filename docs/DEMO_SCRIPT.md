@@ -29,7 +29,7 @@ yarn test
 | 2 | Create StrikeMarket (MAG7 symbol, strike e6, expiry, Phoenix pubkey, Pyth account) | status=Open; trading_open=true |
 | 3 | **Sim open** (`sim_open_session`) if required by harness | Session armed for sim gates |
 | 4 | **Mint** Yes/No for amount N (fee=0) | Vault += N; Yes supply == No supply == N |
-| 5 | **Trade** | Prefer Phoenix SDK place/fill when wired; SIM suite today may use off-book Yes SPL transfer as placeholder |
+| 5 | **Trade** | Phoenix SDK place when market set: Buy/Sell Yes; Buy No = mint+ask; Sell No market = bid+`merge_pair`. SIM suite may still use off-book Yes SPL placeholder (non-prod) |
 | 6 | **Sim close** (`sim_close_session`) | Mint blocked; settle allowed |
 | 7 | **Settle** with mock/forced Pyth price → YesWins or NoWins | status SettledYes or SettledNo; immutable |
 | 8 | **Redeem** winning mint amount | USDC out == amount (fee=0); vault decreases |

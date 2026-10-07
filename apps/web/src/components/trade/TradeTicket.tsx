@@ -177,7 +177,9 @@ export function TradeTicket({
 
       let mintAccounts: MintAccounts | undefined;
       let program: ReturnType<typeof getMeridianProgram> | undefined;
-      if (planPreview.needsMint && publicKey && anchorWallet) {
+      const needsMeridianAccounts =
+        planPreview.needsMint || (planPreview.needsMerge && !planPreview.mergeBlocked);
+      if (needsMeridianAccounts && publicKey && anchorWallet) {
         const usdc = getUsdcMint();
         if (
           market.yesMint &&
@@ -416,9 +418,14 @@ export function TradeTicket({
             Buy No: mint pair then ask Yes @ {planPreview.yesPrice.toFixed(2)} (multi-ix tx).
           </p>
         )}
+        {planPreview.needsMerge && !planPreview.mergeBlocked && (
+          <p className="muted" style={{ margin: "0.4rem 0 0", fontSize: "0.75rem" }}>
+            Sell No (market): bid Yes then merge_pair in one tx.
+          </p>
+        )}
         {planPreview.mergeBlocked && (
           <p className="muted" style={{ margin: "0.4rem 0 0", fontSize: "0.75rem" }}>
-            Sell No: bid Yes only — full merge awaits Schema.
+            Sell No (resting): bid Yes only — merge_pair on fill not automatic yet.
           </p>
         )}
       </div>

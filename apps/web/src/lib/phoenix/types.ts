@@ -15,7 +15,7 @@ export interface PhoenixPlaceOrderRequest {
   /** Slippage cap for market (side terms) */
   worstPrice?: number;
   tickSize?: number;
-  /** Meridian strike market pubkey (required for Buy No mint leg) */
+  /** Meridian strike market pubkey (required for Buy No mint / Sell No merge) */
   strikeMarket?: string;
   yesMint?: string;
   noMint?: string;
@@ -29,6 +29,7 @@ export type PlaceFailureReason =
   | "wallet-required"
   | "seat-required"
   | "mint-accounts-missing"
+  | "merge-accounts-missing"
   | "merge-schema-todo"
   | "sdk-error"
   | "user-rejected";
@@ -59,10 +60,18 @@ export interface ComposePlanSummary {
   orderType: PhoenixOrderType;
   /** Meridian mint Yes+No for qty before Phoenix ask */
   needsMint: boolean;
-  /** Schema TODO: merge Yes+No → USDC after Buy Yes fill (Sell No) */
+  /** Meridian merge_pair after Phoenix bid (Sell No) */
   needsMerge: boolean;
+  /**
+   * true = resting path: bid only; merge-on-fill still phased.
+   * false on immediate (market) Sell No: merge_pair packed in same tx.
+   */
   mergeBlocked: boolean;
   notes: string[];
-  /** Preferred packaging: multi-ix single tx when mint+place */
-  packaging: "phoenix-only" | "mint-then-phoenix" | "phoenix-then-merge-todo";
+  /** Preferred packaging: multi-ix single tx when mint/place/merge */
+  packaging:
+    | "phoenix-only"
+    | "mint-then-phoenix"
+    | "phoenix-then-merge"
+    | "phoenix-then-merge-todo";
 }

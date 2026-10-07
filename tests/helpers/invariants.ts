@@ -66,5 +66,5 @@ export function assertSettledFrozen(
 }
 
 /** I5 — Pause policy documented; settle/redeem must remain available */
-export const PAUSE_BLOCKS = ["mint", "create_strike_market"] as const;
+export const PAUSE_BLOCKS = ["mint", "create_strike_market", "merge_pair"] as const;
 export const PAUSE_ALLOWS = ["settle", "redeem", "admin_settle"] as const;
