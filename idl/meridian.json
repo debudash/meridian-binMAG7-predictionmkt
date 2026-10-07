@@ -790,6 +790,108 @@
       "args": []
     },
     {
+      "name": "test_drain_vault",
+      "docs": [
+        "Localnet/test fixture — compiled only with `--features localnet-test` (deploy blocker)."
+      ],
+      "discriminator": [
+        72,
+        61,
+        29,
+        19,
+        137,
+        61,
+        237,
+        164
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "strike_market"
+          ]
+        },
+        {
+          "name": "strike_market",
+          "writable": true
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true,
+          "relations": [
+            "strike_market"
+          ]
+        },
+        {
+          "name": "vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "strike_market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "destination",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "unpause",
       "discriminator": [
         169,
@@ -885,7 +987,7 @@
     {
       "name": "upsert_mock_pyth",
       "docs": [
-        "Localnet/test fixture: write MockPythPrice account bytes (not for mainnet)."
+        "Localnet/test fixture — compiled only with `--features localnet-test` (deploy blocker)."
       ],
       "discriminator": [
         197,

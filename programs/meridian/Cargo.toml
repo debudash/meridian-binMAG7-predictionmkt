@@ -14,7 +14,13 @@ no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
 default = []
-idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+# Deploy blocker: fixture ixs compile into the .so ONLY when this feature is set.
+# Production / mainnet: `anchor build` (no features) — fixtures absent from BPF binary.
+# Localnet suite: `anchor test -- --features localnet-test`
+localnet-test = []
+# IDL generation enables localnet-test so #[cfg] entrypoints typecheck during `anchor idl build`.
+# The BPF .so is built separately without this feature unless cargo args request it.
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build", "localnet-test"]
 
 [dependencies]
 anchor-lang = "0.31.1"

@@ -6,6 +6,30 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T17:14:55-05:00 — Testers nits on MR !11 (feature-gate fixtures + stack)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers; Grok Bot (glab on `eng/p1-fees`) |
+| **Decision** | Approve-with-nits on !11: (1) **Stack:** MR !9 still open — merged `origin/main` into `eng/p1-fees` (`e38b57b`); branch retains `eng/p0-anchor-impl` ancestry so !11 stays clean relative to !9. **Merge-order dependency:** land !9 before !11 (or rebase after !9 merges). (2) **Deploy blockers:** `test_drain_vault` + `upsert_mock_pyth` gated `#[cfg(feature = "localnet-test")]` on modules + entrypoints; Cargo feature `localnet-test`; `idl-build` enables it for IDL typecheck only. Prod `anchor build` .so omits fixture symbols; localnet `anchor build -- --features localnet-test` includes them. `package.json` `test` / `build:localnet` / `build:prod` scripts. (3) Optional: mint/redeem `treasury` constrained `address = config.treasury`. |
+| **Result** | `anchor test -- --features localnet-test`: **51 passing / 0 failing**. Prod .so verified: fixture ix names **absent**. |
+| **MR** | https://labs.gauntletai.com/debudash/peak6-meridian/-/merge_requests/11 |
+| **Related** | Testers !10 · eng P0 !9 · D-016 |
+
+---
+
+## 2026-10-06T17:05:00-05:00 — Eng P1 fees + edges green (MR !10 suite)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers; Grok Bot (glab land) |
+| **Decision** | Branch `eng/p1-fees` from Testers `test/p1-fees-failing` (MR !10 @ P0 tip `6618d74`). Fee paths already fee-on-transfer-in (SCHEMA §7.3) — **M-03 / R-05 / V-06** green without P0 fee=0 weakening. Edges **S-08, X-03, M-07, M-09, M-10, V-08** green on existing program. **V-07:** landed localnet-only `test_drain_vault` fixture + harness `drainVault` to prove `InsufficientVault` (never unbacked payout). |
+| **Result** | `anchor test`: **51 passing / 0 failing**. Depends on / stacks with MR !9 (P0). |
+| **Related** | Testers suite MR !10 · eng P0 MR !9 · D-016 |
+
+---
+
+
 ## 2026-10-06T16:55:00-05:00 — Testers P1 fees failing suite (TDD)
 
 | Field | Value |

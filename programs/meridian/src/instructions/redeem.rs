@@ -31,8 +31,8 @@ pub struct Redeem<'info> {
     pub user_winning_ata: Account<'info, TokenAccount>,
     #[account(mut)]
     pub winning_mint: Account<'info, Mint>,
-    /// CHECK: treasury for redeem fee
-    #[account(mut)]
+    /// CHECK: must equal config.treasury (fee destination)
+    #[account(mut, address = config.treasury)]
     pub treasury: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
 }

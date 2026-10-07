@@ -41,8 +41,8 @@ pub struct MintPair<'info> {
     pub yes_mint: Account<'info, Mint>,
     #[account(mut)]
     pub no_mint: Account<'info, Mint>,
-    /// CHECK: treasury receives mint fee when > 0
-    #[account(mut)]
+    /// CHECK: must equal config.treasury (fee destination)
+    #[account(mut, address = config.treasury)]
     pub treasury: UncheckedAccount<'info>,
     pub collateral_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,

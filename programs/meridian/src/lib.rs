@@ -69,8 +69,15 @@ pub mod meridian {
         instructions::burn_losing::handler(ctx, amount)
     }
 
-    /// Localnet/test fixture: write MockPythPrice account bytes (not for mainnet).
+    /// Localnet/test fixture — compiled only with `--features localnet-test` (deploy blocker).
+    #[cfg(feature = "localnet-test")]
     pub fn upsert_mock_pyth(ctx: Context<UpsertMockPyth>, params: MockPythParams) -> Result<()> {
         instructions::upsert_mock_pyth::handler(ctx, params)
+    }
+
+    /// Localnet/test fixture — compiled only with `--features localnet-test` (deploy blocker).
+    #[cfg(feature = "localnet-test")]
+    pub fn test_drain_vault(ctx: Context<TestDrainVault>, amount: u64) -> Result<()> {
+        instructions::test_drain_vault::handler(ctx, amount)
     }
 }
