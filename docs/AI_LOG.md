@@ -6,6 +6,7 @@
 | **Residual** | Full Phoenix V1 `.so` + `InitializeMarket` + seat manager on `solana-test-validator` **not** wired — SDK has place/cancel but not TS market-create; documented in `docs/phoenix-onbook-sim.md`. `PHOENIX_ONBOOK_MODE=phoenix` reserved/throws until then. |
 | **Files** | `tests/helpers/phoenix_{compose,onbook}.ts` · `tests/phoenix_onbook_e2e.ts` · `tests/unit/phoenix_compose.ts` · harness `simTradeOnBook` · DEMO_SCRIPT / SIM_LIFECYCLE / automation sim log · TRACKER/AI_LOG |
 | **Branch** | `eng/dlv064-phoenix-onbook-e2e` |
+| **Result** | MR !38 merged — PHX suite **9/9** focused localnet; off-book demoted. |
 
 # Meridian AI decision log
 
