@@ -11,7 +11,8 @@
 | --- | --- | --- |
 | **P0** | Green on `main` (MR !9) | mint / settle / redeem / $1 vault / pause — 37 case IDs |
 | **P1 fees + edges** | Green on `main` (MR !11) | Fees **M-03 / R-05 / V-06** + edges; V-07 via localnet `test_drain_vault` |
-| **Sim session (localnet)** | **TDD_RED** (`test/sim-session-lifecycle`) | **SIM-01…SIM-09** — simulated open/close + Phoenix-placeholder trade + MockPyth settle + redeem. Implement **only** to green under `localnet-test`. **Never** required for mainnet builds. |
+| **Sim session (localnet)** | Green on `main` (MR !16) | **SIM-01…SIM-09** under `localnet-test`. Prod builds omit `sim_*`. |
+| **P2 + INV gates** | **TDD_RED** (`test/p2-invariant-gates`) | **A-05 / R-08 / X-07** + **INV-P2-I3 / INV-PROD-01 / INV-FEE-TRUNC**. Eng implement **only** to green; pin A-05 policy (reject XOR accept+log). No Rust in Testers MR. |
 
 ## Program id / localnet deploy
 
@@ -42,8 +43,9 @@ Do **not** commit keypair JSON. Testers own fixture/README alignment only — En
 | `pause.ts` | P0 X-01, X-02, X-04, X-05, X-06 |
 | `fees.ts` | P1 M-03, R-05, V-06 |
 | `p1_edges.ts` | P1 S-08, X-03, M-07, M-09, M-10, V-07, V-08 |
-| **`sim_session.ts`** | **SIM-01…SIM-09 (localnet-only / D-017)** |
-| `helpers/` | fixtures, I1–I5, Anchor `TestCtx` harness (+ `simOpen` / `simClose` / `simTradeOffBook`) |
+| **`sim_session.ts`** | **SIM-01…SIM-09 (localnet-only / D-017)** — green |
+| **`p2_gates.ts`** | **A-05, R-08, X-07 + INV-P2-I3, INV-PROD-01, INV-FEE-TRUNC** |
+| `helpers/` | fixtures, I1–I5, Anchor `TestCtx` harness (+ `simOpen` / `simClose` / `simTradeOffBook` / `burnLosing`) |
 
 ## Localnet simulated session (D-017)
 
@@ -59,6 +61,16 @@ Do **not** commit keypair JSON. Testers own fixture/README alignment only — En
 3. Pin errors: mint after close → `TradingClosed` (or `MarketNotOpen`); settle before close → `SessionNotClosed` (SIM-05).
 4. Run `yarn test` / `anchor test -- --features localnet-test` until SIM-* green. **Do not** implement Rust in the Testers MR; **do not** weaken prod settle/oracle gates.
 5. Prod `anchor build` (no features) must omit `sim_*` symbols.
+
+
+## For Engineers (P2 / INV gates)
+
+1. Branch from latest `main`; keep P0/P1/SIM green.
+2. **A-05:** Lock ONE policy — prefer `OutcomeInconsistent` (or pinned name) reject when `outcome_yes != (price_e6 >= strike)`; OR accept+log + DECISIONS entry and flip the suite assert. Silent accept is not locked.
+3. **R-08 / INV-P2-I3:** `burn_losing` already on tip — confirm loser supply ↓, no USDC, `pairs_redeemed` frozen, vault I3 intact. Do not break I1–I5.
+4. **X-07:** Wire `Settling` treat-like-Open for settle **or** retire unused status in SCHEMA/accounts (honest skip).
+5. **INV-PROD-01 / INV-FEE-TRUNC:** should already pass (prod IDL omit + trunc math); do not weaken.
+6. **Do not** change program id / invent Phoenix matcher / re-implement P0/P1/SIM.
 
 ## Mocks / placeholders
 

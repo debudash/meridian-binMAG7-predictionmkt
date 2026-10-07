@@ -4,7 +4,7 @@ Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** o
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017).
 **Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)).
 
-_Last refreshed: 2026-10-06 23:53 CT (rebase+merge !25 onto main @ 22b5208 incl. !26; Testers confirm suite program-id rotate Done).
+_Last refreshed: 2026-10-06 23:55 CT (Testers P2 invariant gates suite In Progress — `test/p2-invariant-gates`).
 
 ## Done
 
@@ -39,6 +39,7 @@ _Last refreshed: 2026-10-06 23:53 CT (rebase+merge !25 onto main @ 22b5208 incl.
 
 ## In Progress
 
+- [ ] **Tester P2 cases + invariant gates** (`test/p2-invariant-gates`) — A-05 / R-08 / X-07 + INV-*; Eng green follow-up (D-016) — Owner: Meridian Testers
 - [ ] Reviewer continuous / demo readiness (beyond !17 nits) — demo walkthrough still owed (keypair tip-delete done in !24)
 - [ ] Phoenix Buy/Sell No composition + real on-book trade in sim E2E (sim trade today = off-book Yes SPL placeholder)
 
@@ -46,6 +47,5 @@ _Last refreshed: 2026-10-06 23:53 CT (rebase+merge !25 onto main @ 22b5208 incl.
 
 - [ ] Eng SimClock PDA impl (`init`/`set`/`warp` behind `localnet-test`) per `docs/sim-clock.md` (docs landed !14; not required by SIM-01…09)
 - [ ] UI sim affordance (optional for V1) (D-017)
-- [ ] Tester P2 cases + invariant gates after P0/P1 land on main (D-016)
 - [ ] Peak6 PRD: demo video (distinct from `DEMO_SCRIPT.md`)
 - [ ] Peak6 PRD: test results artifact (after suite execution on main)

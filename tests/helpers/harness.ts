@@ -478,6 +478,26 @@ export class TestCtx {
       .rpc();
   }
 
+  /**
+   * P2 helper: burn losing outcome tokens after settle (R-08). No USDC; pairs_redeemed unchanged.
+   * `losing` must be the non-winning mint for the settled market.
+   */
+  async burnLosing(amount: BN, losing: "yes" | "no", signer: Keypair = this.user): Promise<string> {
+    const losingMint = losing === "yes" ? this.yesMint : this.noMint;
+    return await this.program.methods
+      .burnLosing(amount)
+      .accounts({
+        user: signer.publicKey,
+        config: this.configPda,
+        strikeMarket: this.market,
+        userLosingAta: getAssociatedTokenAddressSync(losingMint, signer.publicKey),
+        losingMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([signer])
+      .rpc();
+  }
+
   async setPhoenix(pk: PublicKey = PHOENIX_MARKET_PLACEHOLDER) {
     await this.program.methods
       .setPhoenixMarket(pk)
