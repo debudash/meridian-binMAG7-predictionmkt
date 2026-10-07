@@ -12,7 +12,7 @@ dotenv.config();
 export type AutomationMode = "calendar" | "sim";
 export type SolanaCluster = "localnet" | "devnet" | "mainnet-beta";
 
-export const DEFAULT_PROGRAM_ID = "GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2";
+export const DEFAULT_PROGRAM_ID = "9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6";
 export const ET_TZ = "America/New_York";
 
 /** Fixture / localnet-only instruction names that must never appear on prod IDL path. */
@@ -119,11 +119,15 @@ export interface AutomationConfig {
 
 function resolveIdlPath(raw: string): string {
   if (path.isAbsolute(raw)) return raw;
-  // Prefer cwd (apps/automation when started there); also try repo root.
+  // Prefer packaged path (apps/automation/idl) then monorepo root idl/.
+  const stripped = raw.replace(/^\.\.\/\.\.\//, "");
   const candidates = [
     path.resolve(process.cwd(), raw),
-    path.resolve(process.cwd(), "..", "..", raw.replace(/^\.\.\/\.\.\//, "")),
-    path.resolve(__dirname, "../../..", raw.replace(/^\.\.\/\.\.\//, "")),
+    path.resolve(process.cwd(), "idl", path.basename(raw)),
+    path.resolve(__dirname, "..", "idl", path.basename(raw)), // dist/ -> ../idl
+    path.resolve(process.cwd(), "..", "..", stripped),
+    path.resolve(__dirname, "../../..", stripped),
+    path.resolve(__dirname, "../../../idl", path.basename(raw)),
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
@@ -147,10 +151,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
     throw new Error("ANCHOR_FEATURES=localnet-test is forbidden off localnet (DEPLOY.md §2).");
   }
 
+  // Packaged IDL for Railway rootDirectory=apps/automation (baked under idl/).
+  // Local monorepo still resolves ../../idl/... via resolveIdlPath candidates.
   const defaultIdl =
     cluster === "localnet" && mode === "sim"
       ? "../../idl/meridian.json"
-      : "../../idl/meridian.prod.json";
+      : "idl/meridian.prod.json";
 
   const idlPath = resolveIdlPath(env.MERIDIAN_IDL_PATH ?? defaultIdl);
 

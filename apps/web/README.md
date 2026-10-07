@@ -53,4 +53,11 @@ Env vars: `NEXT_PUBLIC_SOLANA_RPC_URL`, `NEXT_PUBLIC_SOLANA_CLUSTER`, `NEXT_PUBL
 
 ## Program id
 
-Default: `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2` (overridable via `NEXT_PUBLIC_MERIDIAN_PROGRAM_ID`).
+Default: `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6` (overridable via `NEXT_PUBLIC_MERIDIAN_PROGRAM_ID`).
+
+## Railway
+
+- Service **rootDirectory**: `apps/web`
+- Config: [`railway.json`](./railway.json) — `next build` / `next start`, Node ≥20, `healthcheckPath=/api/health`
+- Health route: [`src/app/api/health/route.ts`](./src/app/api/health/route.ts)
+

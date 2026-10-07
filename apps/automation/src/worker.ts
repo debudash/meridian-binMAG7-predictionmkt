@@ -2,12 +2,30 @@
  * Railway / prod entry — calendar mode only.
  *
  * Start: `node dist/worker.js` (DEPLOY.md §4).
- * Loads idl/meridian.prod.json; refuses fixture IDL off localnet.
+ * Loads packaged idl/meridian.prod.json; refuses fixture IDL off localnet.
  * Does NOT import modes/sim.ts (fixture isolation).
+ * Optional HTTP /health for Railway healthcheckPath (HEALTH_PORT, default 8080).
  */
+import * as http from "http";
 import { loadConfig, loadKeypair } from "./config";
 import { createProgram, idlHasSimFixtures } from "./solana/client";
 import { createCalendarState, runMorningCreate, runSettlePass } from "./modes/calendar";
+
+function startHealthServer(port: number): http.Server {
+  const server = http.createServer((req, res) => {
+    if (req.url === "/health" || req.url === "/healthz") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, service: "meridian-automation" }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  server.listen(port, () => {
+    console.log(`[worker] health listening on :${port}/health`);
+  });
+  return server;
+}
 
 async function main() {
   const cfg = loadConfig();
@@ -25,6 +43,11 @@ async function main() {
 
   if (cfg.cluster !== "localnet" && idlHasSimFixtures(idl)) {
     throw new Error("Prod worker loaded fixture IDL — aborting");
+  }
+
+  const healthPort = Number(process.env.HEALTH_PORT ?? process.env.PORT ?? "8080");
+  if (Number.isFinite(healthPort) && healthPort > 0) {
+    startHealthServer(healthPort);
   }
 
   console.log(

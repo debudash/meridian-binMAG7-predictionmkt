@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "src/sim-lifecycle.ts",
+    "src/modes/sim.ts"
+  ]
+}

@@ -19,6 +19,12 @@ async function main() {
   }
 
   const cfg = loadConfig();
+
+  if (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT) {
+    throw new Error(
+      "sim-lifecycle refused: NODE_ENV=production or RAILWAY_ENVIRONMENT is set (localnet-only)"
+    );
+  }
   console.log(`[sim-lifecycle] ${SIM_MODULE_MARKER}`);
   console.log(
     `[sim-lifecycle] cluster=${cfg.cluster} mode=${cfg.mode} idl=${cfg.idlPath}`

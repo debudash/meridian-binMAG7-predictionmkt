@@ -12,3 +12,8 @@ apps/web/node_modules/
 apps/web/.next/
 apps/web/out/
 apps/web/.env*.local
+# Program / deploy key material — NEVER commit secret key bytes
+keys/*
+!keys/.gitkeep
+!keys/README.md
+**/*keypair*.json

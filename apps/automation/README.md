@@ -44,7 +44,7 @@ See [`docs/SIM_LIFECYCLE.md`](../../docs/SIM_LIFECYCLE.md).
 - **Build:** `npm install && npm run build` (in this package, or monorepo equivalent)
 - **Start:** `node dist/worker.js`
 - Env table: `docs/DEPLOY.md` §4 + `.env.example`
-- Program id default: `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2`
+- Program id default: `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6`
 
 ## Tests
 
@@ -58,3 +58,12 @@ Covers ET settle gates, strike encoding, and prod-entry ↔ sim-module isolation
 
 - Phoenix **market create** is TODO (SDK-heavy); when `PHOENIX_MARKETS` provides a pubkey, automation calls `set_phoenix_market`.
 - Strike formula is config-driven: `PRIOR_CLOSE_E6` + `STRIKE_OFFSETS_E6` (extension point for real prior-close).
+
+## Railway
+
+- Service **rootDirectory**: `apps/automation`
+- Config: [`railway.json`](./railway.json) — start `node dist/worker.js`, `healthcheckPath=/health`
+- IDL: committed/synced [`idl/meridian.prod.json`](./idl/meridian.prod.json) (from `yarn build:prod-idl` at repo root). Default `MERIDIAN_IDL_PATH=idl/meridian.prod.json`.
+- Build: `npm run build:railway` (excludes `sim-lifecycle` / `modes/sim` from `dist/`)
+- Health: worker listens on `HEALTH_PORT`/`PORT` (default 8080) at `/health`
+

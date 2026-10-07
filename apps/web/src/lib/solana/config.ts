@@ -5,7 +5,7 @@
 import { PublicKey } from "@solana/web3.js";
 
 export const DEFAULT_PROGRAM_ID =
-  "GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2";
+  "9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6";
 
 export function getCluster(): string {
   return process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet";
