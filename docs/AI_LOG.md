@@ -6,6 +6,41 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06 21:40 CT — eng: Next.js UI V1 scaffold (`eng/nextjs-ui`)
+
+**Agent:** Meridian Engineers (executor)  
+**Branch:** `eng/nextjs-ui` from `origin/main` @ `823e6fd` (new worktree `/workspace/peak6-meridian-web`; did not reuse dirty/unrelated eng worktrees)
+
+### What landed
+- `apps/web/` Next.js 14 App Router + TypeScript package consuming `docs/ui/*`
+- Routes: `/`, `/markets`, `/markets/[marketId]`, `/portfolio`, `/history`, `/rules`
+- Providers: Connection → Wallet → QueryClient → ChainClock → TxStatus → Pyth shell
+- Solana client wraps Anchor Program from **`idl/meridian.prod.json` only** (copied into `apps/web/src/idl/`); program id `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2` (env-overridable)
+- Wired `mint` / `redeem` builders matching prod IDL accounts; settle status read helper; create_strike left to automation
+- Pure `getIntentAvailability` + Vitest covering §2.1 matrix and key §2.4 cases (16 tests)
+- Trade ticket intent mapping + order book UI shell; Phoenix order placement **stubbed** (`TODO(phoenix)`)
+- Markets/landing use mock fixtures when no indexer (Schema OPEN for registry)
+- Portfolio redeem CTA calls `redeem` when on-chain accounts + `NEXT_PUBLIC_USDC_MINT` present; fixtures explain stub
+- `.env.example` with `NEXT_PUBLIC_*` only; README + root scripts `web:dev` / `web:build` / `web:test` / `web:typecheck`
+- TRACKER: Next.js UI moved Todo → In Progress
+
+### Hard constraints honored
+- No `localnet-test` / mock Pyth / `sim_*` / `test_drain_vault` in web source or prod bundle
+- Anchor program / tests untouched
+- Did not invent Schema TODOs as on-chain facts
+
+### Checks
+- `npm test` (apps/web): 16 passed
+- `npm run typecheck` / `lint` / `build`: green
+
+### Stubbed / follow-ups
+- Full Phoenix SDK place/cancel/seat
+- Indexer-backed market registry, history, cost basis
+- Live Pyth Hermes subscription
+- Real on-chain position balances (demo fixtures for SSR)
+
+---
+
 ## 2026-10-06T21:35:00-05:00 — Node automation dual-mode (calendar ET + sim)
 
 | Field | Value |
@@ -16,6 +51,7 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 | **Related** | D-014 · D-017 · DEPLOY !18 · SIM !16 · TRACKER automation todos |
 
 ---
+
 
 ## 2026-10-06T21:26:00-05:00 — Landed !14–!18 on main (glab merge order)
 
