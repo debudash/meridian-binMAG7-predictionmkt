@@ -23,6 +23,8 @@ export function MarketsClient({
   initialView,
   initialUnderlyings,
   initialExpiry,
+  dataSource = "fixtures",
+  fixtureBanner,
 }: {
   markets: MarketView[];
   initialStatus: string;
@@ -31,6 +33,8 @@ export function MarketsClient({
   initialView?: string;
   initialUnderlyings?: string;
   initialExpiry?: string;
+  dataSource?: "indexer-http" | "rpc-gpa" | "fixtures";
+  fixtureBanner?: string;
 }) {
   const { nowSec } = useChainClock();
   const router = useRouter();
@@ -467,8 +471,9 @@ export function MarketsClient({
         </div>
       )}
       <p className="muted" style={{ marginTop: "1.5rem", fontSize: "0.8rem" }}>
-        Showing fixture markets (no indexer configured). TODO(schema): registry via indexer or
-        getProgramAccounts.
+        {fixtureBanner
+          ? fixtureBanner
+          : `Market source: ${dataSource}.`}
       </p>
     </div>
   );

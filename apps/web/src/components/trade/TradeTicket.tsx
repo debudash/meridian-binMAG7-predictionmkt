@@ -1,19 +1,31 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useAnchorWallet, useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { AnchorProvider } from "@coral-xyz/anchor";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { PublicKey } from "@solana/web3.js";
 import type { Intent } from "@/lib/intents/types";
 import type { IntentAvailabilityMap, PositionSnapshot } from "@/lib/intents/types";
 import { getIntentAvailability } from "@/lib/intents/getIntentAvailability";
 import { buyPreview, sellPreview, oneLineExplainer } from "@/lib/copy/payoff";
-import { placePhoenixOrder } from "@/lib/phoenix/stub";
+import {
+  isPhoenixPlacementEnabled,
+  placePhoenixOrder,
+  PHOENIX_NOT_CONFIGURED_MESSAGE,
+  SELL_NO_MERGE_CAVEAT,
+  planIntentComposition,
+} from "@/lib/phoenix";
 import { useTxStatus } from "@/components/providers/AppProviders";
 import type { MarketView } from "@/lib/market/types";
 import { getCountdown } from "@/lib/market/countdown";
 import { useChainClock } from "@/components/providers/AppProviders";
 import type { Perspective } from "@/lib/market/bookTransform";
 import { useTradingBlockedByBanner } from "@/components/layout/GlobalBanners";
+import { getUsdcMint } from "@/lib/solana/config";
+import { getMeridianProgram } from "@/lib/solana/program";
+import type { MintAccounts } from "@/lib/solana/instructions";
+import { explorerTx } from "@/lib/solana/config";
 
 const INTENTS: Intent[] = ["buy-yes", "sell-yes", "buy-no", "sell-no"];
 
@@ -56,12 +68,16 @@ export function TradeTicket({
   fillIntentHint?: Intent | null;
   onConsumedFill?: () => void;
 }) {
-  const { connected } = useWallet();
+  const { connected, publicKey, sendTransaction } = useWallet();
+  const anchorWallet = useAnchorWallet();
+  const { connection } = useConnection();
   const { setVisible } = useWalletModal();
   const { push } = useTxStatus();
   const { nowSec } = useChainClock();
   const tradingBlocked = useTradingBlockedByBanner();
   const cd = getCountdown(market, nowSec);
+
+  const phoenixReady = isPhoenixPlacementEnabled(market.phoenixMarket);
 
   const defaultIntent: Intent =
     initialIntent ?? (perspective === "no" ? "buy-no" : "buy-yes");
@@ -102,6 +118,29 @@ export function TradeTicket({
   const isBuy = intent.startsWith("buy");
   const preview = isBuy ? buyPreview(size, price) : sellPreview(size, price);
 
+  const planPreview = useMemo(
+    () =>
+      planIntentComposition({
+        intent,
+        price,
+        size,
+        orderType: orderType === "limit" && postOnly ? "post-only" : orderType,
+        tickSize: market.tickSize,
+      }),
+    [intent, price, size, orderType, postOnly, market.tickSize],
+  );
+
+  function ctaLabel(): string {
+    if (!connected) return "Connect wallet";
+    if (busy) {
+      return phoenixReady ? "Confirm in your wallet…" : "Working…";
+    }
+    if (!phoenixReady) {
+      return `Phoenix not configured — ${intentLabel(intent)}`;
+    }
+    return `${intentLabel(intent)} ${size}${orderType === "limit" ? ` @ ${price.toFixed(2)}` : ""}${postOnly && orderType === "limit" ? " (post-only)" : ""}`;
+  }
+
   async function onSubmit() {
     if (!connected) {
       setVisible(true);
@@ -123,22 +162,94 @@ export function TradeTicket({
       return;
     }
 
+    if (!phoenixReady) {
+      push(
+        "neutral",
+        `${PHOENIX_NOT_CONFIGURED_MESSAGE} Mapped: ${planPreview.phoenixSide} Yes @ ${planPreview.yesPrice.toFixed(2)} × ${planPreview.size}`,
+      );
+      return;
+    }
+
     setBusy(true);
     try {
       const phoenixType =
         orderType === "limit" && postOnly ? "post-only" : orderType;
-      const result = await placePhoenixOrder({
-        phoenixMarket: market.phoenixMarket ?? "unset",
-        intent,
-        price,
-        size,
-        orderType: phoenixType,
-        worstPrice: orderType === "market" ? price + (isBuy ? 0.02 : -0.02) : undefined,
-      });
-      push(
-        "neutral",
-        `${result.message} Mapped: ${result.mapped.side} Yes @ ${result.mapped.yesPrice.toFixed(2)} × ${result.mapped.size}`,
+
+      let mintAccounts: MintAccounts | undefined;
+      let program: ReturnType<typeof getMeridianProgram> | undefined;
+      if (planPreview.needsMint && publicKey && anchorWallet) {
+        const usdc = getUsdcMint();
+        if (
+          market.yesMint &&
+          market.noMint &&
+          usdc &&
+          market.collateralVault &&
+          market.treasury
+        ) {
+          const provider = new AnchorProvider(connection, anchorWallet, {
+            commitment: "confirmed",
+          });
+          program = getMeridianProgram(provider);
+          mintAccounts = {
+            user: publicKey,
+            strikeMarket: new PublicKey(market.marketId),
+            collateralVault: new PublicKey(market.collateralVault),
+            yesMint: new PublicKey(market.yesMint),
+            noMint: new PublicKey(market.noMint),
+            treasury: new PublicKey(market.treasury),
+            collateralMint: usdc,
+          };
+        }
+      }
+
+      const result = await placePhoenixOrder(
+        {
+          phoenixMarket: market.phoenixMarket ?? "unset",
+          intent,
+          price,
+          size,
+          orderType: phoenixType,
+          tickSize: market.tickSize,
+          worstPrice:
+            orderType === "market" ? price + (isBuy ? 0.02 : -0.02) : undefined,
+          strikeMarket: market.marketId,
+          yesMint: market.yesMint,
+          noMint: market.noMint,
+        },
+        publicKey
+          ? {
+              connection,
+              publicKey,
+              sendTransaction,
+              program,
+              mintAccounts,
+              ensureSeat: true,
+            }
+          : undefined,
       );
+
+      if (result.ok && result.signature) {
+        push(
+          "success",
+          `${result.message} Tx: ${result.signature.slice(0, 8)}…`,
+        );
+        if (typeof window !== "undefined") {
+          console.info("explorer", explorerTx(result.signature));
+        }
+      } else if (result.reason === "not-configured") {
+        push("neutral", result.message);
+      } else if (result.reason === "merge-schema-todo") {
+        push("neutral", result.message);
+      } else {
+        const tone = result.ok ? "success" : result.reason === "user-rejected" ? "neutral" : "error";
+        push(
+          tone,
+          `${result.message} Mapped: ${result.mapped.side} Yes @ ${result.mapped.yesPrice.toFixed(2)} × ${result.mapped.size}`,
+        );
+      }
+      if (intent === "sell-no" && result.plan?.mergeBlocked) {
+        push("neutral", SELL_NO_MERGE_CAVEAT);
+      }
     } finally {
       setBusy(false);
     }
@@ -300,7 +411,23 @@ export function TradeTicket({
         }}
       >
         {preview}
+        {planPreview.needsMint && (
+          <p className="muted" style={{ margin: "0.4rem 0 0", fontSize: "0.75rem" }}>
+            Buy No: mint pair then ask Yes @ {planPreview.yesPrice.toFixed(2)} (multi-ix tx).
+          </p>
+        )}
+        {planPreview.mergeBlocked && (
+          <p className="muted" style={{ margin: "0.4rem 0 0", fontSize: "0.75rem" }}>
+            Sell No: bid Yes only — full merge awaits Schema.
+          </p>
+        )}
       </div>
+
+      {!phoenixReady && (
+        <p className="muted" style={{ fontSize: "0.75rem", margin: 0 }}>
+          {PHOENIX_NOT_CONFIGURED_MESSAGE}
+        </p>
+      )}
 
       <button
         type="button"
@@ -308,11 +435,7 @@ export function TradeTicket({
         disabled={busy || tradingBlocked || (connected && !current.enabled)}
         onClick={onSubmit}
       >
-        {!connected
-          ? "Connect wallet"
-          : busy
-            ? "Confirm in your wallet…"
-            : `${intentLabel(intent)} ${size}${orderType === "limit" ? ` @ ${price.toFixed(2)}` : ""}${postOnly && orderType === "limit" ? " (post-only)" : ""}`}
+        {ctaLabel()}
       </button>
       <p className="muted" style={{ fontSize: "0.75rem", margin: 0 }}>
         {oneLineExplainer()}

@@ -6,6 +6,18 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T23:55:00-05:00 — Phoenix place + indexer beyond stubs (Eng)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers / Grok Bot |
+| **Decision** | Land Phoenix placement path with `@ellipsis-labs/phoenix-sdk`: Buy/Sell Yes bid/ask; Buy No = mint + ask Yes @ `1−p_no`; Sell No = bid Yes only — **merge Yes+No→USDC remains Schema TODO** (no merge ix in prod IDL). Indexer: HTTP `NEXT_PUBLIC_INDEXER_URL` → RPC `StrikeMarket` GPA → fixtures+banner. Railway staging **env templates only** (no project create). |
+| **SDK** | `@ellipsis-labs/phoenix-sdk@2.0.3` |
+| **Gated** | Live place needs wallet + `phoenixMarket` pubkey and not `NEXT_PUBLIC_PHOENIX_ENABLED=false`; Buy No mint needs vault/mints/treasury on MarketView; seat claim via maker-setup ixs. |
+| **Related** | D-014 · D-015 · SPEC §3.4 · `docs/ui/06` · branch `eng/phoenix-place-indexer` |
+
+---
+
 ## 2026-10-06T23:52:00-05:00 — SPEC lock confirmed on main (!20 @ aa97a22)
 
 | Field | Value |

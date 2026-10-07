@@ -2,7 +2,7 @@
   "name": "@meridian/web",
   "version": "0.1.0",
   "private": true,
-  "description": "Meridian Next.js UI \u2014 consumes docs/ui/* and idl/meridian.prod.json only",
+  "description": "Meridian Next.js UI — consumes docs/ui/* and idl/meridian.prod.json only",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.31.1",
+    "@ellipsis-labs/phoenix-sdk": "^2.0.3",
     "@solana/spl-token": "^0.4.9",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-phantom": "^0.9.30",
