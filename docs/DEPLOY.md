@@ -119,6 +119,8 @@ Set per Railway environment (staging → devnet, prod → mainnet). **Secrets on
 
 - Staging/prod automation uses **permissionless settle** + **admin_settle** only with authority secret; no mock Pyth upsert.
 - Localnet-only sim session / mock Pyth helpers must not be imported into Railway prod bundles (tree-shake / separate package entry).
+- Package: [`apps/automation`](../apps/automation) — start `node dist/worker.js` (calendar). Sim one-liner: `yarn automation:sim` (localnet only) — see [`SIM_LIFECYCLE.md`](SIM_LIFECYCLE.md).
+- Dual-mode: `MODE=calendar` (default, Railway) vs `MODE=sim` (`sim-lifecycle` entry). Worker refuses `MODE=sim`. Client refuses fixture IDL when `SOLANA_CLUSTER` ≠ `localnet`.
 
 ---
 

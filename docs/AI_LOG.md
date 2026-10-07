@@ -6,6 +6,17 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T21:35:00-05:00 — Node automation dual-mode (calendar ET + sim)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers; Grok Bot (`eng/node-automation`) |
+| **Decision** | Land Railway-ready `apps/automation` with **dual mode (D-017)**: (1) **calendar** worker — morning `create_strike_market` (~08:00 America/New_York) + optional `set_phoenix_market`, settle retries with real Pyth after ≥16:00 ET, `admin_settle` only with authority after delay/retries; (2) **sim** — separate `sim-lifecycle` entry, localnet-only, `sim_open_session`/`sim_close_session` + mock Pyth. Prod entry loads **`idl/meridian.prod.json` only**; client refuses fixture IDL off localnet. Sim module never imported by worker. Phoenix market create stubbed (TODO); strikes = prior-close ± offsets placeholder. Docs: `SIM_LIFECYCLE.md`, DEPLOY §4 pointer, TRACKER automation items → In Progress. |
+| **Result** | Package + unit tests (ET gates, mode isolation, strike encoding). MR open — do not merge until review. |
+| **Related** | D-014 · D-017 · DEPLOY !18 · SIM !16 · TRACKER automation todos |
+
+---
+
 ## 2026-10-06T21:26:00-05:00 — Landed !14–!18 on main (glab merge order)
 
 | Field | Value |
