@@ -32,4 +32,6 @@ How we judge **V1 pass**. Ties to [`SPEC.md`](SPEC.md) §3 and [`TEST_MATRIX.md`
 
 ## Reporting
 
-After suite runs on main tip: attach pass counts + commit SHA to Peak6 PRD test-results artifact (TRACKER Todo). Prefer `anchor test -- --features localnet-test` output + `yarn build:prod` assert log.
+**DLV-039 artifact:** [`TEST_RESULTS.md`](TEST_RESULTS.md) — pass counts + tip SHAs for Peak6 PRD handoff.
+
+After suite runs on main tip: refresh that file with pass counts + commit SHA. Prefer `anchor test -- --features localnet-test` output + `yarn build:prod` assert log.

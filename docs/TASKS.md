@@ -13,11 +13,9 @@ Statuses: **Todo** / **In Progress** / **Done** only (no Blocked).
 
 ## In Progress
 
-- [ ] **Testers:** P2 cases + invariant gates suite MR (`test/p2-invariant-gates`) — A-05 / R-08 / X-07 + INV-* — Owner: Meridian Testers
 - [x] **PM:** Debu SPEC lock — Done on tip (!20) — Owner: Meridian PM / Debu
 - [ ] **Reviewers:** Continuous security + demo readiness beyond !17 — Owner: Meridian Reviewers
 - [ ] **Engineers:** Phoenix Buy/Sell No composition + real on-book trade in sim E2E — Owner: Meridian Engineers
-- [ ] **Testers:** `merge_pair` red suite MP-01…MP-08 (D-018) — Owner: Meridian Testers
 - [ ] **Engineers:** implement `merge_pair` only after Testers red suite MR — Owner: Meridian Engineers
 
 ## Todo
@@ -28,10 +26,8 @@ Statuses: **Todo** / **In Progress** / **Done** only (no Blocked).
 - [ ] Documented one-command/scripted sim lifecycle in-repo — Engineers / PM
 - [ ] Eng SimClock PDA impl (optional vs SIM-01…09) — Engineers
 - [ ] UI sim affordance (optional V1) — UI / Engineers
-- [ ] Tester P2 cases + invariant gates (!27 open) — Testers / Eng green
-- [ ] Eng green `merge_pair` (MP-*) after red suite — Engineers
 - [ ] Peak6 PRD: demo video (distinct from DEMO_SCRIPT) — PM / Debu
-- [ ] Peak6 PRD: test results artifact from main — Testers / PM
+- [x] Peak6 PRD: test results artifact DLV-039 — Testers (`docs/TEST_RESULTS.md`) — Done
 
 ## Notes
 

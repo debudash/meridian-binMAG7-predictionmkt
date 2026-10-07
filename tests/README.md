@@ -14,7 +14,9 @@
 | **P1 fees + edges** | Green on `main` (MR !11) | Fees **M-03 / R-05 / V-06** + edges; V-07 via localnet `test_drain_vault` |
 | **Sim session (localnet)** | Green on `main` (MR !16) | **SIM-01…SIM-09** under `localnet-test`. **Never** required for mainnet builds. |
 | **`merge_pair` (D-018)** | **Green on `main` (!31)** | **MP-01…MP-08** — Open merge, post-expiry OK, pause/settled fails, fee path, I2/I3. **No** Phoenix matcher. |
-| **A-05 / X-07** | Owned by P2 suite !27 | Schema !29 docs align — **do not double-flip** in the merge_pair MR |
+| **P2 A-05 / X-07 / INV** | **Green on `main` (!32)** | Policy A `OutcomeInconsistent`; Settling retired; INV-* |
+| **Flake harden** | **Green (!34)** | X-03 / SIM-08 timing; **74/74** localnet |
+| **PRD results** | [`docs/TEST_RESULTS.md`](../docs/TEST_RESULTS.md) | DLV-039 handoff artifact |
 
 ## Program id / localnet deploy
 
