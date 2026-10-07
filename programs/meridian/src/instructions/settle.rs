@@ -22,6 +22,10 @@ pub fn handler(ctx: Context<Settle>) -> Result<()> {
     let market = &mut ctx.accounts.strike_market;
     require!(market.is_open(), MeridianError::MarketNotOpen);
     require!(
+        !market.require_session_closed_for_settle(),
+        MeridianError::SessionNotClosed
+    );
+    require!(
         ctx.accounts.pyth_price_feed.key() == market.pyth_price_feed,
         MeridianError::InvalidPythAccount
     );

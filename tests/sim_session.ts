@@ -6,8 +6,9 @@
  * Simulated open/close are NOT wall-clock 9:30 / 4:00 ET.
  * Sim trade = mint + off-book Yes SPL transfer (Phoenix placeholder) — no Meridian matcher.
  *
- * TDD_RED until Engineers land sim_open_session / sim_close_session + trading_open
- * behind `#[cfg(feature = "localnet-test")]`.
+ * GREEN: eng `sim_open_session` / `sim_close_session` + `StrikeMarket.trading_open`
+ * behind `#[cfg(feature = "localnet-test")]` (MR !16). Prod builds omit `sim_*`.
+ * Expiry buffers (+20s) avoid create/simOpen wall-clock races — not a product soften.
  */
 import { expect } from "chai";
 import { BN } from "@coral-xyz/anchor";
@@ -102,7 +103,8 @@ describe("localnet sim session lifecycle (TEST_MATRIX Cluster G / D-017)", funct
     const caseId = "SIM-05";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
+    // Buffer: createMarket + simOpen consume wall time before mint (not a product soften).
+    const expiry = Math.floor(Date.now() / 1000) + 20;
     await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
     await ctx.simOpen(caseId);
     await ctx.mint(ONE);
@@ -127,7 +129,8 @@ describe("localnet sim session lifecycle (TEST_MATRIX Cluster G / D-017)", funct
     const caseId = "SIM-06";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 3;
+    // Buffer: create + simOpen + mint + off-book trade before close (same as SIM-05/08).
+    const expiry = Math.floor(Date.now() / 1000) + 20;
     await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
     await ctx.simOpen(caseId);
     await ctx.mint(ONE);
@@ -163,7 +166,8 @@ describe("localnet sim session lifecycle (TEST_MATRIX Cluster G / D-017)", funct
     const caseId = "SIM-07";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 3;
+    // Buffer: create + simOpen + mint before close (same as SIM-05/08).
+    const expiry = Math.floor(Date.now() / 1000) + 20;
     // price below strike → SettledNo
     await ctx.createMarket({ expiryTs: expiry, pythPrice: 17_900_000_000n });
     await ctx.simOpen(caseId);
@@ -183,7 +187,8 @@ describe("localnet sim session lifecycle (TEST_MATRIX Cluster G / D-017)", funct
     const caseId = "SIM-08";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
+    // Buffer: createMarket + simOpen + mint before close (not a product soften).
+    const expiry = Math.floor(Date.now() / 1000) + 20;
     await ctx.createMarket({ expiryTs: expiry });
     await ctx.simOpen(caseId);
     await ctx.mint(ONE);
@@ -199,7 +204,7 @@ describe("localnet sim session lifecycle (TEST_MATRIX Cluster G / D-017)", funct
   it("SIM-09: sim_* ixs required in localnet-test IDL; must stay off mainnet builds", async () => {
     const caseId = "SIM-09";
     const ctx = await TestCtx.boot();
-    // Throws TDD_RED until Engineers add sim_open_session / sim_close_session to localnet IDL
+    // Assert localnet IDL lists sim open/close (prod builds must omit — see MR !18 CI assert)
     ctx.assertSimSessionIdl(caseId);
     // Document gate: suite only meaningful with localnet-test (package.json `yarn test`)
     expect(process.env.ANCHOR_PROVIDER_URL || "localnet").to.be.a("string");

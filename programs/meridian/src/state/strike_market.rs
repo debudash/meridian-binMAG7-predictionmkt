@@ -40,7 +40,13 @@ pub struct StrikeMarket {
     pub settled_slot: u64,
     pub bump: u8,
     pub vault_bump: u8,
-    pub reserved: [u8; 64],
+    /// Localnet simulated trading window (D-017). Default true on create so P0/P1 mint stays green.
+    /// Cleared by `sim_close_session`; set by `sim_open_session`.
+    pub trading_open: bool,
+    /// Set true by `sim_open_session`. When armed, settle/admin_settle require `!trading_open`
+    /// (SessionNotClosed). Unarmed markets (never sim-opened) keep legacy P0 settle-without-close.
+    pub sim_armed: bool,
+    pub reserved: [u8; 62],
 }
 
 impl StrikeMarket {
@@ -55,5 +61,10 @@ impl StrikeMarket {
 
     pub fn winning_is_yes(&self) -> bool {
         self.status == MarketStatus::SettledYes as u8
+    }
+
+    /// When a sim session was armed, settle/admin require trading window closed first.
+    pub fn require_session_closed_for_settle(&self) -> bool {
+        self.sim_armed && self.trading_open
     }
 }
