@@ -7,7 +7,14 @@
 import { PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 
-/** Placeholder program id from SCHEMA — replace at deploy. */
+/**
+ * Current program id (post !24 rotate). Must match `declare_id!`,
+ * `Anchor.toml` `[programs.localnet]`, and IDL `address`.
+ * Deploy keypair is **gitignored** (`keys/meridian-keypair.json` /
+ * `target/deploy/meridian-keypair.json`) — generate locally per
+ * [`keys/README.md`](../../keys/README.md); never commit secret bytes.
+ * Revoked (do not use): GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2
+ */
 export const MERIDIAN_PROGRAM_ID = new PublicKey(
   "9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6"
 );
