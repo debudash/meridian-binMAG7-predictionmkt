@@ -4,7 +4,11 @@ Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** o
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017).
 **Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)).
 
+<<<<<<< HEAD
 _Last refreshed: 2026-10-06 23:49 CT (rebase `docs/d012-spec-freeze` onto main @ 4f0553e / !23 UI nits + !24 security)._
+=======
+_Last refreshed: 2026-10-06 21:32 CT (SPEC !20 + UI wireframes on same freeze MR)._
+>>>>>>> 100e010 (docs: require UI wireframes on SPEC freeze MR !20)
 
 ## Done
 
@@ -38,8 +42,14 @@ _Last refreshed: 2026-10-06 23:49 CT (rebase `docs/d012-spec-freeze` onto main @
 
 ## In Progress
 
+<<<<<<< HEAD
 - [ ] `docs/SPEC.md` **freeze candidate on MR !20** — awaiting **Debu lock ping** (notify Grok Bot + Debu); not yet locked
 - [ ] Reviewer continuous / demo readiness (beyond !17 nits) — demo walkthrough still owed (keypair tip-delete done in !24)
+=======
+- [ ] `docs/SPEC.md` **freeze candidate on MR !20** — awaiting **Debu lock ping**; **UI wireframes required on same MR** (`docs/ui/wireframes/`) before lock unless Debu waives
+- [ ] Meridian UI: push Landing/Markets/Trade/Portfolio/History wireframes to branch `docs/d012-spec-freeze` (not a separate MR)
+- [ ] Reviewer continuous / demo readiness (beyond !17 nits) — security + demo walkthrough still owed
+>>>>>>> 100e010 (docs: require UI wireframes on SPEC freeze MR !20)
 - [ ] Phoenix Buy/Sell No composition + real on-book trade in sim E2E (sim trade today = off-book Yes SPL placeholder)
 
 ## Todo

@@ -481,3 +481,15 @@ Key UI locks in this slice: one Phoenix Yes/USDC book with No as display transfo
 | **Rationale** | Single private forge for Meridian (Peak6) agent + human collaboration. |
 | **URL** | https://labs.gauntletai.com/debudash/peak6-meridian |
 | **Commit** | `4e449f8` — `Initial commit` |
+
+---
+
+## 2026-10-06T21:32:00-05:00 — SPEC freeze includes UI wireframes on !20 (Meridian PM)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian PM |
+| **Decision** | Debu: UI wireframes must land **in SPEC freeze MR !20** (branch `docs/d012-spec-freeze`), **not** a separate MR. SPEC §3.10 + §8 updated; `docs/ui/wireframes/` slot + README for Meridian UI pushes; TRACKER In Progress updated. |
+| **Rationale** | Single freeze package: product SPEC + visual contract for five V1 pages before Debu lock ping. |
+| **Related** | D-012 · MR !20 · `docs/ui/` |
+

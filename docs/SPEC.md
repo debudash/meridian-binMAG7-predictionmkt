@@ -8,7 +8,7 @@
 | **Date** | 2026-10-06 (America/Chicago) |
 | **Forge** | https://labs.gauntletai.com/debudash/peak6-meridian (GitLab-only; D-001 / D-014) |
 
-**Canonical companions:** [`DECISIONS.md`](DECISIONS.md) · [`SCHEMA.md`](SCHEMA.md) · [`TRACKER.md`](TRACKER.md) · [`TEST_MATRIX.md`](TEST_MATRIX.md) · [`DEPLOY.md`](DEPLOY.md) · [`ui/`](ui/) · [`sim-clock.md`](sim-clock.md)
+**Canonical companions:** [`DECISIONS.md`](DECISIONS.md) · [`SCHEMA.md`](SCHEMA.md) · [`TRACKER.md`](TRACKER.md) · [`TEST_MATRIX.md`](TEST_MATRIX.md) · [`DEPLOY.md`](DEPLOY.md) · [`ui/`](ui/) · [`ui/wireframes/`](ui/wireframes/) · [`sim-clock.md`](sim-clock.md)
 
 ---
 
@@ -105,6 +105,19 @@ End-to-end: **create → mint → Phoenix trade → settle → redeem** for a sa
 
 - All work and MRs on Gauntlet GitLab via **`glab`** (D-014).
 
+### 3.10 UI wireframes (SPEC freeze artifact)
+
+Debu requires **UI wireframes in this SPEC freeze MR** (!20 / branch `docs/d012-spec-freeze`) — **not** a separate MR.
+
+| Requirement | Detail |
+| --- | --- |
+| Owner | Meridian UI (pushes to same branch); Meridian PM keeps SPEC/TRACKER pointers current |
+| Location | [`docs/ui/wireframes/`](ui/wireframes/) |
+| Coverage | One wireframe (or short multi-state set) per V1 surface: **Landing**, **Markets**, **Trade**, **Portfolio**, **History** |
+| Normative link | Wireframes must align with [`ui/01`–`05`](ui/) + [`ui/06-trading-intents-and-constraints.md`](ui/06-trading-intents-and-constraints.md) (four intents, one book, no Yes+No from Trade UI) |
+| Format | PNG/SVG (or HTML snapshot) checked into GitLab; index in [`ui/wireframes/README.md`](ui/wireframes/README.md) |
+| Freeze gate | SPEC lock waits until wireframes are on this MR **or** Debu explicitly locks without them |
+
 ---
 
 ## 4. Explicit non-goals
@@ -125,7 +138,7 @@ End-to-end: **create → mint → Phoenix trade → settle → redeem** for a sa
 | On-chain program (vault, mint, settle, redeem, pause, sim gates) | Meridian Engineers + Schema | SCHEMA / accounts / flows / sim-clock |
 | Phoenix integration (book wiring, seats, SDK intents) | Meridian Engineers + UI | D-015 spot assumption |
 | Automation (calendar AM/PM + dual-mode sim path) | Meridian Engineers | Must not weaken prod invariants |
-| Next.js five pages | Meridian UI → Engineers | Specs in `docs/ui/` |
+| Next.js five pages + freeze wireframes | Meridian UI → Engineers | Specs in `docs/ui/`; wireframes in `docs/ui/wireframes/` on MR !20 |
 | TEST_MATRIX + failing suites | Meridian Testers | D-016 TDD |
 | Security + demo readiness | Meridian Reviewers | RED_TEAM checklist; demo walkthrough |
 | SPEC / TRACKER / orchestration | Meridian PM + Grok Bot | D-008 / D-012 |
@@ -163,9 +176,10 @@ Full ladder: [`DEPLOY.md`](DEPLOY.md).
 
 ## 8. Freeze process
 
-1. **This MR** lands `docs/SPEC.md` as **freeze candidate**.
-2. **Debu lock** = Debu notifies **Grok Bot + Debu** (chat/ping) that SPEC is locked.
-3. After lock: material scope/stack changes require a new row (or amendment) in [`DECISIONS.md`](DECISIONS.md) and an [`AI_LOG.md`](AI_LOG.md) entry.
-4. TRACKER / TASKS may continue to move work items; they do not silently expand V1 acceptance without Debu awareness.
+1. **This MR (!20)** lands `docs/SPEC.md` as **freeze candidate** and hosts **UI wireframes** under [`ui/wireframes/`](ui/wireframes/) (same MR / branch — Debu: no separate wireframe MR).
+2. Meridian UI pushes wireframe assets to `docs/d012-spec-freeze`; PM keeps §3.10 + TRACKER in sync.
+3. **Debu lock** = Debu notifies **Grok Bot + Debu** (chat/ping) that SPEC is locked (wireframes included unless Debu waives).
+4. After lock: material scope/stack changes require a new row (or amendment) in [`DECISIONS.md`](DECISIONS.md) and an [`AI_LOG.md`](AI_LOG.md) entry.
+5. TRACKER / TASKS may continue to move work items; they do not silently expand V1 acceptance without Debu awareness.
 
-**Status wording until Debu lock ping:** Freeze candidate — **not** yet locked.
+**Status wording until Debu lock ping:** Freeze candidate — **not** yet locked. Wireframes expected on this MR before lock.

@@ -22,3 +22,7 @@ flowchart LR
 ```
 
 When adding a new diagram, link it from this index and from TRACKER if it is a deliverable.
+
+## UI wireframes
+
+SPEC freeze visuals: [`ui/wireframes/`](ui/wireframes/) (MR !20).

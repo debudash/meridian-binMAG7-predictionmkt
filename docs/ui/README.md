@@ -22,6 +22,7 @@ Repo of record: https://labs.gauntletai.com/debudash/peak6-meridian (files live 
 | [05-history.md](05-history.md) | Past fills, settlements, redemptions |
 | [06-trading-intents-and-constraints.md](06-trading-intents-and-constraints.md) | **Cross-cutting rules**: intents→order mapping, no Yes+No constraint, countdown states, payoff copy |
 | [07-ia-and-routes.md](07-ia-and-routes.md) | IA, Next.js routes, nav, global empty/error/wallet states |
+| [wireframes/](wireframes/) | **SPEC freeze wireframes** (MR !20) — Landing/Markets/Trade/Portfolio/History |
 
 ## How screens relate
 ```
