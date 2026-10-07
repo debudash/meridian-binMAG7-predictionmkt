@@ -6,6 +6,17 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-07T00:05:00-05:00 — D-018 merge_pair + Settling retire + admin_settle Policy A
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Schema |
+| **Decision** | **D-018:** Lock prod ix **`merge_pair`** (not `burn_pair`; not localnet-gated) as Open-state inverse of `mint`: burn `amount` Yes+No, pay `collateral_out = amount − fee` with `fee = amount * redeem_fee_bps / 10_000` (fee-on-payout → treasury), require `vault.amount >= amount`, decrement **`pairs_minted`** (redefined while Open as outstanding pair liability: +mint / −merge). Pause blocks merge like mint/create. **Allow merge after `expiry_ts`** while `status == Open` (only status+pause matter; contrast mint's expiry gate). Event `Merged { market, user, amount, fee, pairs_minted_after }`. Distinct from `burn_losing` / `redeem`. Client: Meridian does **not** wrap Phoenix — **Buy No** = `mint` + ask Yes @ `1−p_no` (!28); **Sell No** = bid Yes @ `1−p_no` then `merge_pair` (same tx if immediate; resting = bid, merge on fill). Resolved UI 06 Buy/Sell No mechanism TODOs. **X-07:** status `1` `Settling` = unused/reserved; state machine Open → SettledYes / SettledNo / Void only. **A-05 Policy A:** `admin_settle` requires `outcome_yes == (settlement_price_e6 >= strike_price_e6)` else `OutcomeInconsistent`. |
+| **Files** | `docs/SCHEMA.md` · `docs/accounts.md` · `docs/flows.md` · `programs/meridian/README.md` · `docs/ui/06-trading-intents-and-constraints.md` · `docs/DECISIONS.md` · `docs/AI_LOG.md` |
+| **Related** | D-018 · Eng !28 Sell No ask · UI 06 · X-07 · A-05 · D-015 Phoenix V1 · D-014 glab |
+
+---
+
 ## 2026-10-06T23:55:00-05:00 — Phoenix place + indexer beyond stubs (Eng)
 
 | Field | Value |

@@ -17,9 +17,11 @@ The user always picks **an intent**, never a raw Phoenix side. The UI translates
 | **Buy No** | Open/increase No | Economically = **Ask** Yes at `1 − p_no`. Mechanism: mint pair (1 USDC → 1 Yes + 1 No) and sell the Yes, atomically. | `p_no = 1 − p` | Pays `q × p_no` USDC (= `q × 1` minted − `q × p` from Yes sale) | USDC; `yesQty == 0` |
 | **Sell No** | Reduce/close No | Economically = **Bid** Yes at `1 − p_no`, then merge Yes+No → 1 USDC, atomically. | `p_no = 1 − p` | Receives `q × p_no` USDC | `q ≤ noQty − noLockedInOrders` |
 
-- `TODO(schema):` Confirm Buy No / Sell No mechanism: (a) a Meridian program instruction that wraps mint-pair + Phoenix order (+ merge) in one tx, (b) a separate "No" representation, or (c) other. UI only needs: one instruction/tx per intent, a quote of resulting `yesQty/noQty`, and a resting-order representation for limit Buy/Sell No.
-- `TODO(schema):` For **resting limit** Buy No / Sell No, how is the order represented (a Yes ask funded by a minted pair? escrowed USDC?) and how does a partial fill update `noQty`? UI must be able to display "open No orders" distinctly from open Yes orders.
-- Any transient Yes+No co-holding inside an atomic mint/merge instruction is **not** a violation of §2 (the user never ends a tx holding both).
+- **LOCKED (D-018 / Schema):** Meridian does **not** wrap Phoenix in one program ix. Client composes:
+  - **Buy No:** `mint` + Phoenix **ask** Yes @ `1 − p_no` (shipped Eng !28). Immediate fill → same tx; resting limit → ask only (funded by minted Yes); on fill, user keeps No (Yes sold).
+  - **Sell No:** Phoenix **bid** Yes @ `1 − p_no`, then prod ix **`merge_pair`** (burn Yes+No → USDC). Immediate fill → bid + `merge_pair` in same tx; resting limit → **bid only**; on (partial) fill, client calls `merge_pair(filled)` (may be a follow-up tx). Display resting Sell No as the open Yes bid (tagged No intent).
+- **Resting representation:** Buy No open order = Phoenix Yes ask (mint already done or mint-in-same-tx for new size); Sell No open order = Phoenix Yes bid. Partial fill updates `noQty` when merge completes (Sell No) or when Yes ask fills (Buy No — No already held from mint). UI must label these as open No orders (intent tag), distinct from raw Buy/Sell Yes.
+- Any transient Yes+No co-holding inside an atomic mint/`merge_pair` (+ Phoenix) tx is **not** a violation of §2 (the user never ends a successful intent tx holding both).
 
 ### 1.1 Order types
 | Type | Phoenix mapping | Ticket label | Default |

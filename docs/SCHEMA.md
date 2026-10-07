@@ -26,7 +26,7 @@ Sizes are Borsh / Anchor packed sizes excluding the 8-byte Anchor discriminator 
 | `treasury` | `Pubkey` | 32 | Fee destination ATA or PDA (optional fees) |
 | `mint_fee_bps` | `u16` | 2 | Fee on mint, basis points of collateral; `0` = off |
 | `redeem_fee_bps` | `u16` | 2 | Fee on redeem; `0` = off |
-| `paused` | `bool` | 1 | Global pause: blocks mint / create; settle+redeem may still run (policy: settle always allowed) |
+| `paused` | `bool` | 1 | Global pause: blocks mint / create / **merge_pair**; settle+redeem may still run (policy: settle always allowed) |
 | `settle_max_staleness_slots` | `u64` | 8 | Max Pyth price account age in slots at settle |
 | `settle_max_conf_ratio_bps` | `u16` | 2 | Reject if `conf / |price|` > this (bps); e.g. `500` = 5% |
 | `admin_settle_delay_secs` | `u64` | 8 | Min wall-clock seconds after `expiry_ts` before `admin_settle` |
@@ -43,7 +43,7 @@ Sizes are Borsh / Anchor packed sizes excluding the 8-byte Anchor discriminator 
 
 **Authority:** program PDA; writable only by instructions that check `authority` signer (or timelock later).
 
-**Lifecycle / mint window (no session status):** Meridian does **not** add a StrikeMarket status for exchange session open/close. Lifecycle remains `Open` → `SettledYes|SettledNo|Void`. **"Market open"** (mint window) = `status == Open && !paused && effective_now < expiry_ts`. **"Market close"** (mint ends) = `effective_now >= expiry_ts`. Phoenix trading hours are out of Meridian. Localnet time simulation: [`sim-clock.md`](sim-clock.md) (**D-017**). Config gains **no** sim fields — SimClock is a separate PDA behind `localnet-test` only.
+**Lifecycle / mint window (no session status):** Meridian does **not** add a StrikeMarket status for exchange session open/close. Lifecycle remains `Open` → `SettledYes|SettledNo|Void` (`Settling` = unused/reserved, X-07). **"Market open"** (mint window) = `status == Open && !paused && effective_now < expiry_ts`. **"Market close"** (mint ends) = `effective_now >= expiry_ts`. **`merge_pair`** allowed whenever `status == Open && !paused` — **including after expiry** (no mint after expiry; merge still OK until settle). Phoenix trading hours are out of Meridian. Localnet time simulation: [`sim-clock.md`](sim-clock.md) (**D-017**). Config gains **no** sim fields — SimClock is a separate PDA behind `localnet-test` only.
 
 ---
 
@@ -66,8 +66,8 @@ One account per `(equity, expiry_day, strike)`. Holds Pyth + Phoenix wiring and 
 | `phoenix_market` | `Pubkey` | 32 | Phoenix market account pubkey |
 | `phoenix_base_mint` | `Pubkey` | 32 | **Default: `yes_mint`** |
 | `phoenix_quote_mint` | `Pubkey` | 32 | **Default: `collateral_mint` (USDC)** |
-| `status` | `u8` | 1 | `0=Open`, `1=Settling`, `2=SettledYes`, `3=SettledNo`, `4=Void` (admin) |
-| `pairs_minted` | `u64` | 8 | Cumulative Yes(=No) tokens minted (raw token amount) |
+| `status` | `u8` | 1 | `0=Open`, `1=Settling` (**unused / reserved** — X-07; do not transition into), `2=SettledYes`, `3=SettledNo`, `4=Void` (admin). State machine: **Open → SettledYes / SettledNo / Void** only |
+| `pairs_minted` | `u64` | 8 | While `status == Open`: **outstanding pair liability** (raw token amount). **+mint / −merge_pair**. After settle, frozen at last outstanding; redeem uses `pairs_redeemed` |
 | `pairs_redeemed` | `u64` | 8 | Cumulative winning tokens redeemed |
 | `settlement_price_e6` | `u64` | 8 | Written at settle; `0` until settled |
 | `settled_at_ts` | `i64` | 8 | Unix ts of settle ix; `0` until settled |
@@ -100,14 +100,14 @@ Implementation may use `market_id` seeds if create ix allocates id from `Config.
 
 - **Owner / authority:** PDA `["vault_authority", strike_market.key()]`
 - **Token account:** ATA or raw token account with mint = `Config.collateral_mint`, authority = vault authority PDA
-- **Holds:** USDC equal to outstanding unredeemed liability (`pairs_minted - pairs_redeemed` in $1 units, minus fees already skimmed)
+- **Holds:** USDC equal to outstanding unredeemed liability. While Open: ≈ `pairs_minted` (each outstanding pair is $1 collateral). After settle: ≈ `pairs_minted - pairs_redeemed` (minus fees already skimmed to treasury)
 
 | Concept | PDA seeds |
 | --- | --- |
 | Vault authority | `["vault_authority", strike_market.key().as_ref()]` |
 | Settlement vault (optional alias) | Same PDA; Meridian uses one collateral vault per market. No separate settlement vault unless fees need isolation. |
 
-**Default:** single `collateral_vault` per `StrikeMarket`. Fees (if `mint_fee_bps` / `redeem_fee_bps` > 0) transfer to `Config.treasury` at mint/redeem time — not held in market vault.
+**Default:** single `collateral_vault` per `StrikeMarket`. Fees (if `mint_fee_bps` / `redeem_fee_bps` > 0) transfer to `Config.treasury` at mint / **merge_pair** / redeem time — not held in market vault. `merge_pair` uses `redeem_fee_bps` (fee-on-payout, same path as redeem).
 
 ---
 
@@ -186,7 +186,7 @@ Stored on `StrikeMarket` and gated by `Config` global bounds:
 
 **Accept settle iff:**
 
-1. `status == Open` (or `Settling`)
+1. `status == Open` (`Settling` is unused/reserved — do not accept Settling)
 2. `effective_clock.unix_timestamp >= expiry_ts` (or within configured settle window); see §5.0 / [`sim-clock.md`](sim-clock.md)
 3. Pyth price account matches `pyth_price_feed` / feed id
 4. `slot_now - pyth_publish_slot <= settle_max_staleness_slots`
@@ -194,7 +194,7 @@ Stored on `StrikeMarket` and gated by `Config` global bounds:
 6. Convert Pyth price → `settlement_price_e6` per [`units.md`](units.md)
 7. Outcome: `SettledYes` if `settlement_price_e6 >= strike_price_e6`, else `SettledNo`
 
-**Admin settle:** after `expiry_ts + admin_settle_delay_secs`, authority may set outcome + price without Pyth (emergency). Emits `AdminSettled`.
+**Admin settle:** after `expiry_ts + admin_settle_delay_secs`, authority may set outcome + price without Pyth (emergency). **Policy A (A-05):** `outcome_yes` must equal `(settlement_price_e6 >= strike_price_e6)` else `OutcomeInconsistent`. Emits `AdminSettled`.
 
 ---
 
@@ -279,11 +279,59 @@ Account metas use Anchor-style names. `[]` = remaining optional.
 - Transfer USDC user → vault (+ fee → treasury)
 - Mint `amount` Yes → user
 - Mint `amount` No → user
-- `pairs_minted += amount`
+- `pairs_minted += amount` (outstanding pair liability; see §5.3.1 `merge_pair` for −)
 
-**Invariant after:** `vault_balance >= (pairs_minted - pairs_redeemed)` in raw USDC (equality if fees never leave vault incorrectly).
+**Invariant after:** while Open, `yes.supply == no.supply == pairs_minted`; vault covers outstanding pairs.
 
 **Event:** `Minted`.
+
+**Symmetry:** `merge_pair` is the Open-state inverse (burn Yes+No, return collateral, decrement `pairs_minted`).
+
+---
+
+### 5.3.1 `merge_pair` (PROD — inverse of mint while Open)
+
+Atomic unwind of a Yes+No pair **before settle**. Inverse of `mint`. **Not** localnet-test gated — ships in prod IDL.
+
+**Distinct from:**
+- `burn_losing` — post-settle, losing side only, **no** USDC payout
+- `redeem` — post-settle, winning side, USDC payout
+
+**Accounts:** mirror `mint` — `user` (signer), `config`, `strike_market`, `collateral_vault`, `vault_authority`, `user_collateral_ata`, `user_yes_ata`, `user_no_ata`, `yes_mint`, `no_mint`, `treasury` (if fee), `token_program`.
+
+**Args:** `amount: u64` — raw outcome tokens to burn on **each** side (Yes and No).
+
+**Checks:**
+- `amount > 0` else `ZeroAmount`
+- `!config.paused` else `Paused` — **pause blocks merge like mint** (and create)
+- `strike_market.status == Open` else `MarketNotOpen`
+- **No expiry gate:** allow merge while Open **even after** `expiry_ts` (user may unwind Yes+No before settle). Contrast with `mint`, which requires `effective_now < expiry_ts`
+- `collateral_vault.amount >= amount` else `InsufficientVault` (require before transfers; fee also comes from vault)
+- Fee math in `u128`; overflow → `MathOverflow`
+- Token burns of Yes and No must succeed (token program / balance failures)
+
+**Fee (fee-on-payout, same path as `redeem`):**
+```text
+fee = amount * redeem_fee_bps / 10_000   // default redeem_fee_bps = 0
+collateral_out = amount - fee
+```
+Fee → `Config.treasury` from vault; `collateral_out` → user.
+
+**State:**
+- Burn `amount` Yes from `user_yes_ata`
+- Burn `amount` No from `user_no_ata`
+- Transfer `collateral_out` USDC vault → user
+- Transfer `fee` USDC vault → treasury (if fee > 0)
+- `pairs_minted -= amount` (outstanding pair liability)
+
+**Invariant after:** while Open, `yes.supply == no.supply == pairs_minted`; vault covers outstanding pairs.
+
+**Event:** `Merged { market, user, amount, fee, pairs_minted_after }`.
+
+**Client composition (D-018 / UI 06):** Meridian does **not** wrap Phoenix in one program ix.
+- **Buy No:** client `mint` + Phoenix ask Yes @ `1 − p_no` (shipped Eng !28)
+- **Sell No:** client Phoenix bid Yes @ `1 − p_no`, then **`merge_pair`** (same tx when fill is immediate; resting = bid only, merge on fill)
+- Transient Yes+No inside one tx is OK per UI 06 §1
 
 ---
 
@@ -311,7 +359,12 @@ Account metas use Anchor-style names. `[]` = remaining optional.
 
 **Args:** `settlement_price_e6: u64`, `outcome_yes: bool`.
 
-**Checks:** `effective_clock.unix_timestamp >= expiry_ts + admin_settle_delay_secs`; `status == Open` (or failed settle retries exhausted — policy: Open only).
+**Checks:**
+- `effective_clock.unix_timestamp >= expiry_ts + admin_settle_delay_secs`
+- `status == Open` (policy: Open only; `Settling` unused — do not accept)
+- **Policy A (A-05):** require `outcome_yes == (settlement_price_e6 >= strike_price_e6)` else error `OutcomeInconsistent`. Authority cannot assert Yes while price is below strike (or No while at/above).
+
+**State:** write `settlement_price_e6`, `settled_at_ts`, `settled_slot`; `status = SettledYes | SettledNo` per `outcome_yes`.
 
 **Event:** `AdminSettled`.
 
@@ -339,7 +392,7 @@ Account metas use Anchor-style names. `[]` = remaining optional.
 
 ### 5.7 `pause` / `unpause` / `update_config` / `set_phoenix_market`
 
-Standard admin ix set. Emit `ConfigUpdated` or `PhoenixMarketSet`. Pause remains orthogonal to SimClock: blocks mint/create only; settle+redeem still allowed.
+Standard admin ix set. Emit `ConfigUpdated` or `PhoenixMarketSet`. Pause remains orthogonal to SimClock: blocks **mint / create / merge_pair**; settle+redeem still allowed.
 
 ---
 
@@ -385,6 +438,17 @@ Indexers should subscribe to these. All include `market` where applicable.
 | `user` | `Pubkey` |
 | `amount` | `u64` |
 | `collateral_locked` | `u64` |
+| `fee` | `u64` |
+| `pairs_minted_after` | `u64` |
+
+
+### `Merged`
+
+| Field | Type |
+| --- | --- |
+| `market` | `Pubkey` |
+| `user` | `Pubkey` |
+| `amount` | `u64` |
 | `fee` | `u64` |
 | `pairs_minted_after` | `u64` |
 
@@ -449,10 +513,10 @@ Same as `Settled` plus `authority: Pubkey`.
 ## 7. Invariants
 
 1. **Binary $1 payout:** Winning token redeems 1:1 for 1 USDC raw unit per token raw unit (decimals aligned). Yes + No positions from the same mint are complementary; a full pair is always fully collateralized at $1 until redeem.
-2. **Supply:** While `status == Open`, `yes_mint.supply == no_mint.supply == pairs_minted - (burns if any)`. No unpaired mints.
+2. **Supply:** While `status == Open`, `yes_mint.supply == no_mint.supply == pairs_minted`. No unpaired mints. (`pairs_minted` = outstanding pair liability: +mint / −merge_pair.)
 3. **Vault:** `collateral_vault.amount >= (pairs_minted - pairs_redeemed) - accounting_for_fees_already_sent_to_treasury`. Prefer fee-on-transfer-in so vault always holds exactly outstanding liability.
 4. **Settlement immutability:** Once `SettledYes` / `SettledNo` / `Void`, outcome fields do not change.
-5. **Pause:** `paused` blocks `mint` and `create_strike_market`; `settle` / `redeem` remain available.
+5. **Pause:** `paused` blocks `mint`, `create_strike_market`, and `merge_pair`; `settle` / `redeem` remain available.
 6. **Non-custodial:** Vaults are PDAs owned/authorized by the Meridian program; users retain SPL token custody of Yes/No until they trade or redeem. Phoenix holds no Meridian admin keys.
 7. **Phoenix isolation:** Matching / cancels / fees on Phoenix are out of Meridian state; only mint linkage is stored.
 
@@ -468,7 +532,10 @@ Same as `Settled` plus `authority: Pubkey`.
 | `equity_symbol` encoding | `[u8; 8]` space-padded ASCII | vs separate `AssetRegistry` PDA |
 | StrikeMarket PDA seeds | `(symbol, expiry_ts, strike_e6)` | vs monotonic `market_id` only |
 | Losing-token burn ix | Recommended `burn_losing` | Optional for v1 |
-| Protocol fees | Fields present; **default 0 bps** | Product may keep fees off for platinum demo |
+| `merge_pair` / Sell No | **Locked D-018** — prod `merge_pair`; client composes Phoenix | — |
+| `Settling` status | **Retired X-07** — value `1` unused/reserved | Do not use in state machine |
+| `admin_settle` outcome | **Policy A (A-05)** — must match `price >= strike` | — |
+| Protocol fees | Fields present; **default 0 bps**; `merge_pair` uses `redeem_fee_bps` | Product may keep fees off for platinum demo |
 | Settle window | Any time after `expiry_ts` with fresh Pyth | Automation retries 15m / 30s per PRD |
 | Multi-collateral | Single `collateral_mint` on Config | Out of scope v1 |
 

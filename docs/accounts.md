@@ -24,13 +24,15 @@ pub const EQUITY_SYMBOL_LEN: usize = 8;
 
 | Value | Name | Meaning |
 | ---: | --- | --- |
-| 0 | `Open` | Status allows mint/settle path; **mint window** also requires `!paused && effective_now < expiry_ts` |
-| 1 | `Settling` | Optional intermediate (automation); treat like Open for reads |
+| 0 | `Open` | Pre-settle. Mint window also requires `!paused && effective_now < expiry_ts`. **`merge_pair`** allowed whenever `Open && !paused` (including after expiry). Settle/admin_settle target this status only |
+| 1 | `Settling` | **Unused / reserved (X-07).** Do not transition into or accept. Kept for Borsh/IDL numeric stability |
 | 2 | `SettledYes` | Yes redeems 1:1 USDC |
 | 3 | `SettledNo` | No redeems 1:1 USDC |
 | 4 | `Void` | Admin cancelled; redeem policy TBD (default: refund pro-rata — **out of v1 scope**, avoid Void unless specified) |
 
-**Open vs mint window:** There is **no** separate status for exchange session open/close. `status == Open` after `expiry_ts` still means "not yet settled" — mint is blocked by the time gate, not by a new enum variant. Meridian "market open" = `Open && !paused && effective_now < expiry_ts`. "Market close" (mint ends) = `effective_now >= expiry_ts`. See [`sim-clock.md`](sim-clock.md) (D-017).
+**State machine (locked):** `Open` → `SettledYes` | `SettledNo` | `Void` only. No `Settling` intermediate.
+
+**Open vs mint window:** There is **no** separate status for exchange session open/close. `status == Open` after `expiry_ts` still means "not yet settled" — mint is blocked by the time gate, not by a new enum variant; **`merge_pair` remains allowed**. Meridian "market open" (mint) = `Open && !paused && effective_now < expiry_ts`. "Market close" (mint ends) = `effective_now >= expiry_ts`. See [`sim-clock.md`](sim-clock.md) (D-017) and **D-018** (`merge_pair`).
 
 ---
 
@@ -138,6 +140,7 @@ pub struct StrikeMarket {
 | `phoenix_market` | May be `Pubkey::default()` until `set_phoenix_market` |
 | `phoenix_base_mint` | Assert `== yes_mint` when set (default wiring) |
 | `phoenix_quote_mint` | Assert `== config.collateral_mint` |
+| `pairs_minted` | While Open: **outstanding pair liability** (+`mint` / −`merge_pair`). Equals Yes supply (= No supply). After settle: frozen; redeem increments `pairs_redeemed` only |
 | `pairs_redeemed` | Never exceeds winning supply redeemed; track carefully if burn_losing exists |
 | `settlement_price_e6` | `0` until settled; then Pyth-converted or admin-provided |
 | `settled_at_ts` / `settled_slot` | Record **effective_clock** values at settle (wall or SimClock under localnet-test) |
@@ -147,17 +150,20 @@ pub struct StrikeMarket {
 ```text
 Open ──settle / admin_settle──► SettledYes
   │                         └► SettledNo
-  └── (optional) Settling ──► SettledYes | SettledNo
+  └── (admin) Void
+
+Settling (1) = unused / reserved — never entered
 ```
 
-No transitions out of settled states.
+No transitions out of settled / void states.
 
 ### Writers
 
 | Instruction | Fields touched |
 | --- | --- |
 | `create_strike_market` | all initial |
-| `mint` | `pairs_minted` |
+| `mint` | `pairs_minted` (+) |
+| `merge_pair` | `pairs_minted` (−) |
 | `settle` / `admin_settle` | status, settlement_*, settled_* |
 | `redeem` | `pairs_redeemed` |
 | `set_phoenix_market` | phoenix_* |
@@ -168,7 +174,7 @@ No transitions out of settled states.
 
 **Seeds:** `[VAULT_AUTHORITY_SEED, strike_market.key()]`
 
-**Role:** `authority` of `collateral_vault` token account. Signs CPI transfers on redeem (and fee skim if any).
+**Role:** `authority` of `collateral_vault` token account. Signs CPI transfers on redeem / **merge_pair** (and fee skim if any).
 
 Does not hold SOL beyond rent if used only as signer PDA (no data account required — seeds + bump on `StrikeMarket.vault_bump`).
 
