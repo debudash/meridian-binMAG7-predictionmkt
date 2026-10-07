@@ -15,6 +15,7 @@ pub const STRIKE_MARKET_SEED: &[u8] = b"strike_market";
 pub const VAULT_AUTHORITY_SEED: &[u8] = b"vault_authority";
 pub const YES_MINT_AUTH_SEED: &[u8] = b"yes_mint_authority";
 pub const NO_MINT_AUTH_SEED: &[u8] = b"no_mint_authority";
+pub const SIM_CLOCK_SEED: &[u8] = b"sim_clock"; // localnet-test only (D-017)
 
 pub const EQUITY_SYMBOL_LEN: usize = 8;
 ```
@@ -23,11 +24,13 @@ pub const EQUITY_SYMBOL_LEN: usize = 8;
 
 | Value | Name | Meaning |
 | ---: | --- | --- |
-| 0 | `Open` | Mint + trade allowed (subject to pause / expiry) |
+| 0 | `Open` | Status allows mint/settle path; **mint window** also requires `!paused && effective_now < expiry_ts` |
 | 1 | `Settling` | Optional intermediate (automation); treat like Open for reads |
 | 2 | `SettledYes` | Yes redeems 1:1 USDC |
 | 3 | `SettledNo` | No redeems 1:1 USDC |
 | 4 | `Void` | Admin cancelled; redeem policy TBD (default: refund pro-rata — **out of v1 scope**, avoid Void unless specified) |
+
+**Open vs mint window:** There is **no** separate status for exchange session open/close. `status == Open` after `expiry_ts` still means "not yet settled" — mint is blocked by the time gate, not by a new enum variant. Meridian "market open" = `Open && !paused && effective_now < expiry_ts`. "Market close" (mint ends) = `effective_now >= expiry_ts`. See [`sim-clock.md`](sim-clock.md) (D-017).
 
 ---
 
@@ -137,6 +140,7 @@ pub struct StrikeMarket {
 | `phoenix_quote_mint` | Assert `== config.collateral_mint` |
 | `pairs_redeemed` | Never exceeds winning supply redeemed; track carefully if burn_losing exists |
 | `settlement_price_e6` | `0` until settled; then Pyth-converted or admin-provided |
+| `settled_at_ts` / `settled_slot` | Record **effective_clock** values at settle (wall or SimClock under localnet-test) |
 
 ### Status machine
 
@@ -202,6 +206,49 @@ After `Settled*`, mint authority CPIs should refuse further `mint` (status check
 
 ---
 
+## `SimClock` (localnet-test only — D-017)
+
+**Seeds:** `[SIM_CLOCK_SEED]` → `["sim_clock"]` (unique global).
+
+**Feature gate:** type + writers compile only under `localnet-test`. Prod builds omit this account from the IDL.
+
+**Init space (recommended):** `8 + 50` → **64** bytes allocated.
+
+```rust
+#[cfg(feature = "localnet-test")]
+#[account]
+#[derive(InitSpace)]
+pub struct SimClock {
+    pub authority: Pubkey,       // 32 — == Config.authority
+    pub unix_timestamp: i64,     // 8
+    pub slot: u64,               // 8
+    pub enabled: bool,           // 1
+    pub bump: u8,                // 1
+}
+```
+
+### Field notes
+
+| Field | Constraints |
+| --- | --- |
+| `authority` | Must match `Config.authority`; signs all sim mutators |
+| `unix_timestamp` | Feeds mint / settle / admin_settle time gates via `effective_clock` |
+| `slot` | Feeds Pyth staleness `slot_now` under sim |
+| `enabled` | `false` → `effective_clock` falls back to `Clock::get()` |
+
+### Writers
+
+| Instruction | Fields touched |
+| --- | --- |
+| `init_sim_clock` | all; seed ts/slot from wall clock once; `enabled = true` |
+| `set_sim_clock` | `unix_timestamp`, `slot` |
+| `warp_sim_clock` | `unix_timestamp`, `slot` (add) |
+| `disable_sim_clock` | `enabled = false` |
+
+Full proposal + fixture recipe: [`sim-clock.md`](sim-clock.md).
+
+---
+
 ## External accounts (not Meridian-owned)
 
 | Account | Owner | Usage |
@@ -220,6 +267,7 @@ After `Settled*`, mint authority CPIs should refuse further `mint` (status check
 | --- | --- |
 | `Config` | `8 + 192` → **256** |
 | `StrikeMarket` | `8 + 376` → **400** |
+| `SimClock` (`localnet-test`) | `8 + 50` → **64** |
 
 Recalculate from `InitSpace` after final struct edits; keep `reserved` for additive fields without migration where possible.
 
@@ -230,3 +278,4 @@ Recalculate from `InitSpace` after final struct edits; keep `reserved` for addit
 - Expose `MarketStatus` as an Anchor `enum` in IDL even if stored as `u8`.
 - Emit `equity_symbol` as bytes; clients trim spaces.
 - Never store Pyth price inside `StrikeMarket` except the final `settlement_price_e6`.
+- `SimClock` and `SimClockSet` appear in the IDL **only** when built with `localnet-test`; prod IDL must not list them.

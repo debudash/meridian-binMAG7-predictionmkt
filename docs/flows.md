@@ -47,7 +47,7 @@ sequenceDiagram
     participant Treasury
 
     User->>Mer: mint(amount)
-    Mer->>Mer: check !paused, status==Open, now < expiry_ts
+    Mer->>Mer: check !paused, status==Open, effective_now < expiry_ts
     Mer->>Vault: transfer amount USDC (user → vault)
     opt mint_fee_bps > 0
         Mer->>Treasury: transfer fee USDC
@@ -112,8 +112,8 @@ sequenceDiagram
     participant Clock as Clock sysvar
 
     Caller->>Mer: settle
-    Mer->>Clock: load now, slot
-    Mer->>Mer: require now >= expiry_ts, status==Open
+    Mer->>Clock: effective_clock (SimClock if localnet enabled, else Clock sysvar)
+    Mer->>Mer: require effective_now >= expiry_ts, status==Open
     Mer->>Pyth: load price, conf, expo, publish slot
     Mer->>Mer: staleness + conf ratio gates
     Mer->>Mer: settlement_price_e6 = pyth_to_e6(price, expo)
@@ -137,8 +137,8 @@ sequenceDiagram
     participant Clock as Clock sysvar
 
     Auth->>Mer: admin_settle(price_e6, outcome_yes)
-    Mer->>Clock: load now
-    Mer->>Mer: require now >= expiry_ts + admin_settle_delay_secs
+    Mer->>Clock: effective_clock (SimClock if localnet enabled, else Clock sysvar)
+    Mer->>Mer: require effective_now >= expiry_ts + admin_settle_delay_secs
     Mer->>Mer: write settlement fields + status
     Mer-->>Auth: AdminSettled event
 ```
@@ -212,7 +212,48 @@ stateDiagram-v2
 
 ---
 
-## 8. Client checklist
+## 8. Localnet SimClock warp → mint close → settle (D-017)
+
+Simulate market open/close **without wall-clock sleep**. Pause stays orthogonal (blocks mint/create only). Full recipe: [`sim-clock.md`](sim-clock.md).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Auth as Config authority
+    participant Mer as Meridian (localnet-test)
+    participant Sim as SimClock PDA
+    participant User
+    participant Pyth as Mock Pyth
+
+    Auth->>Mer: init_sim_clock
+    Mer->>Sim: enabled=true, seed from wall Clock once
+    Auth->>Mer: create_strike_market(expiry_ts = realistic 16:00 ET unix)
+    Note over User,Sim: Mint window open: effective_now < expiry_ts
+    User->>Mer: mint(amount)
+    Mer->>Sim: effective_clock
+    Mer-->>User: Minted
+
+    Auth->>Mer: warp_sim_clock(add_secs >= expiry - now, add_slots)
+    Mer->>Sim: unix_timestamp/slot advanced
+    Mer-->>Auth: SimClockSet
+    Note over User,Sim: Mint window closed: effective_now >= expiry_ts (status still Open)
+
+    User->>Mer: mint(amount)
+    Mer-->>User: MintAfterExpiry
+
+    Auth->>Pyth: upsert_mock_pyth(publish_slot ≈ sim.slot)
+    Auth->>Mer: settle
+    Mer->>Sim: effective_clock for expiry + staleness
+    Mer-->>Auth: Settled (settled_at_ts/slot = effective)
+
+    Note over Auth,Sim: admin_settle: keep delay=1800; warp past expiry+delay (no wall sleep)
+```
+
+**Pause note:** `pause` does not consult SimClock. While paused, mint/create fail even if `effective_now < expiry_ts`; settle/redeem/admin_settle remain allowed.
+
+---
+
+## 9. Client checklist
 
 | Step | Client action |
 | --- | --- |

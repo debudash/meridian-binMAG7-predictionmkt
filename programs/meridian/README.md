@@ -14,7 +14,8 @@ programs/meridian/
     ├── state/
     │   ├── mod.rs
     │   ├── config.rs          # Config
-    │   └── strike_market.rs   # StrikeMarket + MarketStatus
+    │   ├── strike_market.rs   # StrikeMarket + MarketStatus
+    │   └── sim_clock.rs       # SimClock — localnet-test only (D-017)
     ├── instructions/
     │   ├── mod.rs
     │   ├── initialize_config.rs
@@ -22,16 +23,21 @@ programs/meridian/
     │   ├── pause.rs           # pause + unpause
     │   ├── create_strike_market.rs
     │   ├── set_phoenix_market.rs
-    │   ├── mint.rs
-    │   ├── settle.rs
-    │   ├── admin_settle.rs
+    │   ├── mint.rs            # uses effective_clock
+    │   ├── settle.rs          # uses effective_clock
+    │   ├── admin_settle.rs    # uses effective_clock
     │   ├── redeem.rs
-    │   └── burn_losing.rs     # optional v1
-    ├── events.rs              # MarketCreated, Minted, Settled, AdminSettled, Redeemed, ConfigUpdated, PhoenixMarketSet
+    │   ├── burn_losing.rs     # optional v1
+    │   ├── init_sim_clock.rs  # localnet-test only
+    │   ├── set_sim_clock.rs   # localnet-test only
+    │   ├── warp_sim_clock.rs  # localnet-test only
+    │   └── disable_sim_clock.rs  # localnet-test only (optional)
+    ├── events.rs              # + SimClockSet (cfg localnet-test)
     ├── errors.rs              # MeridianError
     ├── constants.rs           # seeds, PRICE_SCALE, defaults
     └── utils/
         ├── mod.rs
+        ├── clock.rs           # effective_clock helper (D-017)
         ├── pyth.rs            # staleness, conf ratio, pyth_price_to_e6
         └── token.rs           # mint/burn/transfer helpers with PDA signers
 ```
@@ -42,6 +48,7 @@ programs/meridian/
 | --- | --- |
 | `config` | `Config` |
 | `strike_market` | `StrikeMarket`, `MarketStatus` |
+| `sim_clock` | `SimClock` (`localnet-test` only) |
 
 PDA seeds and field tables: [`docs/accounts.md`](../../docs/accounts.md).
 
@@ -65,10 +72,22 @@ pub mod meridian {
     pub fn admin_settle(ctx: Context<AdminSettle>, settlement_price_e6: u64, outcome_yes: bool) -> Result<()> { … }
     pub fn redeem(ctx: Context<Redeem>, amount: u64) -> Result<()> { … }
     pub fn burn_losing(ctx: Context<BurnLosing>, amount: u64) -> Result<()> { … }
+
+    // localnet-test only — same deploy-blocker pattern as upsert_mock_pyth
+    #[cfg(feature = "localnet-test")]
+    pub fn init_sim_clock(ctx: Context<InitSimClock>) -> Result<()> { … }
+    #[cfg(feature = "localnet-test")]
+    pub fn set_sim_clock(ctx: Context<SetSimClock>, unix_timestamp: i64, slot: u64) -> Result<()> { … }
+    #[cfg(feature = "localnet-test")]
+    pub fn warp_sim_clock(ctx: Context<WarpSimClock>, add_secs: i64, add_slots: u64) -> Result<()> { … }
+    #[cfg(feature = "localnet-test")]
+    pub fn disable_sim_clock(ctx: Context<DisableSimClock>) -> Result<()> { … }
 }
 ```
 
 **Not in scope:** Phoenix place/cancel/fill — users call Phoenix program directly.
+
+**Engineers:** implement SimClock + `effective_clock` behind `localnet-test` exactly like mock Pyth / `test_drain_vault` — prod `anchor build` must omit sim symbols from the `.so`. See [`docs/sim-clock.md`](../../docs/sim-clock.md) (D-017).
 
 ## `errors` (suggested)
 
@@ -106,6 +125,7 @@ Defined in [`docs/SCHEMA.md`](../../docs/SCHEMA.md) §6. Keep field order stable
 2. Integration: mint → settle (≥ / < strike) → redeem; fee=0 path
 3. Negative: stale Pyth, pause blocks mint, admin_settle before delay
 4. Invariant: vault balance vs `pairs_minted - pairs_redeemed`
+5. SimClock (localnet): SC-01 warp past expiry → settle; SC-02 mint fails after warp; SC-03 admin_settle delay=1800 after warp (no wall sleep)
 
 ## Docs
 
@@ -115,13 +135,14 @@ Defined in [`docs/SCHEMA.md`](../../docs/SCHEMA.md) §6. Keep field order stable
 | [`docs/accounts.md`](../../docs/accounts.md) | Exact fields / seeds |
 | [`docs/flows.md`](../../docs/flows.md) | CPI order / UX |
 | [`docs/units.md`](../../docs/units.md) | Fixed-point + Pyth math |
+| [`docs/sim-clock.md`](../../docs/sim-clock.md) | SimClock / effective_clock (D-017) |
 
 ## Feature flags (deploy blockers)
 
 | Feature | Purpose |
 | --- | --- |
-| *(none / default)* | Production binary — **no** `upsert_mock_pyth` / `test_drain_vault` |
-| `localnet-test` | Local validator + `anchor test` only — fixture ixs for Pyth mocks + V-07 vault drain |
+| *(none / default)* | Production binary — **no** `upsert_mock_pyth` / `test_drain_vault` / SimClock ixs |
+| `localnet-test` | Local validator + `anchor test` only — fixture ixs: Pyth mocks, V-07 vault drain, **SimClock** (`init` / `set` / `warp` / `disable`) |
 
 ```bash
 # Localnet / CI suite
