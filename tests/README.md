@@ -13,6 +13,23 @@
 | **P1 fees + edges** | Green on `main` (MR !11) | Fees **M-03 / R-05 / V-06** + edges; V-07 via localnet `test_drain_vault` |
 | **Sim session (localnet)** | **TDD_RED** (`test/sim-session-lifecycle`) | **SIM-01…SIM-09** — simulated open/close + Phoenix-placeholder trade + MockPyth settle + redeem. Implement **only** to green under `localnet-test`. **Never** required for mainnet builds. |
 
+## Program id / localnet deploy
+
+| | |
+| --- | --- |
+| **Current** | `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6` |
+| **Revoked** | `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2` (was committed; treat as compromised) |
+
+Suite constant: `MERIDIAN_PROGRAM_ID` in [`helpers/fixtures.ts`](helpers/fixtures.ts). Harness `assertIdlHasInstructions` checks IDL `address` matches.
+
+**Keypair is not in the tree** (gitignored via `keys/*` + `**/*keypair*.json`). After pulling a rotated `declare_id!` / `Anchor.toml`:
+
+1. Generate (or restore from secret store) `keys/meridian-keypair.json` whose pubkey equals the current id — see [`keys/README.md`](../keys/README.md).
+2. Copy to `target/deploy/meridian-keypair.json` for Anchor.
+3. Redeploy localnet against the new id (`anchor test` / `yarn test` rebuilds with `--features localnet-test`).
+
+Do **not** commit keypair JSON. Testers own fixture/README alignment only — Engineers own `declare_id!`.
+
 ## Layout
 
 | File | Matrix coverage |

@@ -29,6 +29,17 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T23:44:00-05:00 — Testers: suite points at rotated program id (!24)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Testers; Grok Bot (`glab` commits API) |
+| **Decision** | Confirm harness/fixtures + suite docs track Engineers' program-id rotate on `main` @ `59bfdd5` (!24). **Current:** `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6`. **Revoked:** `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2`. `MERIDIAN_PROGRAM_ID` already updated in !24; Testers document gitignored keypair + localnet redeploy recipe in `tests/README.md` / fixture comment. **Do not** change Rust `declare_id!` (Engineers). |
+| **Result** | Branch `test/program-id-rotate` → MR to `main`. Engineers: redeploy localnet with new keypair (pubkey must match); wipe old program accounts if validator reused. |
+| **Related** | !24 `eng/sec-keypair-railway` · `keys/README.md` · D-014 |
+
+---
+
 ## 2026-10-06T23:41:09-05:00 — SECURITY: rotate compromised program keypair + Railway IDL/health
 
 | Field | Value |

@@ -4,7 +4,7 @@ Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** o
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017).
 **Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)).
 
-_Last refreshed: 2026-10-06 23:52 CT (Debu authorized SPEC lock on !20 @ aa97a22; wireframes approved; revise-later OK; !25 still open)._
+_Last refreshed: 2026-10-06 23:53 CT (rebase+merge !25 onto main @ 22b5208 incl. !26; Testers confirm suite program-id rotate Done).
 
 ## Done
 
@@ -35,10 +35,10 @@ _Last refreshed: 2026-10-06 23:52 CT (Debu authorized SPEC lock on !20 @ aa97a22
 - [x] UI nits post-!22 landed (MR !23; `eng/ui-nits-post-22`) — markets/trade/portfolio polish
 - [x] SECURITY/Railway remediation landed (MR !24; `eng/sec-keypair-railway`) — rotated program id `9Rb7nx…`; tip-deleted committed keypair; Railway IDL/health. **History scrub skipped** (Debu declined filter-repo/BFG force-push; tip delete stands; no force-push)
 - [x] D-012 docs stubs + UI wireframes + **SPEC locked** (MR !20; `docs/d012-spec-freeze`): `SPEC.md` **Done/locked**, `AGENTS.md`, `ARCHITECTURE.md`, `TASKS.md`, `DEMO_SCRIPT.md`, `EVALS.md`, `METRICS.md`, `RED_TEAM.md`, `DIAGRAMS.md`, `CONTEXT.md`, `CLAUDE.md`, `ORCHESTRATOR_KICKOFF.md`, `docs/ui/wireframes/` (Landing/Markets/Trade/Portfolio/History) — root README Docs map updated
+- [x] Testers: suite/fixtures/docs confirm new program id + gitignored keypair (MR !25; `test/program-id-rotate`) — current `9Rb7nx…`; revoked `GwTvo…`
 
 ## In Progress
 
-- [ ] Tester follow-up: suite docs/fixtures confirm rotated program id (MR !25; `test/program-id-rotate`)
 - [ ] Reviewer continuous / demo readiness (beyond !17 nits) — demo walkthrough still owed (keypair tip-delete done in !24)
 - [ ] Phoenix Buy/Sell No composition + real on-book trade in sim E2E (sim trade today = off-book Yes SPL placeholder)
 

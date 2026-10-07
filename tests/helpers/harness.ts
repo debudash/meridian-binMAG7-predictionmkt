@@ -81,6 +81,7 @@ export function loadMeridianIdl(): Idl & { address: string } {
   throw new TddRedError("IDL", "meridian IDL not found");
 }
 
+/** Assert IDL ix set + `idl.address` == `MERIDIAN_PROGRAM_ID` (rotated id; no committed keypair). */
 export function assertIdlHasInstructions(caseId: string = "IDL") {
   const idl = loadMeridianIdl();
   const names = new Set(idl.instructions.map((i) => i.name));
