@@ -6,6 +6,18 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T23:50:00-05:00 — SPEC lock (Debu authorized; MR !20)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Debu Dash (lock); Grok Bot (record + merge `docs/d012-spec-freeze` !20) |
+| **Decision** | **Lock** `docs/SPEC.md` (status → **Locked**). Debu authorized lock **without full review**; **wireframes approved all** (Landing/Markets/Trade/Portfolio/History under `docs/ui/wireframes/`). TRACKER: SPEC + D-012 stubs + wireframes → **Done/locked**. No new DECISIONS D-0xx invented for the freeze. |
+| **History scrub** | Debu **skipped** full history scrub question. Tip-delete of committed keypair already done in !24. **Do not** force-push / filter-repo / BFG. |
+| **Constraints** | Rebase onto current `main` before merge; resolve TRACKER/AI_LOG carefully; preserve SPEC.md + wireframes entirely. Pipeline runner failure OK. Do **not** invent further readiness. |
+| **Related** | D-012 · MR !20 · !24 tip-delete · TRACKER SPEC Done |
+
+---
+
 ## 2026-10-06T23:41:09-05:00 — SECURITY: rotate compromised program keypair + Railway IDL/health
 
 | Field | Value |
@@ -95,6 +107,16 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T21:30:00-05:00 — D-012 SPEC freeze candidate + remaining stubs (Meridian PM)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian PM; Grok Bot (`docs/d012-spec-freeze`) |
+| **Decision** | Land freeze-ready `docs/SPEC.md` (status: **Freeze candidate**, awaiting Debu lock ping) plus remaining D-012 artifacts: AGENTS, ARCHITECTURE, TASKS, DEMO_SCRIPT, EVALS, METRICS, RED_TEAM, DIAGRAMS, CONTEXT, CLAUDE, ORCHESTRATOR_KICKOFF. Root README gains Docs map. TRACKER: SPEC moved from “not ready” → freeze candidate In Progress; D-012 stubs Done; Railway noted as prod app/automation target; !19 already on main. No new DECISIONS row — SPEC freeze candidate landed; Debu lock pending (prefer AI_LOG/TRACKER over inventing D-018). |
+| **Constraints honored** | GitLab-only + glab (D-014); Phoenix V1 spot (D-015); TDD (D-016); Anytime sim hard acceptance (D-017); no regulatory claims; Todo/In Progress/Done only. |
+| **Related** | D-012 · D-014…D-017 · DEPLOY Railway · MR !19 already merged |
+
+---
 
 ## 2026-10-06T21:26:00-05:00 — Landed !14–!18 on main (glab merge order)
 
@@ -471,3 +493,15 @@ Key UI locks in this slice: one Phoenix Yes/USDC book with No as display transfo
 | **Rationale** | Single private forge for Meridian (Peak6) agent + human collaboration. |
 | **URL** | https://labs.gauntletai.com/debudash/peak6-meridian |
 | **Commit** | `4e449f8` — `Initial commit` |
+
+---
+
+## 2026-10-06T21:32:00-05:00 — SPEC freeze includes UI wireframes on !20 (Meridian PM)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian PM |
+| **Decision** | Debu: UI wireframes must land **in SPEC freeze MR !20** (branch `docs/d012-spec-freeze`), **not** a separate MR. SPEC §3.10 + §8 updated; `docs/ui/wireframes/` slot + README for Meridian UI pushes; TRACKER In Progress updated. |
+| **Rationale** | Single freeze package: product SPEC + visual contract for five V1 pages before Debu lock ping. |
+| **Related** | D-012 · MR !20 · `docs/ui/` |
+
