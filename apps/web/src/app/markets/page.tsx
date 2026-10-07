@@ -11,6 +11,9 @@ export default function MarketsPage({
   const statusParam = typeof searchParams?.status === "string" ? searchParams.status : "open";
   const q = typeof searchParams?.q === "string" ? searchParams.q : "";
   const sort = typeof searchParams?.sort === "string" ? searchParams.sort : "close";
+  const view = typeof searchParams?.view === "string" ? searchParams.view : "cards";
+  const u = typeof searchParams?.u === "string" ? searchParams.u : "";
+  const expiry = typeof searchParams?.expiry === "string" ? searchParams.expiry : "";
 
   return (
     <div className="container">
@@ -23,6 +26,9 @@ export default function MarketsPage({
         initialStatus={statusParam}
         initialQuery={q}
         initialSort={sort}
+        initialView={view}
+        initialUnderlyings={u}
+        initialExpiry={expiry}
       />
     </div>
   );

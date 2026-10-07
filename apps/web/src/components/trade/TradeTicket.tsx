@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import type { Intent } from "@/lib/intents/types";
+import type { IntentAvailabilityMap, PositionSnapshot } from "@/lib/intents/types";
 import { getIntentAvailability } from "@/lib/intents/getIntentAvailability";
 import { buyPreview, sellPreview, oneLineExplainer } from "@/lib/copy/payoff";
 import { placePhoenixOrder } from "@/lib/phoenix/stub";
@@ -12,6 +13,7 @@ import type { MarketView } from "@/lib/market/types";
 import { getCountdown } from "@/lib/market/countdown";
 import { useChainClock } from "@/components/providers/AppProviders";
 import type { Perspective } from "@/lib/market/bookTransform";
+import { useTradingBlockedByBanner } from "@/components/layout/GlobalBanners";
 
 const INTENTS: Intent[] = ["buy-yes", "sell-yes", "buy-no", "sell-no"];
 
@@ -35,18 +37,30 @@ export function TradeTicket({
   initialPrice,
   initialSize,
   position = { yesQty: 0, noQty: 0 },
+  availability: availabilityProp,
+  openOrders = { openBuyYesQty: 0, openBuyNoQty: 0 },
+  fillPrice,
+  fillIntentHint,
+  onConsumedFill,
 }: {
   market: MarketView;
   perspective: Perspective;
   initialIntent?: Intent;
   initialPrice?: number;
   initialSize?: number;
-  position?: { yesQty: number; noQty: number };
+  position?: PositionSnapshot;
+  availability?: IntentAvailabilityMap;
+  openOrders?: { openBuyYesQty: number; openBuyNoQty: number };
+  /** Book click fill */
+  fillPrice?: number | null;
+  fillIntentHint?: Intent | null;
+  onConsumedFill?: () => void;
 }) {
   const { connected } = useWallet();
   const { setVisible } = useWalletModal();
   const { push } = useTxStatus();
   const { nowSec } = useChainClock();
+  const tradingBlocked = useTradingBlockedByBanner();
   const cd = getCountdown(market, nowSec);
 
   const defaultIntent: Intent =
@@ -54,6 +68,7 @@ export function TradeTicket({
 
   const [intent, setIntent] = useState<Intent>(defaultIntent);
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
+  const [postOnly, setPostOnly] = useState(false);
   const [size, setSize] = useState(initialSize ?? 10);
   const [price, setPrice] = useState(
     initialPrice ??
@@ -63,33 +78,43 @@ export function TradeTicket({
   );
   const [busy, setBusy] = useState(false);
 
-  const availability = useMemo(
-    () =>
-      getIntentAvailability(
-        position,
-        { openBuyYesQty: 0, openBuyNoQty: 0 },
-        { pendingTradeCount: busy ? 1 : 0 },
-        { lifecycle: cd.state, lotSize: market.lotSize },
-      ),
-    [position, busy, cd.state, market.lotSize],
-  );
+  useEffect(() => {
+    if (fillPrice == null) return;
+    setOrderType("limit");
+    setPrice(fillPrice);
+    if (fillIntentHint) {
+      setIntent(fillIntentHint);
+    }
+    onConsumedFill?.();
+  }, [fillPrice, fillIntentHint, onConsumedFill]);
+
+  const availability = useMemo(() => {
+    if (availabilityProp) return availabilityProp;
+    return getIntentAvailability(
+      position,
+      openOrders,
+      { pendingTradeCount: busy ? 1 : 0 },
+      { lifecycle: cd.state, lotSize: market.lotSize },
+    );
+  }, [availabilityProp, position, openOrders, busy, cd.state, market.lotSize]);
 
   const current = availability[intent];
   const isBuy = intent.startsWith("buy");
-  const preview = isBuy
-    ? buyPreview(size, price)
-    : sellPreview(size, price);
+  const preview = isBuy ? buyPreview(size, price) : sellPreview(size, price);
 
   async function onSubmit() {
     if (!connected) {
       setVisible(true);
       return;
     }
+    if (tradingBlocked) {
+      push("error", "Trading blocked by cluster or program pause.");
+      return;
+    }
     if (!current.enabled) return;
-    // Re-validate before signature (06 §2.5)
     const recheck = getIntentAvailability(
       position,
-      { openBuyYesQty: 0, openBuyNoQty: 0 },
+      openOrders,
       { pendingTradeCount: 0 },
       { lifecycle: cd.state, lotSize: market.lotSize },
     );
@@ -100,12 +125,14 @@ export function TradeTicket({
 
     setBusy(true);
     try {
+      const phoenixType =
+        orderType === "limit" && postOnly ? "post-only" : orderType;
       const result = await placePhoenixOrder({
         phoenixMarket: market.phoenixMarket ?? "unset",
         intent,
         price,
         size,
-        orderType,
+        orderType: phoenixType,
         worstPrice: orderType === "market" ? price + (isBuy ? 0.02 : -0.02) : undefined,
       });
       push(
@@ -143,17 +170,18 @@ export function TradeTicket({
       >
         {INTENTS.map((i) => {
           const a = availability[i];
+          const enabled = a.enabled && !tradingBlocked;
           return (
             <button
               key={i}
               type="button"
               className={`btn ${i.includes("yes") ? "btn-yes" : "btn-no"}`}
-              disabled={!a.enabled}
+              disabled={!enabled}
               aria-pressed={intent === i}
               onClick={() => setIntent(i)}
               style={{
                 outline: intent === i ? "2px solid var(--accent)" : undefined,
-                opacity: a.enabled ? 1 : 0.45,
+                opacity: enabled ? 1 : 0.45,
               }}
               title={a.copy}
             >
@@ -181,12 +209,15 @@ export function TradeTicket({
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "0.5rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
         <button
           type="button"
           className="btn"
           aria-pressed={orderType === "market"}
-          onClick={() => setOrderType("market")}
+          onClick={() => {
+            setOrderType("market");
+            setPostOnly(false);
+          }}
         >
           Market
         </button>
@@ -199,6 +230,24 @@ export function TradeTicket({
           Limit
         </button>
       </div>
+
+      {orderType === "limit" && (
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: "0.85rem",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={postOnly}
+            onChange={(e) => setPostOnly(e.target.checked)}
+          />
+          Post only
+        </label>
+      )}
 
       <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: "0.85rem" }}>
         Size (contracts)
@@ -256,14 +305,14 @@ export function TradeTicket({
       <button
         type="button"
         className="btn btn-primary"
-        disabled={busy || (connected && !current.enabled)}
+        disabled={busy || tradingBlocked || (connected && !current.enabled)}
         onClick={onSubmit}
       >
         {!connected
           ? "Connect wallet"
           : busy
             ? "Confirm in your wallet…"
-            : `${intentLabel(intent)} ${size}${orderType === "limit" ? ` @ ${price.toFixed(2)}` : ""}`}
+            : `${intentLabel(intent)} ${size}${orderType === "limit" ? ` @ ${price.toFixed(2)}` : ""}${postOnly && orderType === "limit" ? " (post-only)" : ""}`}
       </button>
       <p className="muted" style={{ fontSize: "0.75rem", margin: 0 }}>
         {oneLineExplainer()}

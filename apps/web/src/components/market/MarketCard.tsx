@@ -8,9 +8,15 @@ import { noPriceFromYes } from "@/lib/market/bookTransform";
 import type { MarketView } from "@/lib/market/types";
 import { getCountdown } from "@/lib/market/countdown";
 import { useChainClock } from "@/components/providers/AppProviders";
+import { useIntentAvailability } from "@/hooks/useIntentAvailability";
+import { useTradingBlockedByBanner } from "@/components/layout/GlobalBanners";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 export function MarketCard({ market }: { market: MarketView }) {
   const { nowSec } = useChainClock();
+  const { connected } = useWallet();
+  const tradingBlocked = useTradingBlockedByBanner();
+  const { availability, position } = useIntentAvailability(market.marketId);
   const yes = market.yesMid ?? market.lastYes;
   const no = yes != null ? noPriceFromYes(yes, market.tickSize) : undefined;
   const whenShort = new Date(market.tradingCloseTs * 1000).toLocaleDateString(
@@ -18,7 +24,17 @@ export function MarketCard({ market }: { market: MarketView }) {
     { month: "short", day: "numeric", timeZone: "America/Chicago" },
   );
   const cd = getCountdown(market, nowSec);
-  const tradeDisabled = !cd.tradingEnabled;
+  const tradeDisabled = !cd.tradingEnabled || tradingBlocked;
+
+  const buyYesOk = availability["buy-yes"].enabled && !tradeDisabled;
+  const buyNoOk = availability["buy-no"].enabled && !tradeDisabled;
+
+  const holdBadge =
+    connected && position.yesQty >= (market.lotSize ?? 1)
+      ? `You: Yes ${position.yesQty}`
+      : connected && position.noQty >= (market.lotSize ?? 1)
+        ? `You: No ${position.noQty}`
+        : null;
 
   return (
     <article className="card" style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
@@ -66,20 +82,39 @@ export function MarketCard({ market }: { market: MarketView }) {
         24h vol {market.volume24hUsdc?.toLocaleString() ?? "—"} USDC · OI{" "}
         {market.openInterest?.toLocaleString() ?? "—"}
       </div>
+      {holdBadge && (
+        <span className={`chip ${position.yesQty > 0 ? "chip-yes" : "chip-no"}`}>
+          {holdBadge}
+        </span>
+      )}
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "auto" }}>
         <Link
           className="btn btn-yes"
-          href={`/markets/${market.marketId}?intent=buy-yes`}
-          aria-disabled={tradeDisabled}
-          style={tradeDisabled ? { pointerEvents: "none", opacity: 0.45 } : undefined}
+          href={`/markets/${market.marketId}?intent=buy-yes&side=yes`}
+          aria-disabled={!buyYesOk}
+          title={
+            !availability["buy-yes"].enabled
+              ? availability["buy-yes"].copy
+              : tradeDisabled
+                ? "Trading unavailable"
+                : undefined
+          }
+          style={!buyYesOk ? { pointerEvents: "none", opacity: 0.45 } : undefined}
         >
           Buy Yes
         </Link>
         <Link
           className="btn btn-no"
-          href={`/markets/${market.marketId}?intent=buy-no`}
-          aria-disabled={tradeDisabled}
-          style={tradeDisabled ? { pointerEvents: "none", opacity: 0.45 } : undefined}
+          href={`/markets/${market.marketId}?intent=buy-no&side=no`}
+          aria-disabled={!buyNoOk}
+          title={
+            !availability["buy-no"].enabled
+              ? availability["buy-no"].copy
+              : tradeDisabled
+                ? "Trading unavailable"
+                : undefined
+          }
+          style={!buyNoOk ? { pointerEvents: "none", opacity: 0.45 } : undefined}
         >
           Buy No
         </Link>

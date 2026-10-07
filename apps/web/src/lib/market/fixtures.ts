@@ -8,15 +8,39 @@ const DAY = 86400;
 
 /** Fixed "now" reference for deterministic SSR demos — overridden at runtime. */
 export function buildFixtureMarkets(nowSec = Math.floor(Date.now() / 1000)): MarketView[] {
+  const aaplClose = nowSec + 2 * DAY + 4 * 3600;
+  const aaplSettle = aaplClose + 900;
   return [
+    {
+      marketId: "fixture-aapl-225-oct16",
+      question: "Will AAPL close at or above $225.00 on Oct 16, 2026?",
+      underlyingSymbol: "AAPL",
+      strike: 225,
+      comparator: ">=",
+      tradingCloseTs: aaplClose,
+      settleTs: aaplSettle,
+      status: "open",
+      yesMid: 0.72,
+      yesBid: 0.71,
+      yesAsk: 0.73,
+      lastYes: 0.72,
+      volume24hUsdc: 98_200,
+      openInterest: 2800,
+      tickSize: 0.01,
+      lotSize: 1,
+      minPrice: 0.01,
+      maxPrice: 0.99,
+      underlyingPrice: 228.14,
+      underlyingPublishTs: nowSec - 12,
+    },
     {
       marketId: "fixture-aapl-230-oct16",
       question: "Will AAPL close at or above $230.00 on Oct 16, 2026?",
       underlyingSymbol: "AAPL",
       strike: 230,
       comparator: ">=",
-      tradingCloseTs: nowSec + 2 * DAY + 4 * 3600,
-      settleTs: nowSec + 2 * DAY + 4 * 3600 + 900,
+      tradingCloseTs: aaplClose,
+      settleTs: aaplSettle,
       status: "open",
       yesMid: 0.62,
       yesBid: 0.61,
@@ -31,6 +55,28 @@ export function buildFixtureMarkets(nowSec = Math.floor(Date.now() / 1000)): Mar
       underlyingPrice: 228.14,
       underlyingPublishTs: nowSec - 12,
       phoenixMarket: undefined, // TODO(schema): wire when set_phoenix_market
+    },
+    {
+      marketId: "fixture-aapl-235-oct16",
+      question: "Will AAPL close at or above $235.00 on Oct 16, 2026?",
+      underlyingSymbol: "AAPL",
+      strike: 235,
+      comparator: ">=",
+      tradingCloseTs: aaplClose,
+      settleTs: aaplSettle,
+      status: "open",
+      yesMid: 0.41,
+      yesBid: 0.4,
+      yesAsk: 0.42,
+      lastYes: 0.41,
+      volume24hUsdc: 71_000,
+      openInterest: 1900,
+      tickSize: 0.01,
+      lotSize: 1,
+      minPrice: 0.01,
+      maxPrice: 0.99,
+      underlyingPrice: 228.14,
+      underlyingPublishTs: nowSec - 12,
     },
     {
       marketId: "fixture-nvda-140-soon",
@@ -120,4 +166,20 @@ export function getMarketById(
   nowSec = Math.floor(Date.now() / 1000),
 ): MarketView | undefined {
   return buildFixtureMarkets(nowSec).find((m) => m.marketId === marketId);
+}
+
+/** Expiry chip label from tradingCloseTs (America/Chicago date). */
+export function expiryChipLabel(ts: number): string {
+  return new Date(ts * 1000).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "America/Chicago",
+  });
+}
+
+/** Stable expiry key for filter chips (YYYY-MM-DD CT). */
+export function expiryKey(ts: number): string {
+  return new Date(ts * 1000).toLocaleDateString("en-CA", {
+    timeZone: "America/Chicago",
+  });
 }

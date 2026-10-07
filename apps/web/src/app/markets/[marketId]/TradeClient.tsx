@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Intent } from "@/lib/intents/types";
 import type { MarketView } from "@/lib/market/types";
 import { SettlementCountdown } from "@/components/market/SettlementCountdown";
@@ -12,10 +13,10 @@ import { fixtureBook } from "@/lib/market/fixtures";
 import { formatOutcomePrice } from "@/lib/format";
 import { noPriceFromYes, type Perspective } from "@/lib/market/bookTransform";
 import { yesDefinition, noDefinition, oneLineExplainer } from "@/lib/copy/payoff";
-import { getIntentAvailability } from "@/lib/intents/getIntentAvailability";
-import { getCountdown } from "@/lib/market/countdown";
+import { useIntentAvailability } from "@/hooks/useIntentAvailability";
 import { useChainClock } from "@/components/providers/AppProviders";
 import { DEFAULT_PROGRAM_ID } from "@/lib/solana/config";
+import { listDemoOpenOrdersAcrossMarkets, buildDemoHistory } from "@/lib/demo/portfolio";
 
 const VALID_INTENTS = new Set<Intent>([
   "buy-yes",
@@ -23,6 +24,8 @@ const VALID_INTENTS = new Set<Intent>([
   "buy-no",
   "sell-no",
 ]);
+
+type ZoneTab = "position" | "orders" | "fills";
 
 export function TradeClient({
   market,
@@ -38,21 +41,22 @@ export function TradeClient({
   initialSize?: number;
 }) {
   const { nowSec } = useChainClock();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [perspective, setPerspective] = useState<Perspective>(
     initialSide === "no" ? "no" : "yes",
   );
+  const [zoneTab, setZoneTab] = useState<ZoneTab>("position");
+  const [fillPrice, setFillPrice] = useState<number | null>(null);
+  const [fillIntentHint, setFillIntentHint] = useState<Intent | null>(null);
+
   const book = useMemo(() => fixtureBook(market), [market]);
   const yes = market.yesMid ?? market.lastYes ?? 0.5;
   const no = noPriceFromYes(yes, market.tickSize);
-  const cd = getCountdown(market, nowSec);
 
-  // Deep-link intent validation (06 §2.5)
-  const position = { yesQty: 0, noQty: 0 };
-  const availability = getIntentAvailability(
-    position,
-    { openBuyYesQty: 0, openBuyNoQty: 0 },
-    { pendingTradeCount: 0 },
-    { lifecycle: cd.state, lotSize: market.lotSize },
+  const { availability, position, openOrders, lifecycle } = useIntentAvailability(
+    market.marketId,
   );
 
   let resolvedIntent: Intent | undefined;
@@ -69,6 +73,33 @@ export function TradeClient({
     }
   }
 
+  const syncPerspective = useCallback(
+    (next: Perspective) => {
+      setPerspective(next);
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      params.set("side", next);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  const onSelectPrice = useCallback(
+    (price: number, side: "bid" | "ask") => {
+      // Click ask → Buy of current perspective; bid → Sell. If blocked, keep intent, fill price only.
+      const buyIntent: Intent = perspective === "yes" ? "buy-yes" : "buy-no";
+      const sellIntent: Intent = perspective === "yes" ? "sell-yes" : "sell-no";
+      const preferred = side === "ask" ? buyIntent : sellIntent;
+      setFillPrice(price);
+      setFillIntentHint(availability[preferred].enabled ? preferred : null);
+    },
+    [perspective, availability],
+  );
+
+  const clearFill = useCallback(() => {
+    setFillPrice(null);
+    setFillIntentHint(null);
+  }, []);
+
   const whenLabel = new Date(market.settleTs * 1000).toLocaleString("en-US", {
     timeZone: "America/Chicago",
     month: "short",
@@ -77,6 +108,13 @@ export function TradeClient({
     minute: "2-digit",
     timeZoneName: "short",
   });
+
+  const marketOrders = listDemoOpenOrdersAcrossMarkets().filter(
+    (o) => o.marketId === market.marketId,
+  );
+  const marketFills = buildDemoHistory(nowSec).filter(
+    (h) => h.marketId === market.marketId && h.type === "fill",
+  );
 
   return (
     <div>
@@ -125,7 +163,7 @@ export function TradeClient({
               type="button"
               className="btn"
               aria-pressed={perspective === "yes"}
-              onClick={() => setPerspective("yes")}
+              onClick={() => syncPerspective("yes")}
             >
               Yes
             </button>
@@ -133,7 +171,7 @@ export function TradeClient({
               type="button"
               className="btn"
               aria-pressed={perspective === "no"}
-              onClick={() => setPerspective("no")}
+              onClick={() => syncPerspective("no")}
             >
               No
             </button>
@@ -158,13 +196,18 @@ export function TradeClient({
         className="trade-grid"
       >
         <div className="card" style={{ minHeight: 280 }}>
-          <strong>Chart</strong>
+          <strong>Chart (stub)</strong>
           <p className="muted" style={{ fontSize: "0.85rem" }}>
-            TODO(indexer): implied price series + Pyth overlay. Mid{" "}
+            Chart stub — implied price series + Pyth overlay not wired (TODO(indexer)). Mid{" "}
             {formatOutcomePrice(perspective === "yes" ? yes : no)} ({perspective}).
           </p>
         </div>
-        <OrderBook book={book} perspective={perspective} tickSize={market.tickSize} />
+        <OrderBook
+          book={book}
+          perspective={perspective}
+          tickSize={market.tickSize}
+          onSelectPrice={onSelectPrice}
+        />
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <TradeTicket
             market={market}
@@ -173,10 +216,126 @@ export function TradeClient({
             initialPrice={initialPrice}
             initialSize={initialSize}
             position={position}
+            availability={availability}
+            openOrders={openOrders}
+            fillPrice={fillPrice}
+            fillIntentHint={fillIntentHint}
+            onConsumedFill={clearFill}
           />
-          <PositionPanel market={market} />
+          <PositionPanel
+            market={market}
+            yesQty={position.yesQty}
+            noQty={position.noQty}
+          />
         </div>
       </div>
+
+      <section className="card" style={{ marginTop: "1rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+          {(
+            [
+              ["position", "Position"],
+              ["orders", `Open orders${marketOrders.length ? ` (${marketOrders.length})` : ""}`],
+              ["fills", `Fills${marketFills.length ? ` (${marketFills.length})` : ""}`],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className="btn"
+              aria-pressed={zoneTab === id}
+              onClick={() => setZoneTab(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {zoneTab === "position" && (
+          <PositionPanel
+            market={market}
+            yesQty={position.yesQty}
+            noQty={position.noQty}
+          />
+        )}
+        {zoneTab === "orders" && (
+          <div>
+            {marketOrders.length === 0 ? (
+              <p className="muted" style={{ margin: 0 }}>
+                No open orders for this market. TODO(phoenix): Phoenix trader state.
+              </p>
+            ) : (
+              <table className="markets-table">
+                <thead>
+                  <tr>
+                    <th>Intent</th>
+                    <th>Price</th>
+                    <th>Size</th>
+                    <th>Filled</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {marketOrders.map((o) => (
+                    <tr key={o.id}>
+                      <td>{o.intent}</td>
+                      <td className="tabular">{o.price.toFixed(2)}</td>
+                      <td className="tabular">{o.size}</td>
+                      <td className="tabular">{o.filled}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+        {zoneTab === "fills" && (
+          <div>
+            {marketFills.length === 0 ? (
+              <p className="muted" style={{ margin: 0 }}>
+                No fills yet.{" "}
+                <Link href="/history">History</Link>
+              </p>
+            ) : (
+              <table className="markets-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Intent</th>
+                    <th>Price</th>
+                    <th>Size</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {marketFills.map((f) => (
+                    <tr key={f.id}>
+                      <td>
+                        {new Date(f.ts * 1000).toLocaleString("en-US", {
+                          timeZone: "America/Chicago",
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </td>
+                      <td>{f.intentOrOutcome}</td>
+                      <td className="tabular">
+                        {f.price != null ? f.price.toFixed(2) : "—"}
+                      </td>
+                      <td className="tabular">{f.size}</td>
+                      <td className="tabular">
+                        {f.amountUsdc != null ? f.amountUsdc.toFixed(2) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="muted" style={{ fontSize: "0.8rem", marginTop: 8 }}>
+              Lifecycle: {lifecycle}. Fixture fills when no indexer.
+            </p>
+          </div>
+        )}
+      </section>
 
       <section className="card" style={{ marginTop: "1rem" }}>
         <h2 style={{ fontSize: "1rem", marginTop: 0 }}>Rules & resolution</h2>

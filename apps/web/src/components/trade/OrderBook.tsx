@@ -93,7 +93,8 @@ function BookRow({
   kind: "bid" | "ask";
   onClick?: () => void;
 }) {
-  const color = kind === "ask" ? "var(--no)" : "var(--yes)";
+  // Bid/ask book colors — NOT Yes/No side accents (nit #5)
+  const color = kind === "ask" ? "var(--ask)" : "var(--bid)";
   const total = level.price * level.size;
   return (
     <button

@@ -3,7 +3,7 @@
 Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** only.
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017).
 
-_Last refreshed: 2026-10-06 ~23:45 CT (sec keypair rotate + Railway IDL/health on `eng/sec-keypair-railway`)._
+_Last refreshed: 2026-10-06 23:50 CT (rebase `eng/ui-nits-post-22` onto main @ 59bfdd5 / !24 security)._
 
 ## Done
 
@@ -30,12 +30,13 @@ _Last refreshed: 2026-10-06 ~23:45 CT (sec keypair rotate + Railway IDL/health o
 - [x] GitLab CI + `docs/DEPLOY.md` ladder (MR !18; `eng/ci-deploy`) — runners may be absent on labs host; merge proceeded anyway
 - [x] Node automation dual-mode landed (MR !21; `eng/node-automation`) — calendar ET worker + localnet-only sim lifecycle; Phoenix market create stubbed
 - [x] Next.js UI V1 scaffold landed (MR !22; `eng/nextjs-ui`) — `apps/web` App Router + prod IDL mint/redeem + intent tests; Phoenix placement stubbed
+- [x] SECURITY/Railway remediation landed (MR !24; `eng/sec-keypair-railway`) — rotated program id `9Rb7nx…`; removed committed keypair; Railway IDL/health; history scrub still owed
 
 ## In Progress
 
-- [ ] SECURITY/Railway remediation (`eng/sec-keypair-railway`): remove committed program keypair + rotate program id; bake automation IDL; web/automation Railway health — landing ASAP (Debu don't-wait)
+- [ ] UI nits post-!22 (markets/trade/portfolio polish) — rebasing `eng/ui-nits-post-22` onto main (!24); landing via glab when mergeable
 - [ ] `docs/SPEC.md` **not ready** (not on main) — Debu waiting to be notified when ready
-- [ ] Reviewer continuous / demo readiness (beyond !17 nits) — security + demo walkthrough still owed
+- [ ] Reviewer continuous / demo readiness (beyond !17 nits) — demo walkthrough still owed (keypair revoke done in !24)
 - [ ] Phoenix Buy/Sell No composition + real on-book trade in sim E2E (sim trade today = off-book Yes SPL placeholder)
 
 ## Todo
@@ -46,3 +47,4 @@ _Last refreshed: 2026-10-06 ~23:45 CT (sec keypair rotate + Railway IDL/health o
 - [ ] Tester P2 cases + invariant gates after P0/P1 land on main (D-016)
 - [ ] Peak6 PRD: demo video (distinct from `DEMO_SCRIPT.md`)
 - [ ] Peak6 PRD: test results artifact (after suite execution on main)
+- [ ] History scrub: Debu `git filter-repo` / BFG + force-push to purge old key bytes from GitLab history
