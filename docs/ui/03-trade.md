@@ -11,25 +11,24 @@ Normative rules: `06-trading-intents-and-constraints.md` (intents §1, constrain
 4. See and manage their position and open orders in this market.
 5. After settlement, redeem.
 
-## 2. Layout (desktop ≥1280px, 12-col grid)
+## 2. Layout (DLV-072 — two-column, as built)
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
-│ A. Market header: question · underlying · strike · SETTLEMENT COUNTDOWN    │
-│    Perspective toggle [ Yes | No ]   Yes 0.62 / No 0.38   24h vol   OI     │
-├───────────────────────────────┬──────────────────────┬─────────────────────┤
-│ B. Chart (cols 1–6)           │ C. Order book        │ D. Order ticket     │
-│   implied price (perspective) │    (cols 7–9)        │    (cols 10–12)     │
-│   + underlying Pyth overlay   │    + recent trades   │   intents, size,    │
-│                               │    tab               │   price, preview    │
-├───────────────────────────────┴──────────────────────┼─────────────────────┤
-│ E. Tabs: Position · Open orders · Fills (this market)│ F. Position summary │
-│                                                      │   + constraint UX   │
-├──────────────────────────────────────────────────────┴─────────────────────┤
-│ G. Rules & resolution: payoff copy, Pyth feed, comparator, timestamps     │
-└────────────────────────────────────────────────────────────────────────────┘
+│ A. Compact header (one row): question + underlying/24h/OI · [Yes 0.62][No  │
+│    0.38] (prices double as the perspective toggle) · SETTLEMENT COUNTDOWN  │
+├──────────────────────────────────────────────────────┬─────────────────────┤
+│ B. Chart (stub: fixed ~240px)                        │ D. Order ticket     │
+├──────────────────────────────────────────────────────┤    (fixed ~360px,   │
+│ C. Order book                                        │    sticky under the │
+├──────────────────────────────────────────────────────┤    app header)      │
+│ E. Tabs: Position · Open orders · Fills              │                     │
+├──────────────────────────────────────────────────────┤                     │
+│ G. Rules & resolution                                │                     │
+└──────────────────────────────────────────────────────┴─────────────────────┘
 ```
-- **Tablet (768–1279):** B full width; C and D side-by-side; E/F stacked.
-- **Mobile (<768):** A (compact, countdown pinned under title) → perspective toggle → price + mini chart → sticky bottom bar `[Buy Yes 0.63] [Buy No 0.39]` opening D as a bottom sheet → collapsible C → F → E → G. The ticket sheet keeps the countdown visible in its header.
+- **Desktop (≥1024px):** grid `minmax(0,1fr) 360px`, `align-items: start`, 16px gaps; left column cards stack with no equal-height stretching; ticket is `position: sticky` (scrolls internally if taller than the viewport). Position lives in E (no duplicate panel under the ticket).
+- **Tablet + mobile (<1024px):** single column in this order: A → D (ticket) → C (book) → B (chart) → E (position) → G.
+- _Original design (superseded by the above):_ 3-column B | C | D row with F (position summary) under D; tablet B full width + C/D side-by-side; mobile sticky bottom Buy bar opening D as a bottom sheet — the bottom-sheet ticket remains a possible later enhancement.
 
 ## 3. Zone A — Header
 | Element | Content | Source |
