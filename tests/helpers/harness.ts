@@ -11,6 +11,7 @@ import {
   Keypair,
   PublicKey,
   SystemProgram,
+  SYSVAR_CLOCK_PUBKEY,
   Transaction,
   LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
@@ -34,6 +35,7 @@ import {
   DEFAULT_ADMIN_SETTLE_DELAY_SECS,
   DEFAULT_MINT_FEE_BPS,
   DEFAULT_REDEEM_FEE_BPS,
+  EXPIRY_MINT_SLACK_SECS,
   ONE,
   PYTH_FEED_ID_PLACEHOLDER,
   PHOENIX_MARKET_PLACEHOLDER,
@@ -390,11 +392,46 @@ export class TestCtx {
     );
   }
 
-  async waitPastExpiry() {
-    const target = Number(this.expiryTs.toString()) + 1;
-    // +1500ms slack: localnet Clock can lag wall time (SIM-08 AdminSettleTooEarly flake).
-    const waitMs = Math.max(0, target * 1000 - Date.now()) + 1500;
-    if (waitMs > 0) await sleep(waitMs);
+  /** Read validator Clock.unix_timestamp (offset 32 in sysvar layout). */
+  async getOnChainUnixTs(): Promise<number> {
+    const info = await this.provider.connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY, "processed");
+    if (!info?.data || info.data.length < 40) {
+      throw new Error("Clock sysvar unavailable or truncated");
+    }
+    return Number(info.data.readBigInt64LE(32));
+  }
+
+  /**
+   * Wait until on-chain Clock is strictly past expiry (+ optional admin delay).
+   * Wall sleep alone flakes when localnet Clock lags (SIM-08 AdminSettleTooEarly).
+   */
+  async waitPastExpiry(opts?: { adminDelaySecs?: number }) {
+    const delay = opts?.adminDelaySecs ?? 0;
+    // +1 so require(unix >= expiry[+delay]) is clearly satisfied; +1 more margin vs tx lag.
+    const target = Number(this.expiryTs.toString()) + delay + 2;
+    const wallWaitMs = Math.max(0, target * 1000 - Date.now());
+    if (wallWaitMs > 0) await sleep(wallWaitMs);
+
+    const deadline = Date.now() + 90_000;
+    while (true) {
+      const onChain = await this.getOnChainUnixTs();
+      if (onChain >= target) {
+        // Brief pause so the next RPC tx observes the same (or later) Clock.
+        await sleep(300);
+        return;
+      }
+      if (Date.now() >= deadline) {
+        throw new Error(
+          `waitPastExpiry timeout: on-chain=${onChain} target=${target} wall=${Math.floor(Date.now() / 1000)}`
+        );
+      }
+      await sleep(250);
+    }
+  }
+
+  /** Wall `now + EXPIRY_MINT_SLACK_SECS` — enough create/mint headroom before expiry. */
+  expiryAfterMintSlack(): number {
+    return Math.floor(Date.now() / 1000) + EXPIRY_MINT_SLACK_SECS;
   }
 
   async pause() {
@@ -886,4 +923,4 @@ export class TestCtx {
 
 }
 
-export { MarketStatus, ONE, BN, SimError, SIM_SESSION_INSTRUCTIONS };
+export { MarketStatus, ONE, BN, SimError, SIM_SESSION_INSTRUCTIONS, EXPIRY_MINT_SLACK_SECS };

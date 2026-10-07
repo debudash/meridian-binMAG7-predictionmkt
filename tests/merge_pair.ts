@@ -34,7 +34,7 @@ function feeOnPayout(amount: BN, bps: number): BN {
 }
 
 describe("merge_pair D-018 (TEST_MATRIX Cluster I / MP-*)", function () {
-  this.timeout(180000);
+  this.timeout(240000);
 
   before(() => {
     // Soft IDL gate — do not poison P0 EXPECTED_INSTRUCTIONS until Eng greens.
@@ -99,8 +99,7 @@ describe("merge_pair D-018 (TEST_MATRIX Cluster I / MP-*)", function () {
     const caseId = "MP-02";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack() });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
 
@@ -149,8 +148,7 @@ describe("merge_pair D-018 (TEST_MATRIX Cluster I / MP-*)", function () {
     const caseId = "MP-04";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });
@@ -262,8 +260,7 @@ describe("merge_pair D-018 (TEST_MATRIX Cluster I / MP-*)", function () {
     const caseId = "MP-08";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 3;
-    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
 
     // Open: redeem must not run; merge_pair is the unwind path

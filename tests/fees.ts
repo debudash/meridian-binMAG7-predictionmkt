@@ -26,7 +26,7 @@ function feeOn(amount: BN, bps: number): BN {
 }
 
 describe("P1 fees (TEST_MATRIX M-03 / R-05 / V-06)", function () {
-  this.timeout(180000);
+  this.timeout(240000);
   before(() => assertIdlHasInstructions("fees-p1-suite"));
 
   it("M-03: mint_fee_bps=10 → user pays amount+fee; vault+=amount only; treasury+=fee; pairs/supplies+=amount", async () => {
@@ -68,8 +68,7 @@ describe("P1 fees (TEST_MATRIX M-03 / R-05 / V-06)", function () {
     const caseId = "R-05";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ mintFeeBps: 0, redeemFeeBps: FEE_BPS, adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });
@@ -107,8 +106,7 @@ describe("P1 fees (TEST_MATRIX M-03 / R-05 / V-06)", function () {
       redeemFeeBps: FEE_BPS,
       adminDelay: 0,
     });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
 
     const mintFee = feeOn(ONE, FEE_BPS);
     const treas0 = await ctx.tokenBal(ctx.treasury);

@@ -32,6 +32,13 @@ export const DEFAULT_STALENESS_SLOTS = 150;
 export const DEFAULT_CONF_RATIO_BPS = 500;
 export const DEFAULT_ADMIN_SETTLE_DELAY_SECS = 1800;
 
+/**
+ * Seconds ahead of wall `now` for markets that still need to mint before expiry.
+ * createMarket + mint (+ optional sim_open/pause) often takes multi-seconds on localnet;
+ * `now+2` races MintAfterExpiry (X-03 flake). Prefer this over SimClock until D-017 PDA lands.
+ */
+export const EXPIRY_MINT_SLACK_SECS = 30;
+
 /** Fee defaults (D-006) */
 export const DEFAULT_MINT_FEE_BPS = 0;
 export const DEFAULT_REDEEM_FEE_BPS = 0;

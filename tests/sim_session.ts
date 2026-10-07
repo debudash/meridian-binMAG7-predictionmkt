@@ -8,7 +8,7 @@
  *
  * GREEN: eng `sim_open_session` / `sim_close_session` + `StrikeMarket.trading_open`
  * behind `#[cfg(feature = "localnet-test")]` (MR !16). Prod builds omit `sim_*`.
- * Expiry buffers (+20s) avoid create/simOpen wall-clock races — not a product soften.
+ * Expiry buffers use EXPIRY_MINT_SLACK_SECS; waitPastExpiry polls Clock sysvar — not a product soften.
  */
 import { expect } from "chai";
 import { BN } from "@coral-xyz/anchor";
@@ -27,7 +27,7 @@ import {
 import { MarketStatus } from "./helpers/fixtures";
 
 describe("localnet sim session lifecycle (TEST_MATRIX Cluster G / D-017)", function () {
-  this.timeout(180000);
+  this.timeout(240000);
 
   it("SIM-01: sim_open → trading_open true; mint allowed (not wall-clock 9:30 ET)", async () => {
     const caseId = "SIM-01";
@@ -103,9 +103,8 @@ describe("localnet sim session lifecycle (TEST_MATRIX Cluster G / D-017)", funct
     const caseId = "SIM-05";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    // Buffer: createMarket + simOpen consume wall time before mint (not a product soften).
-    const expiry = Math.floor(Date.now() / 1000) + 20;
-    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    // Mint-window slack (EXPIRY_MINT_SLACK_SECS); waitPastExpiry polls on-chain Clock.
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.simOpen(caseId);
     await ctx.mint(ONE);
     // Deliberately skip sim_close
@@ -129,9 +128,8 @@ describe("localnet sim session lifecycle (TEST_MATRIX Cluster G / D-017)", funct
     const caseId = "SIM-06";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    // Buffer: create + simOpen + mint + off-book trade before close (same as SIM-05/08).
-    const expiry = Math.floor(Date.now() / 1000) + 20;
-    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    // Mint-window slack (EXPIRY_MINT_SLACK_SECS); waitPastExpiry polls on-chain Clock.
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.simOpen(caseId);
     await ctx.mint(ONE);
     const b = await ctx.bootSecondUser();
@@ -166,10 +164,9 @@ describe("localnet sim session lifecycle (TEST_MATRIX Cluster G / D-017)", funct
     const caseId = "SIM-07";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    // Buffer: create + simOpen + mint before close (same as SIM-05/08).
-    const expiry = Math.floor(Date.now() / 1000) + 20;
+    // Mint-window slack (EXPIRY_MINT_SLACK_SECS); waitPastExpiry polls on-chain Clock.
     // price below strike → SettledNo
-    await ctx.createMarket({ expiryTs: expiry, pythPrice: 17_900_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 17_900_000_000n });
     await ctx.simOpen(caseId);
     await ctx.mint(ONE);
     await ctx.simClose(caseId);
@@ -187,9 +184,8 @@ describe("localnet sim session lifecycle (TEST_MATRIX Cluster G / D-017)", funct
     const caseId = "SIM-08";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    // Buffer: createMarket + simOpen + mint before close (not a product soften).
-    const expiry = Math.floor(Date.now() / 1000) + 20;
-    await ctx.createMarket({ expiryTs: expiry });
+    // SIM-08: mint-window slack + Clock-polled waitPastExpiry (AdminSettleTooEarly flake).
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack() });
     await ctx.simOpen(caseId);
     await ctx.mint(ONE);
     await ctx.simClose(caseId);

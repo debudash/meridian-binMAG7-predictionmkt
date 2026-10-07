@@ -17,7 +17,7 @@ import {
 } from "./helpers/invariants";
 
 describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", function () {
-  this.timeout(180000);
+  this.timeout(240000);
   afterEach(async () => {
     try {
       const ctx = await TestCtx.boot();
@@ -49,7 +49,7 @@ describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", function () {
     expect(PAUSE_ALLOWS).to.include("settle");
     expect(PAUSE_ALLOWS).to.include("redeem");
     await ctx.setupProtocol();
-    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) + 2, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.pause();
     await ctx.waitPastExpiry();
@@ -63,7 +63,7 @@ describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", function () {
   it("X-04: e2e fee=0 SettledYes — create → mint → warp expiry → settle ≥strike → redeem Yes", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol();
-    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) + 2, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.setPhoenix();
     await ctx.waitPastExpiry();
@@ -80,7 +80,7 @@ describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", function () {
   it("X-05: e2e SettledNo — mint → settle <strike → redeem No", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol();
-    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) + 2, pythPrice: 17_900_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 17_900_000_000n });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     await ctx.upsertPyth({ price: 17_900_000_000n, keypair: ctx.pythFeed });
@@ -94,7 +94,7 @@ describe("pause + lifecycle P0 (TEST_MATRIX Cluster F)", function () {
   it("X-06: mint → settle → second settle fails (I4)", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol();
-    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) + 2, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });

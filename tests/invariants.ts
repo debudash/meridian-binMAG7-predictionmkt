@@ -15,7 +15,7 @@ import {
 } from "./helpers/invariants";
 
 describe("$1 vault / supply invariants P0 (TEST_MATRIX Cluster E)", function () {
-  this.timeout(180000);
+  this.timeout(240000);
   before(() => assertIdlHasInstructions("invariants-suite"));
 
   it("V-01: fresh market — vault=0; pairs_minted=pairs_redeemed=0; supplies=0", async () => {
@@ -54,7 +54,7 @@ describe("$1 vault / supply invariants P0 (TEST_MATRIX Cluster E)", function () 
   it("V-04: settled before any redeem — vault still == outstanding pairs (settle did not skim)", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol();
-    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) + 2, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });
@@ -67,7 +67,7 @@ describe("$1 vault / supply invariants P0 (TEST_MATRIX Cluster E)", function () 
   it("V-05: after mix of redeems (fee=0) — vault == pairs_minted - pairs_redeemed; never negative", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol();
-    await ctx.createMarket({ expiryTs: Math.floor(Date.now() / 1000) + 2, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });

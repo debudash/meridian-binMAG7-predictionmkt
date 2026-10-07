@@ -13,8 +13,7 @@ import { assertBinaryPayout, assertVaultCoversLiability } from "./helpers/invari
 
 async function settleYes(ctx: TestCtx) {
   await ctx.setupProtocol();
-  const expiry = Math.floor(Date.now() / 1000) + 2;
-  await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+  await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
   await ctx.mint(ONE);
   await ctx.waitPastExpiry();
   await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });
@@ -23,8 +22,7 @@ async function settleYes(ctx: TestCtx) {
 
 async function settleNo(ctx: TestCtx) {
   await ctx.setupProtocol();
-  const expiry = Math.floor(Date.now() / 1000) + 2;
-  await ctx.createMarket({ expiryTs: expiry, pythPrice: 17_900_000_000n });
+  await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 17_900_000_000n });
   await ctx.mint(ONE);
   await ctx.waitPastExpiry();
   await ctx.upsertPyth({ price: 17_900_000_000n, keypair: ctx.pythFeed });
@@ -32,7 +30,7 @@ async function settleNo(ctx: TestCtx) {
 }
 
 describe("redeem P0 (TEST_MATRIX Cluster D)", function () {
-  this.timeout(180000);
+  this.timeout(240000);
   before(() => assertIdlHasInstructions("redeem-suite"));
 
   it("R-01: SettledYes + redeem(Yes) burns amount, pays 1:1 USDC, pairs_redeemed += amount", async () => {
