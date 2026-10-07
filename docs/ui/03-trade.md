@@ -72,6 +72,7 @@ Rules:
 - Trades tab: time, price (perspective), size, aggressor side. Last 50, live.
 - Live via Phoenix market account subscription; throttle render to 10 fps; flash changed levels 300ms.
 - Stale indicator if no websocket update for 10s and RPC slot advancing: "Book may be stale — reconnecting".
+- **Row selection (DLV-071):** clicking a level highlights it (bid/ask-colored tint + left accent bar; `aria-selected`; keyboard focusable, ↑/↓ move between levels) and sets the ticket to Limit at that price (No intents get `1 − p_yes`). The highlight is keyed by price (not row), so it survives book refreshes and the Yes/No toggle; it clears when the level disappears, the user types a different ticket price, switches to Market, or clicks the same row again. A ticket limit price that matches a level highlights it too.
 
 ## 6. Zone D — Order ticket
 ### 6.1 Structure
@@ -81,9 +82,9 @@ Rules:
    [ Buy No  ] [ Sell No  ]
    ```
    Each button shows its best executable price: Buy Yes = best Yes ask; Sell Yes = best Yes bid; Buy No = `1 − best Yes bid`; Sell No = `1 − best Yes ask`. Disabled states and copy from `06` §2.3 render directly beneath the selector.
-2. **Order type** — Market | Limit (+ Post only).
+2. **Order type** — Market | Limit. **Post only is hidden in V1** (D-021, simplification per Debu): no checkbox; every limit order is sent with post-only = false.
 3. **Size** — contracts input with USDC equivalent toggle ("Spend 25 USDC" ↔ "40 contracts"). Quick chips: 25% / 50% / Max. Max for buys = floor(USDC available / worst price); for sells = available-to-sell (held − locked).
-4. **Price** (Limit only) — stepper by tick; shows implied %. Warnings: limit crosses the book → "This will fill immediately as a taker" (unless Post only → "Post-only order would cross; it will be rejected").
+4. **Price** (Limit only) — stepper by tick; shows implied %. Warnings: limit crosses the book → "This will fill immediately as a taker". (No post-only rejection warning in V1 — post-only is hidden, D-021.) Clicking an order-book level selects/highlights it and fills this price (switching to Limit); see §5.
 5. **Slippage / worst price** (Market only) — default per `06` §1.1; editable in a popover.
 6. **Preview block** (per `06` §4):
    | Row | Buy | Sell |

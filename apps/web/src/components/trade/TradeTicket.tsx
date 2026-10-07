@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAnchorWallet, useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { AnchorProvider } from "@coral-xyz/anchor";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
@@ -15,6 +15,7 @@ import {
   PHOENIX_NOT_CONFIGURED_MESSAGE,
   SELL_NO_MERGE_CAVEAT,
   planIntentComposition,
+  ticketPhoenixOrderType,
 } from "@/lib/phoenix";
 import { useTxStatus } from "@/components/providers/AppProviders";
 import type { MarketView, OrderBookSnapshot } from "@/lib/market/types";
@@ -56,6 +57,7 @@ export function TradeTicket({
   onConsumedFill,
   liveBook,
   usdcBalance,
+  onTicketChange,
 }: {
   market: MarketView;
   perspective: Perspective;
@@ -73,6 +75,8 @@ export function TradeTicket({
   liveBook?: OrderBookSnapshot | null;
   /** Connected wallet USDC (live) */
   usdcBalance?: number;
+  /** Reports intent/price/orderType so the book can highlight the matching level (DLV-071). */
+  onTicketChange?: (s: { intent: Intent; price: number; orderType: "market" | "limit" }) => void;
 }) {
   const { connected, publicKey, sendTransaction } = useWallet();
   const anchorWallet = useAnchorWallet();
@@ -90,7 +94,8 @@ export function TradeTicket({
 
   const [intent, setIntent] = useState<Intent>(defaultIntent);
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
-  const [postOnly, setPostOnly] = useState(false);
+  // Post-only is hidden in V1 (D-021, simplification per Debu): no checkbox, always
+  // sent as false via ticketPhoenixOrderType. The Phoenix post-only path stays for later.
   const [size, setSize] = useState(initialSize ?? 10);
   const [price, setPrice] = useState(
     initialPrice ??
@@ -128,15 +133,23 @@ export function TradeTicket({
     }
   }, [touchPrice, intent, orderType, anchoredIntent]);
 
+  const intentRef = useRef(intent);
+  intentRef.current = intent;
   useEffect(() => {
     if (fillPrice == null) return;
     setOrderType("limit");
     setPrice(fillPrice);
-    if (fillIntentHint) {
-      setIntent(fillIntentHint);
-    }
+    const nextIntent = fillIntentHint ?? intentRef.current;
+    setIntent(nextIntent);
+    // Mark the book-clicked price as this intent's anchor so the touch re-anchor
+    // above doesn't overwrite it when the click also switches intent.
+    setAnchoredIntent(nextIntent);
     onConsumedFill?.();
   }, [fillPrice, fillIntentHint, onConsumedFill]);
+
+  useEffect(() => {
+    onTicketChange?.({ intent, price, orderType });
+  }, [intent, price, orderType, onTicketChange]);
 
   const availability = useMemo(() => {
     if (availabilityProp) return availabilityProp;
@@ -158,10 +171,10 @@ export function TradeTicket({
         intent,
         price,
         size,
-        orderType: orderType === "limit" && postOnly ? "post-only" : orderType,
+        orderType: ticketPhoenixOrderType(orderType),
         tickSize: market.tickSize,
       }),
-    [intent, price, size, orderType, postOnly, market.tickSize],
+    [intent, price, size, orderType, market.tickSize],
   );
 
   function ctaLabel(): string {
@@ -172,7 +185,7 @@ export function TradeTicket({
     if (!phoenixReady) {
       return `Phoenix not configured — ${intentLabel(intent)}`;
     }
-    return `${intentLabel(intent)} ${size}${orderType === "limit" ? ` @ ${price.toFixed(2)}` : ""}${postOnly && orderType === "limit" ? " (post-only)" : ""}`;
+    return `${intentLabel(intent)} ${size}${orderType === "limit" ? ` @ ${price.toFixed(2)}` : ""}`;
   }
 
   async function onSubmit() {
@@ -206,8 +219,7 @@ export function TradeTicket({
 
     setBusy(true);
     try {
-      const phoenixType =
-        orderType === "limit" && postOnly ? "post-only" : orderType;
+      const phoenixType = ticketPhoenixOrderType(orderType);
 
       let mintAccounts: MintAccounts | undefined;
       let program: ReturnType<typeof getMeridianProgram> | undefined;
@@ -363,7 +375,6 @@ export function TradeTicket({
           aria-pressed={orderType === "market"}
           onClick={() => {
             setOrderType("market");
-            setPostOnly(false);
           }}
         >
           Market
@@ -377,24 +388,6 @@ export function TradeTicket({
           Limit
         </button>
       </div>
-
-      {orderType === "limit" && (
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontSize: "0.85rem",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={postOnly}
-            onChange={(e) => setPostOnly(e.target.checked)}
-          />
-          Post only
-        </label>
-      )}
 
       <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: "0.85rem" }}>
         Size (contracts)

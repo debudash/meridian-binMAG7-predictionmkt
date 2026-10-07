@@ -4,12 +4,25 @@ import { transformBook, type Perspective } from "@/lib/market/bookTransform";
 import type { OrderBookSnapshot } from "@/lib/market/types";
 import { formatOutcomePrice } from "@/lib/format";
 import { PHOENIX_STUB_NOTICE } from "@/lib/phoenix/stub";
+import { rowKey } from "@/lib/market/bookSelection";
+import type { KeyboardEvent } from "react";
+
+/** Arrow keys move focus between price levels (rows stay native buttons for Enter/Space). */
+function onLadderKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  const rows = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("[role=option]"));
+  const i = rows.indexOf(document.activeElement as HTMLButtonElement);
+  if (i < 0) return;
+  e.preventDefault();
+  rows[Math.min(rows.length - 1, Math.max(0, i + (e.key === "ArrowDown" ? 1 : -1)))]?.focus();
+}
 
 export function OrderBook({
   book,
   perspective,
   tickSize,
   onSelectPrice,
+  selectedKey = null,
   live = false,
 }: {
   /** true when `book` is the on-chain Phoenix ladder (not the fixture stub) */
@@ -18,7 +31,11 @@ export function OrderBook({
   perspective: Perspective;
   tickSize: number;
   onSelectPrice?: (price: number, side: "bid" | "ask") => void;
+  /** Highlighted level as a Yes-price tick key (see lib/market/bookSelection). */
+  selectedKey?: number | null;
 }) {
+  const isSelected = (price: number) =>
+    selectedKey != null && rowKey(price, perspective, tickSize) === selectedKey;
   const view = transformBook(book, perspective, tickSize);
   const bestBid = view.bids[0]?.price;
   const bestAsk = view.asks[0]?.price;
@@ -59,12 +76,18 @@ export function OrderBook({
         <span style={{ textAlign: "right" }}>Size</span>
         <span style={{ textAlign: "right" }}>Total</span>
       </div>
-      <div style={{ maxHeight: 220, overflow: "auto" }}>
+      <div
+        role="listbox"
+        aria-label={`Order book ${perspective === "yes" ? "Yes" : "No"} price levels`}
+        onKeyDown={onLadderKeyDown}
+        style={{ maxHeight: 220, overflow: "auto" }}
+      >
         {[...view.asks].reverse().slice(0, 8).map((l) => (
           <BookRow
             key={`a-${l.price}`}
             level={l}
             kind="ask"
+            selected={isSelected(l.price)}
             onClick={() => onSelectPrice?.(l.price, "ask")}
           />
         ))}
@@ -73,6 +96,7 @@ export function OrderBook({
             key={`b-${l.price}`}
             level={l}
             kind="bid"
+            selected={isSelected(l.price)}
             onClick={() => onSelectPrice?.(l.price, "bid")}
           />
         ))}
@@ -90,10 +114,12 @@ export function OrderBook({
 function BookRow({
   level,
   kind,
+  selected = false,
   onClick,
 }: {
   level: { price: number; size: number };
   kind: "bid" | "ask";
+  selected?: boolean;
   onClick?: () => void;
 }) {
   // Bid/ask book colors — NOT Yes/No side accents (nit #5)
@@ -102,13 +128,23 @@ function BookRow({
   return (
     <button
       type="button"
+      role="option"
+      aria-selected={selected}
+      aria-label={`${kind === "ask" ? "Ask" : "Bid"} ${formatOutcomePrice(level.price)}, size ${level.size}`}
+      className={`book-row${selected ? " book-row-selected" : ""}`}
+      data-side={kind}
       onClick={onClick}
       style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr 1fr",
         width: "100%",
         border: "none",
-        background: "transparent",
+        // Selected: tint + left accent bar in the row's own bid/ask color.
+        background: selected
+          ? `color-mix(in srgb, ${color} 18%, transparent)`
+          : "transparent",
+        boxShadow: selected ? `inset 3px 0 0 ${color}` : undefined,
+        fontWeight: selected ? 600 : undefined,
         color: "var(--text)",
         padding: "0.28rem 0.85rem",
         cursor: "pointer",
