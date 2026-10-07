@@ -56,7 +56,7 @@ SDK: **`@ellipsis-labs/phoenix-sdk`** (V1 spot). Placement is gated:
 | `NEXT_PUBLIC_PHOENIX_ENABLED=false` or no `phoenixMarket` pubkey | Structured **not-configured** (`ok:false`) — TradeTicket CTA does **not** say “Confirm in your wallet…” |
 | Market pubkey set (+ optional `ENABLED=true`) + wallet | Build/sign/submit place (limit / IOC market / post-only); seat/ATA setup ixs prepended when needed |
 | **Buy No** | Prefer multi-ix tx: Meridian `mint` then Phoenix ask Yes @ `1−p_no` (needs vault/mints/treasury on `MarketView`) |
-| **Sell No** | Phoenix bid Yes only; **merge awaits Schema** (no `merge` in `meridian.prod.json`) |
+| **Sell No** | Market = Phoenix bid Yes @ `1−p_no` + Meridian `merge_pair` (same tx); resting = bid only, merge-on-fill phased (`SELL_NO_MERGE_CAVEAT`) |
 
 Seat claim helper: `buildClaimSeatInstructions` / README steps — claim via `getMakerSetupInstructionsForMarket` when placing.
 

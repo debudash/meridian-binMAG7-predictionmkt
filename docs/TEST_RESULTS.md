@@ -135,11 +135,13 @@ Expect: **74 passing / 0 failing**. Labs CI runners may be absent — Debu don't
 | Anytime sim path (D-017) | Yes — SIM-01…09; [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) |
 | Non-custodial / pause / admin delay | Covered by P0 + !17 nits |
 | Sell No / `merge_pair` | Green MP-* + client !33 |
-| Phoenix on-book sim E2E | **Open** (TRACKER) — sim trade today = off-book Yes SPL placeholder |
+| Phoenix on-book sim E2E | **Done** (!38 / DLV-064) — `simTradeOnBook` + PHX-01…06; residual: full Phoenix.so market create on validator ([`phoenix-onbook-sim.md`](phoenix-onbook-sim.md)) |
 | Peak6 PRD demo **video** | **Open** (DLV-038) — distinct from this artifact |
 | Railway staging deploy | Deferred; fixtures browse OK locally |
 
 **Reviewers:** treat this file + tip SHAs as DLV-039 evidence for demo handoff. Continuous security / walkthrough video remain separate (DLV-037 / DLV-038).
+
+**Post-!38 suite note:** tip advanced with PHX-01…06 under the same mocha `tests/**/*.ts` glob; DLV-039 still cites **74/74** @ `65c1ddf`. Live census after !38 is TBD / re-run (eng reported PHX green separately).
 
 ---
 
@@ -159,3 +161,4 @@ Expect: **74 passing / 0 failing**. Labs CI runners may be absent — Debu don't
 | Date | Actor | Change |
 | --- | --- | --- |
 | 2026-10-07 | Meridian Testers | Initial DLV-039 artifact from tip `92d414e` / suite green `65c1ddf` (!34) |
+| 2026-10-07 | Meridian Orchestrator / Reviewers | Demo table: Phoenix on-book → Done (!38 / DLV-064); residual Phoenix.so create; post-!38 PHX census TBD; tip note `bcf5d23` |

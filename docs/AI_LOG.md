@@ -1,3 +1,16 @@
+## 2026-10-07T09:35:00-05:00 — Reviewers: DLV-037 demo/continuous readiness (conditional pass)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Reviewers (report); Grok Bot (docs polish MR) |
+| **Tip reviewed** | `bcf5d23` (advanced past asked `92d414e`) |
+| **Decision** | **CONDITIONAL PASS** — fixtures/localnet Peak6 walkthrough demo-ready with doc nits. Sell No Highs (!33) PASS (code); DEMO_SCRIPT ready via `yarn test`/PHX; security regression PASS; DLV-039 TEST_RESULTS Accept 74/74 for cited tips. Docs polish: README Sell No, DEMO_SCRIPT automation:sim, TEST_RESULTS Phoenix Done (!38), SPEC counts/MAG7, TRACKER tip. Railway deferred; **DLV-038 video** out of scope / still Todo. |
+| **Report** | `/workspace/meridian-review-demo-bcf5d23.md` |
+| **Branch** | `docs/dlv037-demo-readiness-nits` |
+| **Related** | DLV-037 · DLV-038 · DLV-039 · DLV-064 · !33 · !34 · !38 · !37 |
+
+---
+
 ## 2026-10-07T09:30:00-05:00 — DLV-064 Phoenix on-book sim E2E (Meridian Engineers / Grok Bot)
 
 | Field | Value |

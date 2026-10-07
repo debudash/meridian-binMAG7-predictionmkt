@@ -63,7 +63,7 @@ Full rows: [`DECISIONS.md`](DECISIONS.md).
 ### 3.2 $1 invariant
 
 - After mint / Phoenix trade / redeem (fee=0): vault and supplies satisfy TEST_MATRIX I1–I4 (and fee cases when bps ≠ 0).
-- Proof: unit/integration tests on main (P0/P1 green; localnet suite presently **60/60** including SIM).
+- Proof: unit/integration tests on main (P0/P1 green; see [`TEST_RESULTS.md`](TEST_RESULTS.md) — **74/74** @ `65c1ddf`; +PHX after !38).
 
 ### 3.3 MAG7 0DTE lifecycle
 
@@ -149,7 +149,7 @@ Debu requires **UI wireframes in this SPEC freeze MR** (!20 / branch `docs/d012-
 
 These may resolve after SPEC lock without rewriting V1 scope:
 
-1. Exact **MAG7 Pyth feed ids** (placeholders until pinned).
+1. Exact **MAG7 Pyth feed ids** — **pinned** (D-019 / DLV-041; SCHEMA §3.1).
 2. Phoenix **Buy/Sell No** on-book sim E2E — **landed DLV-064** (book-sim + PHX-*; client place/merge !28/!33). Residual: full Phoenix.so market create on localnet (`docs/phoenix-onbook-sim.md`).
 3. Indexer / history data URL (if any).
 4. Optional **UI sim** affordance.

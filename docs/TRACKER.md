@@ -4,7 +4,7 @@ Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** o
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017). **D-018** locks prod `merge_pair`, A-05 Policy A, and X-07 Settling retire.
 **Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)) — deploy deferred locally; Debu browsing fixtures @ localhost:3000.
 
-_Last refreshed: 2026-10-07 09:16 CT (main tip `654ec8f7`; D-019 MAG7 Pyth pins / DLV-041)._
+_Last refreshed: 2026-10-07 09:35 CT (main tip `bcf5d23`; Reviewer DLV-037 conditional pass @ `bcf5d23`; docs polish this MR)._
 
 ## Done
 
@@ -52,7 +52,7 @@ _Last refreshed: 2026-10-07 09:16 CT (main tip `654ec8f7`; D-019 MAG7 Pyth pins 
 
 ## In Progress
 
-- [ ] Reviewer continuous / demo readiness (beyond !17 nits / !33 Highs) — demo video + walkthrough still owed (keypair tip-delete done in !24)
+- [ ] Reviewer continuous / demo readiness (DLV-037) — docs polish (this MR) + Peak6 PRD demo **video** (DLV-038); fixtures/localnet walkthrough **conditional pass** @ `bcf5d23` (Reviewers)
 
 ## Todo
 
