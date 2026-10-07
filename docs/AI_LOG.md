@@ -6,6 +6,18 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-07T07:49:46-05:00 — Engineers: harden X-03 / SIM-08 localnet timing flakes
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers; Grok Bot |
+| **Branch** | `eng/flake-timing-x03-sim08` rebased onto `origin/main` @ `5e30749` (!33 Sell No) |
+| **Decision** | Harness-only flake fix (no prod program / A-05 / X-07 / merge_pair / apps/web changes). **X-03:** `now+2` → `expiryAfterMintSlack()` (`EXPIRY_MINT_SLACK_SECS=30`) so create+mint cannot race `MintAfterExpiry`. **SIM-08:** `waitPastExpiry` polls validator **Clock sysvar** until `unix_timestamp >= expiry[+delay]+2` (wall sleep alone lagged localnet Clock → `AdminSettleTooEarly`). Suite-wide mint-before-expiry slack: S-08/V-07, SIM-05…08, settle openMintThenExpire/A-01…A-03, fees V-06, pause X-02/X-04…X-06, redeem, invariants, merge_pair MP-*, p2_gates. Anchor/mocha timeout 240s. SimClock PDA (D-017) still deferred. Program id unchanged `9Rb7nx…`. |
+| **Files** | `tests/helpers/fixtures.ts` · `tests/helpers/harness.ts` · `tests/{p1_edges,sim_session,settle,fees,pause,redeem,invariants,merge_pair,p2_gates}.ts` · `Anchor.toml` · `docs/AI_LOG.md` |
+| **Related** | D-016 · D-017 · localnet tip was `3051584` 72/74 · !32 P2 · !33 Sell No |
+
+---
+
 ## 2026-10-07T07:45:00-05:00 — Engineers: Sell No merge_pair client + size unify (Reviewer Highs)
 
 | Field | Value |

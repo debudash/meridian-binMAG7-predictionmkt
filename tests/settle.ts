@@ -18,9 +18,8 @@ async function openMintThenExpire(
   opts: { price: bigint; conf?: bigint; slot?: bigint }
 ) {
   await ctx.setupProtocol();
-  const expiry = Math.floor(Date.now() / 1000) + 2;
   await ctx.createMarket({
-    expiryTs: expiry,
+    expiryTs: ctx.expiryAfterMintSlack(),
     pythPrice: opts.price,
     pythConf: opts.conf,
   });
@@ -35,7 +34,7 @@ async function openMintThenExpire(
 }
 
 describe("settle P0 (TEST_MATRIX Cluster B)", function () {
-  this.timeout(180000);
+  this.timeout(240000);
   before(() => assertIdlHasInstructions("settle-suite"));
 
   it("S-01: settle with price_e6 >= strike → SettledYes; vault unchanged; emit Settled", async () => {
@@ -139,13 +138,12 @@ describe("settle P0 (TEST_MATRIX Cluster B)", function () {
 });
 
 describe("admin_settle P0 (TEST_MATRIX Cluster C)", function () {
-  this.timeout(180000);
+  this.timeout(240000);
 
   it("A-01: authority admin_settle after delay → status/fields set; emit AdminSettled; vault unchanged", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack() });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     const vaultBefore = await ctx.vaultAmount();
@@ -160,8 +158,7 @@ describe("admin_settle P0 (TEST_MATRIX Cluster C)", function () {
   it("A-02: admin_settle before delay fails with AdminSettleTooEarly", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 1800 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack() });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     await expectErr(ctx.adminSettle(ctx.strike, true), "AdminSettleTooEarly");
@@ -170,8 +167,7 @@ describe("admin_settle P0 (TEST_MATRIX Cluster C)", function () {
   it("A-03: non-authority admin_settle fails with Unauthorized", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack() });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     const stranger = Keypair.generate();

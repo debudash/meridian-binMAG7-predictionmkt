@@ -51,7 +51,7 @@ const FIXTURE_IX = new Set([
 ]);
 
 describe("P2 gates (TEST_MATRIX A-05 / R-08 / X-07 + INV)", function () {
-  this.timeout(180000);
+  this.timeout(240000);
   before(() => assertIdlHasInstructions("p2-gates-suite"));
 
   /**
@@ -62,8 +62,7 @@ describe("P2 gates (TEST_MATRIX A-05 / R-08 / X-07 + INV)", function () {
     const caseId = "A-05";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack() });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
 
@@ -124,8 +123,7 @@ describe("P2 gates (TEST_MATRIX A-05 / R-08 / X-07 + INV)", function () {
     const caseId = "R-08";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });
@@ -177,8 +175,7 @@ describe("P2 gates (TEST_MATRIX A-05 / R-08 / X-07 + INV)", function () {
 
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     expect((await ctx.marketState()).status).to.equal(MarketStatus.Open);
 
     // Live path never visits Settling: Open → Settled*.
@@ -199,8 +196,7 @@ describe("P2 gates (TEST_MATRIX A-05 / R-08 / X-07 + INV)", function () {
     const caseId = "INV-P2-I3";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });

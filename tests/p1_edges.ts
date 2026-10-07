@@ -24,14 +24,14 @@ import { assertVaultCoversLiability } from "./helpers/invariants";
 import { MarketStatus } from "./helpers/fixtures";
 
 describe("P1 edges (TEST_MATRIX S-08 / X-03 / M-07 / M-09 / M-10 / V-07 / V-08)", function () {
-  this.timeout(180000);
+  this.timeout(240000);
   before(() => assertIdlHasInstructions("p1-edges-suite"));
 
   it("S-08: settle with price <= 0 (or e6==0) fails InvalidPythPrice", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    // Mint-window slack: now+2 races MintAfterExpiry under slow localnet RPC.
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     await ctx.upsertPyth({ price: 0n, keypair: ctx.pythFeed });
@@ -41,8 +41,8 @@ describe("P1 edges (TEST_MATRIX S-08 / X-03 / M-07 / M-09 / M-10 / V-07 / V-08)"
   it("X-03: admin_settle while paused (delay elapsed) succeeds", async () => {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry });
+    // X-03 flake: create+mint with now+2 often lands past expiry (MintAfterExpiry).
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack() });
     await ctx.mint(ONE);
     await ctx.pause();
     await ctx.waitPastExpiry();
@@ -117,8 +117,7 @@ describe("P1 edges (TEST_MATRIX S-08 / X-03 / M-07 / M-09 / M-10 / V-07 / V-08)"
     const caseId = "V-07";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
-    await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
+    await ctx.createMarket({ expiryTs: ctx.expiryAfterMintSlack(), pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
     await ctx.waitPastExpiry();
     await ctx.upsertPyth({ price: 18_100_000_000n, keypair: ctx.pythFeed });
