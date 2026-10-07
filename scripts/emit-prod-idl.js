@@ -40,6 +40,15 @@ idl.instructions = (idl.instructions || []).filter((ix) => !FIXTURE_IX.has(ix.na
 if (Array.isArray(idl.types)) {
   idl.types = idl.types.filter((t) => !FIXTURE_TYPES.has(t.name));
 }
+// Account / event entries whose type was stripped above must go too: Anchor's
+// `new Program(idl)` builds a coder for every `accounts[]` / `events[]` entry and
+// throws on a missing type (web RPC/GPA path then silently fell back to fixtures).
+if (Array.isArray(idl.accounts)) {
+  idl.accounts = idl.accounts.filter((a) => !FIXTURE_TYPES.has(a.name));
+}
+if (Array.isArray(idl.events)) {
+  idl.events = idl.events.filter((e) => !FIXTURE_TYPES.has(e.name));
+}
 
 const outs = [
   path.join(root, "idl/meridian.prod.json"),

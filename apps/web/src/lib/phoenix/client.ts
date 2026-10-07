@@ -5,6 +5,11 @@
  */
 import { BN } from "@coral-xyz/anchor";
 import {
+  createAssociatedTokenAccountIdempotentInstruction,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
+import {
+  ComputeBudgetProgram,
   PublicKey,
   Transaction,
   type Connection,
@@ -55,6 +60,21 @@ export interface PlaceContext {
   collateralDecimals?: number;
 }
 
+/** Idempotent Yes/No/USDC ATAs for Meridian mint / merge_pair legs. */
+function meridianAtaIxs(
+  payer: PublicKey,
+  accounts: MintAccounts,
+): TransactionInstruction[] {
+  return [accounts.collateralMint, accounts.yesMint, accounts.noMint].map((mint) =>
+    createAssociatedTokenAccountIdempotentInstruction(
+      payer,
+      getAssociatedTokenAddressSync(mint, accounts.user),
+      accounts.user,
+      mint,
+    ),
+  );
+}
+
 function notConfigured(
   mapped: { side: "bid" | "ask"; yesPrice: number; size: number },
   plan: ComposePlanSummary,
@@ -70,6 +90,17 @@ function notConfigured(
   };
 }
 
+/**
+ * Load Phoenix market state without the SDK's remote master_config.json
+ * (createWithMarketAddresses fetches GitHub config and throws on localnet /
+ * any market not listed there). Plain base64 (no zstd) keeps browser deps lean.
+ */
+export async function loadPhoenixClient(connection: Connection, markets: PublicKey[]) {
+  const PhoenixSdk = await import("@ellipsis-labs/phoenix-sdk");
+  const client = await PhoenixSdk.Client.createWithoutConfig(connection, markets, false);
+  return { PhoenixSdk, client };
+}
+
 async function buildPhoenixPlaceIx(
   connection: Connection,
   market: PublicKey,
@@ -78,14 +109,8 @@ async function buildPhoenixPlaceIx(
   limitYesPrice: number,
   sizeInBaseUnits: number,
 ): Promise<{ ix: TransactionInstruction; setup: TransactionInstruction[] }> {
-  const PhoenixSdk = await import("@ellipsis-labs/phoenix-sdk");
-  const client = await PhoenixSdk.Client.createWithMarketAddresses(connection, [
-    market,
-  ]);
+  const { PhoenixSdk, client } = await loadPhoenixClient(connection, [market]);
   const key = market.toBase58();
-  if (!client.marketStates.get(key)) {
-    await client.addMarket(key, true);
-  }
 
   const side =
     plan.phoenixSide === "bid" ? PhoenixSdk.Side.Bid : PhoenixSdk.Side.Ask;
@@ -186,9 +211,18 @@ export async function placePhoenixOrder(
       sized.phoenixBaseUnits,
     );
 
-    const ixs: TransactionInstruction[] = [];
+    // Seat claim + mint + swap can exceed the 200k CU default.
+    const ixs: TransactionInstruction[] = [
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 }),
+    ];
     if (ctx.ensureSeat !== false && setup.length > 0) {
       ixs.push(...setup);
+    }
+    if (
+      ctx.mintAccounts &&
+      (plan.needsMint || (plan.needsMerge && !plan.mergeBlocked))
+    ) {
+      ixs.push(...meridianAtaIxs(ctx.publicKey, ctx.mintAccounts));
     }
 
     if (plan.needsMint) {
@@ -285,16 +319,9 @@ export async function fetchPhoenixBook(
     return null;
   }
   try {
-    const PhoenixSdk = await import("@ellipsis-labs/phoenix-sdk");
     const market = new PublicKey(phoenixMarket!);
-    const client = await PhoenixSdk.Client.createWithMarketAddresses(
-      connection,
-      [market],
-    );
+    const { client } = await loadPhoenixClient(connection, [market]);
     const key = market.toBase58();
-    if (!client.marketStates.get(key)) {
-      await client.addMarket(key, true);
-    }
     const ladder = client.getUiLadder(key, 12);
     return {
       bids: (ladder.bids ?? []).map((l: { price: number; quantity: number }) => ({

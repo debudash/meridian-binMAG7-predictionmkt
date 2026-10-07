@@ -1,3 +1,17 @@
+## 2026-10-07T14:30:00-05:00 — Orchestrator: web Phoenix order-path fixes from live localnet (DLV-066) + sizing correction (D-020)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Grok Bot (Orchestrator) |
+| **Branch** | `fix/web-phoenix-onchain-orders` from `origin/main` @ `0c173ac` |
+| **Context** | Debu could not place an order on localnet. Loading Phoenix V1 + Seat Manager into `solana-test-validator`, creating real Yes/USDC books and trading through the web client exposed bugs that the book-sim harness (DLV-064) could not see. |
+| **Decision** | (1) Load Phoenix markets with `Client.createWithoutConfig` (on-chain) instead of `createWithMarketAddresses`, which fetches Ellipsis' GitHub `master_config.json` and throws for any unlisted market (all localnet / new markets). (2) **Sizing correction (D-020):** SDK `sizeInBaseUnits` = whole tokens, not atoms — the !33 Reviewer-High sign-off ("mint raw == Phoenix size") was wrong and oversized orders 10⁶×; fixed + `size.test.ts` rewritten. (3) Buy No mint: pass optional `sim_clock` only when the PDA exists (Anchor auto-resolved it → `AccountNotInitialized`); read `treasury` from `Config` in the RPC indexer (not on StrikeMarket → `mint-accounts-missing`); idempotent Yes/No/USDC ATAs + 800k CU in the same tx. (4) Ticket re-anchors price to the intent's touch (Yes vs No terms) and follows the live book for Market; book polls 4s; live wallet balances drive Position + intent gating; RPC indexer attaches Phoenix top-of-book; live pages `force-dynamic` + `fetchCache=force-no-store`. (5) `emit-prod-idl.js` also strips fixture **accounts/events** (SimClock / SimClockSet) whose types it already stripped — Anchor `new Program()` threw on the dangling refs and the web GPA path silently fell back to fixtures. (6) `settleStatusLabel` moved to SSR-safe `lib/market/status.ts` (was in a `"use client"` module → RSC mapping threw). |
+| **Evidence** | Localnet (Phoenix `PhoeNiXZ8…` + PSM `PSMxQb…` from mainnet dumps, 8 books): Buy Yes / Buy No / Sell Yes / Sell No market orders filled through `placePhoenixOrder` with balance deltas; Buy Yes + Buy No clicked through the real UI. `tsc` clean, vitest 38/38. |
+| **Gaps (Todo)** | DLV-068 live Portfolio/History/Open orders/Fills · DLV-069 merge-on-fill for resting Sell No · DLV-070 Buy No under-fill (slippage cap) can leave Yes+No. |
+| **Related** | D-015 · D-018 · D-020 · DLV-055/060/064 · DLV-066 |
+
+---
+
 ## 2026-10-07T09:55:00-05:00 — Orchestrator: TRACKER sync post-!41 SimClock (tip 7436e49)
 
 | Field | Value |

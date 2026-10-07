@@ -3,7 +3,7 @@
  */
 import { PublicKey } from "@solana/web3.js";
 import type { MarketView } from "@/lib/market/types";
-import { settleStatusLabel } from "@/lib/solana/instructions";
+import { settleStatusLabel } from "@/lib/market/status";
 
 function decodeSymbol(raw: number[] | Uint8Array | Buffer): string {
   const buf = Buffer.from(raw);

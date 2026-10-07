@@ -28,15 +28,67 @@ function getReadProgram(connection: Connection): Program {
   return new Program(idl as typeof MERIDIAN_IDL, readOnlyProvider(connection));
 }
 
+/** Config.treasury is not on StrikeMarket; mint/merge need it (address = config.treasury). */
+async function fetchTreasury(program: Program): Promise<string | undefined> {
+  try {
+    const [config] = PublicKey.findProgramAddressSync(
+      [Buffer.from("config")],
+      program.programId,
+    );
+    const acc = await (program.account as { config: { fetch: (k: PublicKey) => Promise<{ treasury: PublicKey }> } }).config.fetch(config);
+    return acc.treasury.toBase58();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Top-of-book from Phoenix for markets with phoenixMarket set (one batched RPC).
+ * createWithoutConfig avoids the SDK's remote master_config (absent on localnet).
+ */
+async function attachPhoenixQuotes(
+  connection: Connection,
+  views: MarketView[],
+): Promise<void> {
+  const withBook = views.filter((v) => v.phoenixMarket);
+  if (withBook.length === 0) return;
+  try {
+    const PhoenixSdk = await import("@ellipsis-labs/phoenix-sdk");
+    const client = await PhoenixSdk.Client.createWithoutConfig(
+      connection,
+      withBook.map((v) => new PublicKey(v.phoenixMarket!)),
+      false,
+    );
+    for (const v of withBook) {
+      try {
+        const ladder = client.getUiLadder(v.phoenixMarket!, 1);
+        const bid = ladder.bids?.[0]?.price;
+        const ask = ladder.asks?.[0]?.price;
+        if (bid != null) v.yesBid = bid;
+        if (ask != null) v.yesAsk = ask;
+        if (bid != null && ask != null) v.yesMid = Math.round(((bid + ask) / 2) * 1000) / 1000;
+        else if (bid != null || ask != null) v.yesMid = (bid ?? ask) as number;
+      } catch {
+        // leave quotes unset for this market
+      }
+    }
+  } catch {
+    // Phoenix unavailable on this cluster — quotes stay "—"
+  }
+}
+
 export async function fetchMarketsViaRpc(
   rpcUrl = getRpcUrl(),
 ): Promise<MarketView[]> {
   const connection = new Connection(rpcUrl, "confirmed");
   const program = getReadProgram(connection);
   const all = await (program.account as { strikeMarket: { all: () => Promise<{ publicKey: PublicKey; account: RawStrikeMarket }[]> } }).strikeMarket.all();
-  return all.map(({ publicKey, account }) =>
-    mapStrikeMarketToView(publicKey.toBase58(), account),
+  const treasury = await fetchTreasury(program);
+  const views = all.map(({ publicKey, account }) =>
+    mapStrikeMarketToView(publicKey.toBase58(), { ...account, treasury: account.treasury ?? treasury }),
   );
+  await attachPhoenixQuotes(connection, views);
+  return views;
 }
 
 export async function fetchMarketViaRpc(
@@ -48,7 +100,10 @@ export async function fetchMarketViaRpc(
     const program = getReadProgram(connection);
     const pk = new PublicKey(marketId);
     const acc = await (program.account as { strikeMarket: { fetch: (k: PublicKey) => Promise<RawStrikeMarket> } }).strikeMarket.fetch(pk);
-    return mapStrikeMarketToView(pk.toBase58(), acc);
+    const treasury = await fetchTreasury(program);
+    const view = mapStrikeMarketToView(pk.toBase58(), { ...acc, treasury: acc.treasury ?? treasury });
+    await attachPhoenixQuotes(connection, [view]);
+    return view;
   } catch {
     // marketId might be numeric fixture id — RPC only accepts pubkeys
     return null;

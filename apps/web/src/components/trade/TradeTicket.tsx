@@ -17,7 +17,7 @@ import {
   planIntentComposition,
 } from "@/lib/phoenix";
 import { useTxStatus } from "@/components/providers/AppProviders";
-import type { MarketView } from "@/lib/market/types";
+import type { MarketView, OrderBookSnapshot } from "@/lib/market/types";
 import { getCountdown } from "@/lib/market/countdown";
 import { useChainClock } from "@/components/providers/AppProviders";
 import type { Perspective } from "@/lib/market/bookTransform";
@@ -54,6 +54,8 @@ export function TradeTicket({
   fillPrice,
   fillIntentHint,
   onConsumedFill,
+  liveBook,
+  usdcBalance,
 }: {
   market: MarketView;
   perspective: Perspective;
@@ -67,6 +69,10 @@ export function TradeTicket({
   fillPrice?: number | null;
   fillIntentHint?: Intent | null;
   onConsumedFill?: () => void;
+  /** Live Phoenix ladder (Yes terms) — drives market-order touch price */
+  liveBook?: OrderBookSnapshot | null;
+  /** Connected wallet USDC (live) */
+  usdcBalance?: number;
 }) {
   const { connected, publicKey, sendTransaction } = useWallet();
   const anchorWallet = useAnchorWallet();
@@ -93,6 +99,34 @@ export function TradeTicket({
         : (market.yesAsk ?? market.yesMid ?? 0.5)),
   );
   const [busy, setBusy] = useState(false);
+
+  /** Touch price in the intent's own terms (Yes for Yes intents, No for No intents). */
+  const touchPrice = useMemo(() => {
+    const bestBid = liveBook?.bids[0]?.price ?? market.yesBid;
+    const bestAsk = liveBook?.asks[0]?.price ?? market.yesAsk;
+    const r = (x: number) => Math.round(x * 100) / 100;
+    switch (intent) {
+      case "buy-yes":
+        return bestAsk;
+      case "sell-yes":
+        return bestBid;
+      case "buy-no":
+        return bestBid != null ? r(1 - bestBid) : undefined;
+      case "sell-no":
+        return bestAsk != null ? r(1 - bestAsk) : undefined;
+    }
+  }, [intent, liveBook, market.yesBid, market.yesAsk]);
+
+  // Switching intent re-anchors price to that side's touch (Yes vs No terms differ);
+  // market orders keep following the live book.
+  const [anchoredIntent, setAnchoredIntent] = useState<Intent | null>(null);
+  useEffect(() => {
+    if (touchPrice == null) return;
+    if (orderType === "market" || anchoredIntent !== intent) {
+      setPrice(touchPrice);
+      setAnchoredIntent(intent);
+    }
+  }, [touchPrice, intent, orderType, anchoredIntent]);
 
   useEffect(() => {
     if (fillPrice == null) return;
@@ -433,6 +467,15 @@ export function TradeTicket({
       {!phoenixReady && (
         <p className="muted" style={{ fontSize: "0.75rem", margin: 0 }}>
           {PHOENIX_NOT_CONFIGURED_MESSAGE}
+        </p>
+      )}
+
+      {connected && phoenixReady && (
+        <p className="muted tabular" style={{ fontSize: "0.75rem", margin: 0 }}>
+          {orderType === "market" && touchPrice != null
+            ? `Market fills at best ${intent.includes("no") ? "No" : "Yes"} ${touchPrice.toFixed(2)} (up to ${(isBuy ? touchPrice + 0.02 : touchPrice - 0.02).toFixed(2)}). `
+            : ""}
+          {usdcBalance != null ? `Wallet USDC ${usdcBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ""}
         </p>
       )}
 
