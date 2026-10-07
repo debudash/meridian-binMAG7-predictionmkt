@@ -4,7 +4,7 @@ Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** o
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017).
 **Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)).
 
-_Last refreshed: 2026-10-06 23:50 CT (SPEC lock Debu-authorized; merge !20 onto main @ 4f0553e)._
+_Last refreshed: 2026-10-06 23:52 CT (Debu authorized SPEC lock on !20 @ aa97a22; wireframes approved; revise-later OK; !25 still open)._
 
 ## Done
 
@@ -38,6 +38,7 @@ _Last refreshed: 2026-10-06 23:50 CT (SPEC lock Debu-authorized; merge !20 onto 
 
 ## In Progress
 
+- [ ] Tester follow-up: suite docs/fixtures confirm rotated program id (MR !25; `test/program-id-rotate`)
 - [ ] Reviewer continuous / demo readiness (beyond !17 nits) — demo walkthrough still owed (keypair tip-delete done in !24)
 - [ ] Phoenix Buy/Sell No composition + real on-book trade in sim E2E (sim trade today = off-book Yes SPL placeholder)
 
