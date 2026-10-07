@@ -3,6 +3,10 @@ import { listMarkets } from "@/lib/indexer";
 import { oneLineExplainer } from "@/lib/copy/payoff";
 import { LandingClient } from "./LandingClient";
 
+// Live chain data (RPC/Phoenix) — never serve cached fetches.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 export default async function LandingPage() {
   const nowSec = Math.floor(Date.now() / 1000);
   const { markets, usedFixtures, message } = await listMarkets(nowSec);

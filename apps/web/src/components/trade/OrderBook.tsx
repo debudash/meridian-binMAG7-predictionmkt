@@ -10,7 +10,10 @@ export function OrderBook({
   perspective,
   tickSize,
   onSelectPrice,
+  live = false,
 }: {
+  /** true when `book` is the on-chain Phoenix ladder (not the fixture stub) */
+  live?: boolean;
   book: OrderBookSnapshot;
   perspective: Perspective;
   tickSize: number;
@@ -78,7 +81,7 @@ export function OrderBook({
         className="muted"
         style={{ padding: "0.5rem 0.85rem", fontSize: "0.72rem", borderTop: "1px solid var(--border)" }}
       >
-        {PHOENIX_STUB_NOTICE}
+        {live ? "Live Phoenix V1 book (Yes/USDC) — refreshes every 4s." : PHOENIX_STUB_NOTICE}
       </div>
     </div>
   );

@@ -17,6 +17,7 @@ import { formatOutcomePrice } from "@/lib/format";
 import { noPriceFromYes, type Perspective } from "@/lib/market/bookTransform";
 import { yesDefinition, noDefinition, oneLineExplainer } from "@/lib/copy/payoff";
 import { useIntentAvailability } from "@/hooks/useIntentAvailability";
+import { useLivePosition } from "@/hooks/useLivePosition";
 import { useChainClock } from "@/components/providers/AppProviders";
 import { DEFAULT_PROGRAM_ID } from "@/lib/solana/config";
 import { listDemoOpenOrdersAcrossMarkets, buildDemoHistory } from "@/lib/demo/portfolio";
@@ -58,27 +59,41 @@ export function TradeClient({
   const [liveBook, setLiveBook] = useState<OrderBookSnapshot | null>(null);
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const load = async () => {
       if (!isPhoenixPlacementEnabled(market.phoenixMarket)) {
         if (!cancelled) setLiveBook(null);
         return;
       }
       const snap = await fetchPhoenixBook(market.phoenixMarket, connection);
-      if (!cancelled) setLiveBook(snap);
-    })();
+      if (!cancelled && snap) setLiveBook(snap);
+    };
+    void load();
+    // Poll so fills show up on the ladder without a reload.
+    const t = isPhoenixPlacementEnabled(market.phoenixMarket)
+      ? setInterval(load, 4000)
+      : undefined;
     return () => {
       cancelled = true;
+      if (t) clearInterval(t);
     };
   }, [market.phoenixMarket, connection]);
   const book = useMemo(
     () => liveBook ?? fixtureBook(market),
     [liveBook, market],
   );
-  const yes = market.yesMid ?? market.lastYes ?? 0.5;
+  const liveMid =
+    liveBook && liveBook.bids[0] && liveBook.asks[0]
+      ? (liveBook.bids[0].price + liveBook.asks[0].price) / 2
+      : undefined;
+  const yes = liveMid ?? market.yesMid ?? market.lastYes ?? 0.5;
   const no = noPriceFromYes(yes, market.tickSize);
 
+  const livePosition = useLivePosition(market);
   const { availability, position, openOrders, lifecycle } = useIntentAvailability(
     market.marketId,
+    livePosition
+      ? { position: livePosition, openOrders: { openBuyYesQty: 0, openBuyNoQty: 0 } }
+      : {},
   );
 
   let resolvedIntent: Intent | undefined;
@@ -226,6 +241,7 @@ export function TradeClient({
         </div>
         <OrderBook
           book={book}
+          live={liveBook != null}
           perspective={perspective}
           tickSize={market.tickSize}
           onSelectPrice={onSelectPrice}
@@ -243,6 +259,8 @@ export function TradeClient({
             fillPrice={fillPrice}
             fillIntentHint={fillIntentHint}
             onConsumedFill={clearFill}
+            liveBook={liveBook}
+            usdcBalance={livePosition?.usdc}
           />
           <PositionPanel
             market={market}
