@@ -6,6 +6,17 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T19:55:00-05:00 — Eng green Cluster G sim session (SIM-01…09)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers; Grok Bot (glab on `eng/sim-session`) |
+| **Decision** | Green Testers MR !15 suite: `sim_open_session` / `sim_close_session` under `#[cfg(feature = "localnet-test")]`; `StrikeMarket.trading_open` (default **true** on create) + `sim_armed` (set by sim_open so P0/P1 settle-without-close stays green; SIM-05 SessionNotClosed only after sim_open). Errors `TradingClosed` / `SessionNotClosed`. Mint gates on `trading_open`. Sim trade = harness off-book Yes SPL transfer (no Meridian matcher). Prod `.so` omits `sim_*` (verified). SIM-05/08 expiry buffers +20s (create+simOpen race; assertions unchanged). SimClock PDA deferred (!14) — not required by SIM cases. |
+| **Result** | `anchor test -- --features localnet-test`: **60 passing / 0 failing** (51 P0/P1 + 9 SIM). |
+| **Related** | Testers !15 · Schema !14 (docs only, not required) · D-017 · Reviewer nits follow-up |
+
+---
+
 ## 2026-10-06T19:32:00-05:00 — Testers: localnet sim session lifecycle TDD (SIM-01…SIM-09)
 
 | Field | Value |

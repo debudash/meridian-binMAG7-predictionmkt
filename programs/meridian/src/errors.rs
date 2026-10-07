@@ -36,4 +36,8 @@ pub enum MeridianError {
     ZeroAmount,
     #[msg("Invalid collateral decimals")]
     InvalidCollateralDecimals,
+    #[msg("Trading window closed (sim session)")]
+    TradingClosed,
+    #[msg("Sim session still open — close before settle")]
+    SessionNotClosed,
 }

@@ -112,7 +112,11 @@ pub fn handler(ctx: Context<CreateStrikeMarket>, params: CreateStrikeParams) -> 
     market.settled_slot = 0;
     market.bump = ctx.bumps.strike_market;
     market.vault_bump = ctx.bumps.vault_authority;
-    market.reserved = [0u8; 64];
+    // D-017: default open for trading so P0/P1 mint-after-create stays green.
+    // sim_armed stays false until sim_open_session — settle-without-close remains OK for legacy suite.
+    market.trading_open = true;
+    market.sim_armed = false;
+    market.reserved = [0u8; 62];
 
     emit!(MarketCreated {
         market: market.key(),

@@ -80,4 +80,16 @@ pub mod meridian {
     pub fn test_drain_vault(ctx: Context<TestDrainVault>, amount: u64) -> Result<()> {
         instructions::test_drain_vault::handler(ctx, amount)
     }
+
+    /// Localnet simulated session open (D-017) — `localnet-test` only (deploy blocker).
+    #[cfg(feature = "localnet-test")]
+    pub fn sim_open_session(ctx: Context<SimOpenSession>) -> Result<()> {
+        instructions::sim_open_session::handler(ctx)
+    }
+
+    /// Localnet simulated session close (D-017) — `localnet-test` only (deploy blocker).
+    #[cfg(feature = "localnet-test")]
+    pub fn sim_close_session(ctx: Context<SimCloseSession>) -> Result<()> {
+        instructions::sim_close_session::handler(ctx)
+    }
 }

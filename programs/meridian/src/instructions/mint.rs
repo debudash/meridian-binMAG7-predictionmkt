@@ -52,6 +52,10 @@ pub fn handler(ctx: Context<MintPair>, amount: u64) -> Result<()> {
     require!(amount > 0, MeridianError::ZeroAmount);
     require!(!ctx.accounts.config.paused, MeridianError::Paused);
     require!(ctx.accounts.strike_market.is_open(), MeridianError::MarketNotOpen);
+    require!(
+        ctx.accounts.strike_market.trading_open,
+        MeridianError::TradingClosed
+    );
 
     let clock = Clock::get()?;
     require!(

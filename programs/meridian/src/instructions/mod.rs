@@ -13,6 +13,10 @@ pub mod burn_losing;
 pub mod upsert_mock_pyth;
 #[cfg(feature = "localnet-test")]
 pub mod test_drain_vault;
+#[cfg(feature = "localnet-test")]
+pub mod sim_open_session;
+#[cfg(feature = "localnet-test")]
+pub mod sim_close_session;
 
 pub use initialize_config::*;
 pub use update_config::*;
@@ -29,3 +33,7 @@ pub use burn_losing::*;
 pub use upsert_mock_pyth::*;
 #[cfg(feature = "localnet-test")]
 pub use test_drain_vault::*;
+#[cfg(feature = "localnet-test")]
+pub use sim_open_session::*;
+#[cfg(feature = "localnet-test")]
+pub use sim_close_session::*;

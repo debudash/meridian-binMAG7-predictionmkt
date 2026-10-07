@@ -102,7 +102,8 @@ describe("localnet sim session lifecycle (TEST_MATRIX Cluster G / D-017)", funct
     const caseId = "SIM-05";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
+    // Buffer: createMarket + simOpen consume wall time before mint (not a product soften).
+    const expiry = Math.floor(Date.now() / 1000) + 20;
     await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
     await ctx.simOpen(caseId);
     await ctx.mint(ONE);
@@ -183,7 +184,8 @@ describe("localnet sim session lifecycle (TEST_MATRIX Cluster G / D-017)", funct
     const caseId = "SIM-08";
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
-    const expiry = Math.floor(Date.now() / 1000) + 2;
+    // Buffer: createMarket + simOpen + mint before close (not a product soften).
+    const expiry = Math.floor(Date.now() / 1000) + 20;
     await ctx.createMarket({ expiryTs: expiry });
     await ctx.simOpen(caseId);
     await ctx.mint(ONE);

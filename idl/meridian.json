@@ -790,6 +790,108 @@
       "args": []
     },
     {
+      "name": "sim_close_session",
+      "docs": [
+        "Localnet simulated session close (D-017) — `localnet-test` only (deploy blocker)."
+      ],
+      "discriminator": [
+        222,
+        40,
+        160,
+        219,
+        208,
+        95,
+        29,
+        218
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "strike_market"
+          ]
+        },
+        {
+          "name": "strike_market",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "sim_open_session",
+      "docs": [
+        "Localnet simulated session open (D-017) — `localnet-test` only (deploy blocker)."
+      ],
+      "discriminator": [
+        200,
+        131,
+        127,
+        125,
+        94,
+        166,
+        107,
+        146
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "strike_market"
+          ]
+        },
+        {
+          "name": "strike_market",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "test_drain_vault",
       "docs": [
         "Localnet/test fixture — compiled only with `--features localnet-test` (deploy blocker)."
@@ -1246,6 +1348,16 @@
       "code": 6016,
       "name": "InvalidCollateralDecimals",
       "msg": "Invalid collateral decimals"
+    },
+    {
+      "code": 6017,
+      "name": "TradingClosed",
+      "msg": "Trading window closed (sim session)"
+    },
+    {
+      "code": 6018,
+      "name": "SessionNotClosed",
+      "msg": "Sim session still open — close before settle"
     }
   ],
   "types": [
@@ -1782,11 +1894,27 @@
             "type": "u8"
           },
           {
+            "name": "trading_open",
+            "docs": [
+              "Localnet simulated trading window (D-017). Default true on create so P0/P1 mint stays green.",
+              "Cleared by `sim_close_session`; set by `sim_open_session`."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "sim_armed",
+            "docs": [
+              "Set true by `sim_open_session`. When armed, settle/admin_settle require `!trading_open`",
+              "(SessionNotClosed). Unarmed markets (never sim-opened) keep legacy P0 settle-without-close."
+            ],
+            "type": "bool"
+          },
+          {
             "name": "reserved",
             "type": {
               "array": [
                 "u8",
-                64
+                62
               ]
             }
           }

@@ -141,8 +141,8 @@ Defined in [`docs/SCHEMA.md`](../../docs/SCHEMA.md) §6. Keep field order stable
 
 | Feature | Purpose |
 | --- | --- |
-| *(none / default)* | Production binary — **no** `upsert_mock_pyth` / `test_drain_vault` / SimClock ixs |
-| `localnet-test` | Local validator + `anchor test` only — fixture ixs: Pyth mocks, V-07 vault drain, **SimClock** (`init` / `set` / `warp` / `disable`) |
+| *(none / default)* | Production binary — **no** `upsert_mock_pyth` / `test_drain_vault` / SimClock / `sim_*` |
+| `localnet-test` | Local validator + `anchor test` only — mock Pyth, V-07 drain, **SimClock** (`init` / `set` / `warp` / `disable`), D-017 `sim_open_session` / `sim_close_session` |
 
 ```bash
 # Localnet / CI suite
