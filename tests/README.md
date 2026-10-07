@@ -1,46 +1,50 @@
-# Meridian TDD suite (failing / red)
+# Meridian TDD suite
 
 **Owner:** Meridian Testers  
-**Mandate:** D-016 — failing tests first for vault $1, mint, settle, redeem, pause.  
-**Case source of truth:** [`docs/TEST_MATRIX.md`](../docs/TEST_MATRIX.md) (lands via MR !5 if not yet on `main`).
+**Mandate:** D-016 — failing tests first; Engineers implement program paths **only** to green.  
+**Case source of truth:** [`docs/TEST_MATRIX.md`](../docs/TEST_MATRIX.md).
 
 ## Status
 
-These tests are intentionally **RED** until Engineers land Anchor program code under `programs/meridian/` that satisfies SCHEMA instructions (`mint`, `settle`, `admin_settle`, `redeem`, `pause`, …).
+| Layer | Status | Notes |
+| --- | --- | --- |
+| **P0** | Green on `eng/p0-anchor-impl` (MR !9) | mint / settle / redeem / $1 vault / pause — 37 case IDs |
+| **P1 fees + edges** | **TDD contract** (`test/p1-fees-failing`) | Fees **M-03 / R-05 / V-06** + invited edges below. Implement only to green. Do **not** weaken P0 fee=0 asserts. |
 
-Do **not** implement product logic in this suite. Green the cases by shipping program instructions only.
+`eng/p0-anchor-impl` already ships mint/redeem fee math (fee-on-transfer-in, default **0 bps** per D-006). This P1 suite is the formal gate for **non-zero** bps + related edges. **V-07** stays `TDD_RED` until a controlled vault-drain fixture exists.
 
 ## Layout
 
-| File | Matrix coverage (P0) |
+| File | Matrix coverage |
 | --- | --- |
-| `mint.ts` | M-01, M-02, M-04, M-05, M-06, M-08 |
-| `settle.ts` | S-01…S-07, S-09, S-11 + A-01…A-04 |
-| `unit/pyth_price_to_e6.ts` | S-10 (units.md §8) |
-| `redeem.ts` | R-01, R-02, R-03, R-04, R-06, R-07, R-09 |
-| `invariants.ts` | V-01…V-05 |
-| `pause.ts` | X-01, X-02, X-04, X-05, X-06 |
-| `helpers/` | fixtures, I1–I5 asserts, TDD harness |
+| `mint.ts` | P0 M-01, M-02, M-04, M-05, M-06, M-08 |
+| `settle.ts` | P0 S-01…S-07, S-09, S-11 + A-01…A-04 |
+| `unit/pyth_price_to_e6.ts` | P0 S-10 |
+| `redeem.ts` | P0 R-01…R-04, R-06, R-07, R-09 |
+| `invariants.ts` | P0 V-01…V-05 |
+| `pause.ts` | P0 X-01, X-02, X-04, X-05, X-06 |
+| **`fees.ts`** | **P1 M-03, R-05, V-06** |
+| **`p1_edges.ts`** | **P1 S-08, X-03, M-07, M-09, M-10, V-07, V-08** |
+| `helpers/` | fixtures, I1–I5, Anchor `TestCtx` harness |
 
-## Mocks / placeholders (do not invent a matching engine)
+## For Engineers (P1)
 
-- **Phoenix:** store/assert `phoenix_market` + base=Yes / quote=USDC only (D-004, D-015). No place/cancel/fill CPI in Meridian tests.
-- **Pyth:** placeholder price-account + feed-id bytes; settle gates per D-005. Conversion vectors in `unit/pyth_price_to_e6.ts`.
+1. Rebase onto latest `eng/p0-anchor-impl` after MR !9 merges (or merge !9 first).
+2. Run `anchor test` — green all P0; then green P1 fees/edges.
+3. **Implement only what is still red.** Do not change P0 fee=0 equalities.
+4. Keep case IDs in `it()` titles. Prefer fee-on-transfer-in so vault == outstanding liability (SCHEMA §7.3).
+5. **V-07:** either land a safe drain fixture that proves `InsufficientVault`, or document impossibility and ask Testers to retire the case.
 
-## How Engineers go green
+## Mocks / placeholders
 
-1. Scaffold `programs/meridian` per [`programs/meridian/README.md`](../programs/meridian/README.md).
-2. Implement SCHEMA §5 instructions; regenerate IDL into `target/idl/meridian.json`.
-3. Replace `helpers/harness.ts` `requireProgram` with a real Anchor `Program` client + bankrun/local validator fixtures.
-4. Run `yarn test` / `anchor test` until P0 cases pass. Keep case IDs in `it()` titles.
+- **Phoenix:** pubkey wiring + off-protocol SPL transfer isolation (V-08). No Meridian matching CPI.
+- **Pyth:** MockPyth / `upsert_mock_pyth` localnet fixture only.
 
-## Run (once deps + program exist)
+## Run
 
 ```bash
 yarn install
-yarn test          # full suite
-yarn test:unit     # S-10 only
+anchor test
+# or
 yarn test:lifecycle
 ```
-
-Without program sources, integration cases throw `TDD_RED` (expected).

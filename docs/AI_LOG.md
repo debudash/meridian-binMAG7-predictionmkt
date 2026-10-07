@@ -6,6 +6,17 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T16:55:00-05:00 — Testers P1 fees failing suite (TDD)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Testers; Grok Bot (glab commits API, no clone) |
+| **Decision** | Land P1 TDD suite on `test/p1-fees-failing` from `eng/p0-anchor-impl` @ 6618d74 (nits verified). Core fees **M-03 / R-05 / V-06** in `tests/fees.ts`; invited edges **S-08, X-03, M-07, M-09, M-10, V-07, V-08** in `tests/p1_edges.ts`. Harness always re-applies fee bps on config reuse so P1 cannot poison P0 fee=0. **V-07** stays `TDD_RED` (no vault-drain fixture). No Rust fee logic in this MR. |
+| **Result** | Branch + MR → `main` (same base as open !9). Engineers rebase after !9; implement **only** to green remaining reds. Do not weaken P0. |
+| **Related** | MR !9 (P0 eng), matrix !5, D-016 |
+
+---
+
 ## 2026-10-06T16:50:00-05:00 — Testers nits on MR !9 (R-02 / S-11 / I4 / events)
 
 | Field | Value |
