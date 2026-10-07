@@ -3,7 +3,7 @@
 Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** only.
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016).
 
-_Last refreshed: 2026-10-06 17:26 CT (live MR state !1–!11)._
+_Last refreshed: 2026-10-06 19:28 CT (MRs !5 !6 !9 !10 !11 merged to main)._
 
 ## Done
 
@@ -17,15 +17,16 @@ _Last refreshed: 2026-10-06 17:26 CT (live MR state !1–!11)._
 - [x] Docs unblock: glab land path + Phoenix spot assumed (MR !3, `docs/unblock-glab-path`)
 - [x] TDD mandate locked (D-016) via MR !4 (`docs/tdd-mandate`): failing tests first for vault $1, mint, settle, redeem, pause
 - [x] TRACKER synced to live MR state (MR !7) and Peak6 PRD deliverables added (MR !8)
+- [x] Tester plan: `docs/TEST_MATRIX.md` landed (MR !5) — mint/settle/redeem + $1 vault
+- [x] Failing P0 TDD suite landed (MR !6; `test/failing-lifecycle-invariants`): 37 P0 cases — mint/settle/redeem/$1 vault/pause
+- [x] Anchor P0 impl landed (MR !9; `eng/p0-anchor-impl`): **41 passing / 0 failing**, all 37 P0 case IDs green
+- [x] Tester P1 fees + edges failing suite landed (MR !10; `test/p1-fees-failing`): M-03/R-05/V-06 + S-08, X-03, M-07, M-09, M-10, V-07, V-08
+- [x] Eng P1 fees + edges green landed (MR !11; `eng/p1-fees`): **51 passing / 0 failing**; V-07 via localnet-only `test_drain_vault`; fixtures feature-gated
 
 ## In Progress
 
-- [ ] Tester plan: `docs/TEST_MATRIX.md` (MR !5, OPEN) — mint/settle/redeem + $1 vault
-- [ ] Failing P0 TDD suite (MR !6, OPEN; `test/failing-lifecycle-invariants`): 37 P0 cases — mint/settle/redeem/$1 vault/pause
-- [ ] Anchor P0 impl (MR !9, OPEN; `eng/p0-anchor-impl`): reports **41 passing / 0 failing**, all 37 P0 case IDs green — **needs rebase onto main (merge conflict)**
-- [ ] Tester P1 fees + edges failing suite (MR !10, OPEN; `test/p1-fees-failing`): M-03/R-05/V-06 + S-08, X-03, M-07, M-09, M-10, V-07, V-08 — stacked on !9, **needs rebase (merge conflict)**
-- [ ] Eng P1 fees + edges green (MR !11, OPEN; `eng/p1-fees`): reports **51 passing / 0 failing**; V-07 via localnet-only `test_drain_vault` — stacked on !9/!10; merge order !5 → !6 → !9 → !10 → !11
 - [ ] `docs/SPEC.md` **not ready** (not on main) — Debu waiting to be notified when ready
+- [ ] Reviewer pass (security, non-custodial, pause, admin delay, demo readiness, TDD evidence) — **must confirm** localnet-only fixtures `upsert_mock_pyth` / `test_drain_vault` stay excluded from mainnet builds
 
 ## Todo
 
@@ -34,6 +35,5 @@ _Last refreshed: 2026-10-06 17:26 CT (live MR state !1–!11)._
 - [ ] Next.js UI implementation (consume UI specs)
 - [ ] Node automation: morning strike creation (~8:00 ET) + Pyth settle retries
 - [ ] Tester P2 cases + invariant gates after P0/P1 land on main (D-016)
-- [ ] Reviewer pass (security, non-custodial, pause, admin delay, demo readiness, TDD evidence; confirm localnet-only fixtures `upsert_mock_pyth` / `test_drain_vault` excluded from mainnet)
 - [ ] Peak6 PRD: demo video (distinct from `DEMO_SCRIPT.md`)
 - [ ] Peak6 PRD: test results artifact (after suite execution on main)
