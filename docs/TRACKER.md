@@ -3,7 +3,7 @@
 Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** only.
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017).
 
-_Last refreshed: 2026-10-06 21:35 CT (automation dual-mode on `eng/node-automation`)._
+_Last refreshed: 2026-10-06 23:30 CT (rebase `eng/nextjs-ui` onto main post-!21; Next.js UI Done)._
 
 ## Done
 
@@ -28,20 +28,18 @@ _Last refreshed: 2026-10-06 21:35 CT (automation dual-mode on `eng/node-automati
 - [x] Eng SIM green: `sim_open_session` / `sim_close_session` + `trading_open` under `localnet-test` (MR !16; `eng/sim-session`) — **60 passing / 0 failing** (localnet)
 - [x] Reviewer nits: real Pyth prod path, fee caps, prod IDL + fixture assert (MR !17; `eng/reviewer-nits-pyth-idl`) — `upsert_mock_pyth` / `test_drain_vault` / `sim_*` excluded from prod builds
 - [x] GitLab CI + `docs/DEPLOY.md` ladder (MR !18; `eng/ci-deploy`) — runners may be absent on labs host; merge proceeded anyway
+- [x] Node automation dual-mode landed (MR !21; `eng/node-automation`) — calendar ET worker + localnet-only sim lifecycle; Phoenix market create stubbed
+- [x] Next.js UI V1 scaffold landed (MR !22; `eng/nextjs-ui`) — `apps/web` App Router + prod IDL mint/redeem + intent tests; Phoenix placement stubbed
 
 ## In Progress
 
 - [ ] `docs/SPEC.md` **not ready** (not on main) — Debu waiting to be notified when ready
 - [ ] Reviewer continuous / demo readiness (beyond !17 nits) — security + demo walkthrough still owed
 - [ ] Phoenix Buy/Sell No composition + real on-book trade in sim E2E (sim trade today = off-book Yes SPL placeholder)
-- [ ] Node automation: morning strike creation (~8:00 ET) + Pyth settle retries (`eng/node-automation` — `apps/automation` calendar worker)
-- [ ] Dual-mode automation: calendar path (real ≥4:00 PM ET + Pyth quality) **and** hard-gated sim path — must not weaken prod invariants (D-017) (`eng/node-automation`)
-- [ ] Documented one-command/scripted sim lifecycle in-repo (alongside calendar automation) (D-017) — `yarn automation:sim` + `docs/SIM_LIFECYCLE.md`
 
 ## Todo
 
 - [ ] Remaining D-012 docs stubs: `AGENTS.md`, `ARCHITECTURE.md`, `TASKS.md`, `DEMO_SCRIPT.md`, `EVALS.md`, `METRICS.md`, `RED_TEAM.md`, `DIAGRAMS.md`, `CONTEXT.md`, `CLAUDE.md`, `ORCHESTRATOR_KICKOFF.md` (`DEPLOY.md` Done via !18)
-- [ ] Next.js UI implementation (consume UI specs)
 - [ ] Eng SimClock PDA impl (`init`/`set`/`warp` behind `localnet-test`) per `docs/sim-clock.md` (docs landed !14; not required by SIM-01…09)
 - [ ] UI sim affordance (optional for V1) (D-017)
 - [ ] Tester P2 cases + invariant gates after P0/P1 land on main (D-016)
