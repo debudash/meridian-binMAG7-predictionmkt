@@ -13,13 +13,20 @@
 
 ## Scripted flow (preferred)
 
-When the in-repo one-command sim lifecycle lands (TRACKER Todo), run that. Until then, use harness / Anchor tests:
+**Preferred proof:** full localnet suite (includes SIM + PHX on-book):
 
 ```bash
-# Full localnet suite includes SIM-01…09 lifecycle
 yarn test
 # or: anchor test -- --features localnet-test
 ```
+
+**One-command automation:** local validator + localnet-test deploy, then:
+
+```bash
+yarn automation:sim
+```
+
+See [`SIM_LIFECYCLE.md`](SIM_LIFECYCLE.md) for preconditions and what the sim worker covers.
 
 ## Manual walkthrough (conceptual)
 
