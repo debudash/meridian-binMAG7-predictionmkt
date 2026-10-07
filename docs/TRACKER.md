@@ -3,7 +3,7 @@
 Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** only.
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017).
 
-_Last refreshed: 2026-10-06 19:32 CT (Testers SIM suite TDD_RED on `test/sim-session-lifecycle`)._
+_Last refreshed: 2026-10-06 21:26 CT (!14–!18 landed on main)._
 
 ## Done
 
@@ -22,24 +22,27 @@ _Last refreshed: 2026-10-06 19:32 CT (Testers SIM suite TDD_RED on `test/sim-ses
 - [x] Anchor P0 impl landed (MR !9; `eng/p0-anchor-impl`): **41 passing / 0 failing**, all 37 P0 case IDs green
 - [x] Tester P1 fees + edges failing suite landed (MR !10; `test/p1-fees-failing`): M-03/R-05/V-06 + S-08, X-03, M-07, M-09, M-10, V-07, V-08
 - [x] Eng P1 fees + edges green landed (MR !11; `eng/p1-fees`): **51 passing / 0 failing**; V-07 via localnet-only `test_drain_vault`; fixtures feature-gated
-- [x] Anytime open/close/settle simulation locked as V1 hard acceptance (D-017)
+- [x] Anytime open/close/settle simulation locked as V1 hard acceptance (D-017) (MR !13)
+- [x] Schema SimClock + `effective_clock` docs landed (MR !14; `schema/sim-clock`)
+- [x] Tester Cluster G SIM-01…09 suite landed (MR !15; `test/sim-session-lifecycle`)
+- [x] Eng SIM green: `sim_open_session` / `sim_close_session` + `trading_open` under `localnet-test` (MR !16; `eng/sim-session`) — **60 passing / 0 failing** (localnet)
+- [x] Reviewer nits: real Pyth prod path, fee caps, prod IDL + fixture assert (MR !17; `eng/reviewer-nits-pyth-idl`) — `upsert_mock_pyth` / `test_drain_vault` / `sim_*` excluded from prod builds
+- [x] GitLab CI + `docs/DEPLOY.md` ladder (MR !18; `eng/ci-deploy`) — runners may be absent on labs host; merge proceeded anyway
 
 ## In Progress
 
-- [ ] Testers localnet sim session TDD suite (SIM-01…SIM-09) landing on `test/sim-session-lifecycle` → MR to main (D-017)
 - [ ] `docs/SPEC.md` **not ready** (not on main) — Debu waiting to be notified when ready
-- [ ] Reviewer pass (security, non-custodial, pause, admin delay, demo readiness, TDD evidence) — **must confirm** localnet-only fixtures `upsert_mock_pyth` / `test_drain_vault` stay excluded from mainnet builds
-- [ ] Sim harness (Eng): land `sim_open_session` / `sim_close_session` + `trading_open` under `localnet-test` to green Testers SIM-01…SIM-09 (D-017) — suite on `test/sim-session-lifecycle`
+- [ ] Reviewer continuous / demo readiness (beyond !17 nits) — security + demo walkthrough still owed
+- [ ] Phoenix Buy/Sell No composition + real on-book trade in sim E2E (sim trade today = off-book Yes SPL placeholder)
 
 ## Todo
 
-- [ ] Remaining D-012 docs stubs: `AGENTS.md`, `ARCHITECTURE.md`, `TASKS.md`, `DEMO_SCRIPT.md`, `DEPLOY.md`, `EVALS.md`, `METRICS.md`, `RED_TEAM.md`, `DIAGRAMS.md`, `CONTEXT.md`, `CLAUDE.md`, `ORCHESTRATOR_KICKOFF.md`
-- [ ] Phoenix integration: Buy/Sell No composition (mint+sell Yes / buy Yes+merge) — SDK vs Meridian-wrapped ix still open
+- [ ] Remaining D-012 docs stubs: `AGENTS.md`, `ARCHITECTURE.md`, `TASKS.md`, `DEMO_SCRIPT.md`, `EVALS.md`, `METRICS.md`, `RED_TEAM.md`, `DIAGRAMS.md`, `CONTEXT.md`, `CLAUDE.md`, `ORCHESTRATOR_KICKOFF.md` (`DEPLOY.md` Done via !18)
 - [ ] Next.js UI implementation (consume UI specs)
 - [ ] Node automation: morning strike creation (~8:00 ET) + Pyth settle retries
-- [ ] Dual-mode automation: calendar path (real ≥4:00 PM ET + Pyth quality) **and** hard-gated sim path (test feature / local validator / Config flag) — must not weaken prod invariants (D-017)
+- [ ] Dual-mode automation: calendar path (real ≥4:00 PM ET + Pyth quality) **and** hard-gated sim path — must not weaken prod invariants (D-017)
 - [ ] Documented one-command/scripted sim lifecycle in-repo (alongside calendar automation) (D-017)
-- [x] Tester E2E sim cases **TDD_RED** landed: Cluster G SIM-01…SIM-09 in `tests/sim_session.ts` + TEST_MATRIX (D-017) — Eng implements to green; Pyth reject paths remain in settle suite
+- [ ] Eng SimClock PDA impl (`init`/`set`/`warp` behind `localnet-test`) per `docs/sim-clock.md` (docs landed !14; not required by SIM-01…09)
 - [ ] UI sim affordance (optional for V1) (D-017)
 - [ ] Tester P2 cases + invariant gates after P0/P1 land on main (D-016)
 - [ ] Peak6 PRD: demo video (distinct from `DEMO_SCRIPT.md`)

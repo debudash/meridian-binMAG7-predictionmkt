@@ -6,6 +6,18 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T21:26:00-05:00 — Landed !14–!18 on main (glab merge order)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Grok Bot (glab; Debu-authorized land) |
+| **Decision** | Strict merge order: !14 SimClock docs → !15 SIM suite → !16 SIM green → !17 Reviewer nits → !18 CI+DEPLOY. Rebased each onto current `main` (force-with-lease) when behind; merged via `glab mr merge --auto-merge=false` (CI runners may be absent). Localnet suite already reported **60/60** on !16. |
+| **Merge SHAs** | !14 `b5a82a426016` · !15 `e2305976de0c` · !16 `84b8d67d0fb7` · !17 `5246e4137568` · !18 `28efa3865f13` |
+| **TRACKER** | Synced post-land; `SPEC.md` still **not ready**. |
+| **Related** | D-014 · D-017 · MRs !14–!18 |
+
+---
+
 ## 2026-10-06T20:20:00-05:00 — CI + DEPLOY ladder (Railway / localnet→devnet→prod)
 
 | Field | Value |
