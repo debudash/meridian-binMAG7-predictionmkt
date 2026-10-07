@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getMarketById } from "@/lib/market/fixtures";
 import { TradeClient } from "./TradeClient";
@@ -35,13 +36,15 @@ export default function TradePage({ params, searchParams }: Props) {
 
   return (
     <div className="container">
-      <TradeClient
-        market={market}
-        initialIntent={intent}
-        initialSide={side}
-        initialPrice={Number.isFinite(price) ? price : undefined}
-        initialSize={Number.isFinite(size) ? size : undefined}
-      />
+      <Suspense fallback={<div className="card">Loading trade…</div>}>
+        <TradeClient
+          market={market}
+          initialIntent={intent}
+          initialSide={side}
+          initialPrice={Number.isFinite(price) ? price : undefined}
+          initialSize={Number.isFinite(size) ? size : undefined}
+        />
+      </Suspense>
     </div>
   );
 }

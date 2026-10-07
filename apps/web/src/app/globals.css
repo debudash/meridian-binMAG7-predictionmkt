@@ -125,3 +125,123 @@ button, input, select {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* Book bid/ask — distinct from Yes/No side accents (docs/ui/03 §4, nit #5) */
+:root {
+  --bid: #38bdf8;
+  --ask: #fb923c;
+}
+
+.banner-danger {
+  background: color-mix(in srgb, var(--red) 15%, var(--bg));
+  border-bottom-color: color-mix(in srgb, var(--red) 40%, transparent);
+  color: var(--red);
+}
+
+.nav-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  margin-left: 4px;
+  vertical-align: super;
+}
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .desktop-nav {
+    display: none !important;
+  }
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--border);
+    padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom));
+    justify-content: space-around;
+    gap: 0.25rem;
+  }
+  .mobile-bottom-nav a {
+    flex: 1;
+    text-align: center;
+    padding: 0.55rem 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 560;
+    text-decoration: none;
+  }
+  .mobile-bottom-nav a.active {
+    color: var(--text);
+  }
+  body {
+    padding-bottom: 64px;
+  }
+  .toast-stack {
+    bottom: 72px;
+  }
+}
+
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.view-toggle button {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  font-weight: 560;
+  font-size: 0.85rem;
+}
+.view-toggle button[aria-pressed="true"] {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.markets-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.markets-table th,
+.markets-table td {
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+}
+.markets-table th {
+  color: var(--text-muted);
+  font-weight: 560;
+}
+.markets-table tr.ladder-near {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.filter-chip[aria-pressed="true"] {
+  color: var(--text);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
