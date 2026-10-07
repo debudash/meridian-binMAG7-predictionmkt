@@ -69,5 +69,5 @@ Short question form on cards ("AAPL ≥ $230.00 at close Oct 16"); full question
 - [ ] Default filter Open, sort Closing soonest; URL reflects state and is shareable.
 - [ ] Countdown on every card/row consistent with `06` §3.
 - [ ] Ladder groups strikes per underlying/expiry and highlights nearest strike.
-- [ ] Buy buttons respect the Yes+No constraint for connected users.
+- [x] Buy buttons respect the Yes+No constraint for connected users (DLV-074): cards, table and ladder share `useMarketTradeState` → `getIntentAvailability` (same rules as the ticket) fed by **one batched** `getMultipleParsedAccounts` over the listed markets' Yes/No ATAs (`useWalletPositions`, chunked at 100, 10s poll, paused when the tab is hidden). Blocked side uses the D-022 disabled style + short title ("You hold Yes — sell it first"). Resting buy orders are not read yet (DLV-068) — same as the ticket.
 - [ ] Empty/error/loading states implemented.
