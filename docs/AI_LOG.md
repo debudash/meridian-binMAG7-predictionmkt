@@ -6,6 +6,18 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T19:30:38-05:00 — D-017 Anytime open/close/settle simulation (V1 hard acceptance)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Debu Dash + Meridian PM (lock); Grok Bot (record + TRACKER/DLV sync) |
+| **Decision** | Lock **anytime market open/close/settle simulation** as a **V1 hard acceptance** requirement (**D-017**). Acceptance: E2E **create → mint → Phoenix trade → settle → redeem** in one continuous run with **no wait** for real US equity **9:30 / 4:00 ET**. Harness drives simulated **Open** and **Close**; forces **YesWins / NoWins** at known prices; real Pyth reject paths (stale / wide conf) remain testable. Prod/devnet keep real **≥4:00 PM ET** settle gate + Pyth quality; sim controls hard-gated (test feature / local validator / Config flag) and **must not weaken** production invariants. Ship documented one-command/scripted sim lifecycle in-repo alongside calendar automation. UI sim affordance **optional** for V1. Phoenix V1 spot working assumption (D-015); official land path = `glab` (D-014). |
+| **Rationale** | PM + Debu need continuous demo/CI lifecycle without wall-clock equity hours; production settle/oracle invariants stay intact behind hard gates. |
+| **TRACKER** | Add In Progress / Todo for sim harness, dual-mode automation, Tester E2E sim cases. `SPEC.md` still **not ready**. |
+| **Related** | D-005, D-014, D-015, D-016 |
+
+---
+
 ## 2026-10-06T17:14:55-05:00 — Testers nits on MR !11 (feature-gate fixtures + stack)
 
 | Field | Value |
