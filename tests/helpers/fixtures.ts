@@ -9,7 +9,7 @@ import BN from "bn.js";
 
 /** Placeholder program id from SCHEMA — replace at deploy. */
 export const MERIDIAN_PROGRAM_ID = new PublicKey(
-  "Meridian11111111111111111111111111111111111"
+  "GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2"
 );
 
 export const PRICE_SCALE = 1_000_000;

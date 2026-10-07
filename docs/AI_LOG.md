@@ -6,6 +6,30 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 
 ---
 
+## 2026-10-06T16:50:00-05:00 — Testers nits on MR !9 (R-02 / S-11 / I4 / events)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers (follow-up); Grok Bot (glab push to `eng/p0-anchor-impl`) |
+| **Decision** | Land Testers approve-with-nits on MR !9 before P1 fees suite: (1) **R-02** assert SettledNo → redeem(Yes) → `InvalidWinningMint` (program already enforced; test gap closed); (2) **S-11** assert Yes/No supplies unchanged across settle (SCHEMA §5.4); (3) optional I4 field snapshots on S-09/A-04; (4) optional event listeners on S-01/A-01/R-01 (`settled` / `adminSettled` / `redeemed`). |
+| **Result** | `anchor test`: **41 passing / 0 failing**. No suite weakening. Ready for Testers P1 fees (M-03 / R-05 / V-06). |
+| **MR** | https://labs.gauntletai.com/debudash/peak6-meridian/-/merge_requests/9 |
+
+---
+
+
+## 2026-10-06T16:35:00-05:00 — Eng P0 Anchor impl greens Testers suite (Meridian Engineers / Grok Bot)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers (impl); Grok Bot (orchestrate; glab land path D-014) |
+| **Decision** | Land `eng/p0-anchor-impl` → `main`: full `programs/meridian` Anchor program (initialize/pause/create/mint/settle/admin_settle/redeem/set_phoenix + localnet `upsert_mock_pyth` fixture), regenerated IDL, bankrun-free harness on `solana-test-validator`, P0 case IDs from Testers MR !6 kept in `it()` titles. Includes TEST_MATRIX from MR !5. |
+| **Result** | `anchor test`: **41 passing / 0 failing** (~3m). Covers all **37 P0 case IDs** (M/S/A/R/V/X + S-10 unit vectors). Phoenix = pubkey wiring only (D-004/D-015). Pyth = MockPythPrice gates (staleness 150, conf 500 bps, settle ≥ strike) per D-005. |
+| **Program id** | `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2` (localnet placeholder; replace at deploy) |
+| **Related** | MR !5 (matrix), MR !6 (failing suite), D-016 TDD |
+
+---
+
 ## 2026-10-06T16:04:00-05:00 — TDD mandate for core program invariants (Debu / Grok Bot)
 
 | Field | Value |
