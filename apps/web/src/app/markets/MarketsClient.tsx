@@ -11,6 +11,7 @@ import { useChainClock } from "@/components/providers/AppProviders";
 import { expiryChipLabel, expiryKey } from "@/lib/market/fixtures";
 import { formatOutcomePrice } from "@/lib/format";
 import { noPriceFromYes } from "@/lib/market/bookTransform";
+import { useLastViewedMarket } from "@/components/ui/useLastViewedMarket";
 
 type StatusFilter = "open" | "closing-soon" | "closed" | "settled" | "all";
 type ViewMode = "cards" | "table" | "ladder";
@@ -57,6 +58,7 @@ export function MarketsClient({
       : [],
   );
   const [expiry, setExpiry] = useState<string>(initialExpiry ?? "");
+  const lastViewed = useLastViewedMarket();
 
   const allUnderlyings = useMemo(() => {
     const set = new Set(markets.map((m) => m.underlyingSymbol));
@@ -192,6 +194,7 @@ export function MarketsClient({
           }}
         />
         <select
+          aria-label="Status filter"
           value={status}
           onChange={(e) => {
             const v = e.target.value as StatusFilter;
@@ -207,6 +210,7 @@ export function MarketsClient({
           <option value="all">All</option>
         </select>
         <select
+          aria-label="Sort"
           value={sort}
           onChange={(e) => {
             setSort(e.target.value);
@@ -328,7 +332,7 @@ export function MarketsClient({
           }}
         >
           {filtered.map((m) => (
-            <MarketCard key={m.marketId} market={m} />
+            <MarketCard key={m.marketId} market={m} lastViewed={m.marketId === lastViewed} />
           ))}
         </div>
       ) : view === "table" ? (
@@ -355,8 +359,19 @@ export function MarketsClient({
                 const noAsk =
                   m.yesBid != null ? noPriceFromYes(m.yesBid, m.tickSize) : undefined;
                 return (
-                  <tr key={m.marketId}>
-                    <td>{m.underlyingSymbol}</td>
+                  <tr
+                    key={m.marketId}
+                    className={m.marketId === lastViewed ? "is-recent" : undefined}
+                    aria-current={m.marketId === lastViewed ? "true" : undefined}
+                  >
+                    <td>
+                      {m.underlyingSymbol}
+                      {m.marketId === lastViewed && (
+                        <span className="chip chip-current" style={{ marginLeft: 6 }}>
+                          Last viewed
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <Link href={`/markets/${m.marketId}`}>{m.question}</Link>
                     </td>
@@ -433,7 +448,16 @@ export function MarketsClient({
                       return (
                         <tr
                           key={m.marketId}
-                          className={m.marketId === nearestId ? "ladder-near" : undefined}
+                          className={
+                            [
+                              m.marketId === nearestId ? "ladder-near" : "",
+                              m.marketId === lastViewed ? "is-recent" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ") || undefined
+                          }
+                          aria-current={m.marketId === lastViewed ? "true" : undefined}
+                          title={m.marketId === nearestId ? "Nearest strike to underlying" : undefined}
                         >
                           <td>
                             <Link href={`/markets/${m.marketId}`}>

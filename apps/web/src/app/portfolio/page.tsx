@@ -14,7 +14,9 @@ import {
   listDemoOpenOrdersAcrossMarkets,
   listDemoPositions,
 } from "@/lib/demo/portfolio";
-import { Suspense } from "react";
+import { Suspense, type KeyboardEvent } from "react";
+import { onTablistKeyDown, selectableRowProps, tabProps } from "@/components/ui/a11y";
+import { isActivationKey, toggleSelection } from "@/lib/ui/selection";
 
 type Tab = "positions" | "orders" | "redeemable";
 
@@ -31,6 +33,23 @@ function PortfolioInner() {
       ? tabParam
       : "positions";
   const [tab, setTab] = useState<Tab>(initialTab);
+  const [selected, setSelected] = useState<string | null>(null);
+  const toggle = (id: string) => setSelected((c) => toggleSelection(c, id));
+  /** Card-level selection (cards hold links/buttons, so aria-current + .is-selected, not option). */
+  const cardSelectProps = (id: string) => ({
+    className: `card selectable${selected === id ? " is-selected" : ""}`,
+    "aria-current": selected === id ? ("true" as const) : undefined,
+    tabIndex: 0,
+    onClick: (e: { target: EventTarget | null }) => {
+      if ((e.target as HTMLElement | null)?.closest?.("a,button")) return;
+      toggle(id);
+    },
+    onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
+      if (e.target !== e.currentTarget || !isActivationKey(e.key)) return;
+      e.preventDefault();
+      toggle(id);
+    },
+  });
 
   useEffect(() => {
     if (tabParam === "orders" || tabParam === "redeemable" || tabParam === "positions") {
@@ -164,24 +183,27 @@ function PortfolioInner() {
         </p>
       </div>
 
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-        {(
-          [
-            ["positions", "Positions"],
-            ["orders", "Open orders"],
-            ["redeemable", `Redeemable (${demo.redeemable.length})`],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            className="btn"
-            aria-pressed={tab === id}
-            onClick={() => setTabAndUrl(id)}
-          >
-            {label}
-          </button>
-        ))}
+      <div
+        style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}
+      >
+        <div role="tablist" aria-label="Portfolio sections" onKeyDown={onTablistKeyDown}>
+          {(
+            [
+              ["positions", "Positions"],
+              ["orders", "Open orders"],
+              ["redeemable", `Redeemable (${demo.redeemable.length})`],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className="btn"
+              {...tabProps(tab === id, () => setTabAndUrl(id))}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <Link className="btn" href="/history">
           History
         </Link>
@@ -200,7 +222,7 @@ function PortfolioInner() {
               const value = p.size * mark;
               const pnl = p.size * (mark - p.avgEntry);
               return (
-                <div key={p.market.marketId} className="card">
+                <div key={p.market.marketId} {...cardSelectProps(p.market.marketId)}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                     <div>
                       <Link href={`/markets/${p.market.marketId}`}>{p.market.question}</Link>
@@ -243,7 +265,7 @@ function PortfolioInner() {
               No open orders. TODO(phoenix): list Phoenix trader state per market.
             </p>
           ) : (
-            <table className="markets-table">
+            <table className="markets-table" role="grid" aria-label="Open orders">
               <thead>
                 <tr>
                   <th>Market</th>
@@ -255,7 +277,7 @@ function PortfolioInner() {
               </thead>
               <tbody>
                 {demo.orders.map((o) => (
-                  <tr key={o.id}>
+                  <tr key={o.id} {...selectableRowProps(selected === o.id, () => toggle(o.id))}>
                     <td>
                       <Link href={`/markets/${o.marketId}`}>{o.marketLabel}</Link>
                     </td>
@@ -279,7 +301,7 @@ function PortfolioInner() {
             demo.redeemable.map((r) => (
               <div
                 key={r.marketId}
-                className="card"
+                {...cardSelectProps(`redeem-${r.marketId}`)}
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
