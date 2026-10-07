@@ -1,13 +1,13 @@
 import { MarketsClient } from "./MarketsClient";
-import { buildFixtureMarkets } from "@/lib/market/fixtures";
+import { listMarkets } from "@/lib/indexer";
 
-export default function MarketsPage({
+export default async function MarketsPage({
   searchParams,
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
   const nowSec = Math.floor(Date.now() / 1000);
-  const markets = buildFixtureMarkets(nowSec);
+  const { markets, usedFixtures, message, source } = await listMarkets(nowSec);
   const statusParam = typeof searchParams?.status === "string" ? searchParams.status : "open";
   const q = typeof searchParams?.q === "string" ? searchParams.q : "";
   const sort = typeof searchParams?.sort === "string" ? searchParams.sort : "close";
@@ -29,6 +29,8 @@ export default function MarketsPage({
         initialView={view}
         initialUnderlyings={u}
         initialExpiry={expiry}
+        dataSource={source}
+        fixtureBanner={usedFixtures ? message : undefined}
       />
     </div>
   );

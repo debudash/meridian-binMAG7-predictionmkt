@@ -23,6 +23,10 @@ export interface MarketView {
   phoenixMarket?: string;
   yesMint?: string;
   noMint?: string;
+  /** Meridian collateral vault (mint/redeem) */
+  collateralVault?: string;
+  /** Fee treasury ATA */
+  treasury?: string;
   /** Top of book Yes mid / last (0–1) */
   yesMid?: number;
   yesBid?: number;

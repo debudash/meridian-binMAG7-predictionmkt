@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { buildFixtureMarkets } from "@/lib/market/fixtures";
+import { listMarkets } from "@/lib/indexer";
 import { oneLineExplainer } from "@/lib/copy/payoff";
 import { LandingClient } from "./LandingClient";
 
-export default function LandingPage() {
+export default async function LandingPage() {
   const nowSec = Math.floor(Date.now() / 1000);
-  const markets = buildFixtureMarkets(nowSec);
+  const { markets, usedFixtures, message } = await listMarkets(nowSec);
   const open = markets.filter((m) => m.status === "open");
   const featured = open.sort(
     (a, b) => (b.volume24hUsdc ?? 0) - (a.volume24hUsdc ?? 0),
@@ -16,6 +16,11 @@ export default function LandingPage() {
 
   return (
     <div className="container">
+      {usedFixtures && message && (
+        <div className="banner" style={{ marginBottom: "1rem", borderRadius: 8 }}>
+          {message}
+        </div>
+      )}
       <section
         style={{
           display: "grid",

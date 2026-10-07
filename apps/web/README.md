@@ -8,7 +8,9 @@ Next.js (App Router) + TypeScript UI for Peak6 Meridian binary Yes/No markets.
 
 - Solana wallet adapter + versioned transactions
 - Anchor program client for `mint` / `redeem` / read settle status
-- Phoenix CLOB as Yes/USDC book (D-015) — book UI shell + intent mapping; order placement stubbed (`TODO(phoenix)`)
+- Phoenix CLOB as Yes/USDC book (D-015) — `@ellipsis-labs/phoenix-sdk` place/cancel when market configured
+- Intent composition: Buy/Sell Yes = bid/ask; **Buy No** = Meridian mint + ask Yes @ `1−p_no`; **Sell No** = bid Yes @ `1−p_no` (merge Yes+No→USDC is Schema TODO — no invent merge ix)
+- Indexer: `listMarkets` / `getMarket` via `NEXT_PUBLIC_INDEXER_URL` or RPC `StrikeMarket` GPA; fixtures when live data empty
 - Pyth for display / settlement status (provider shell; feeds via env)
 
 ## Routes
@@ -44,10 +46,30 @@ npm run lint --prefix apps/web
 npm run build --prefix apps/web
 ```
 
+
+## Phoenix
+
+SDK: **`@ellipsis-labs/phoenix-sdk`** (V1 spot). Placement is gated:
+
+| Condition | Behavior |
+| --- | --- |
+| `NEXT_PUBLIC_PHOENIX_ENABLED=false` or no `phoenixMarket` pubkey | Structured **not-configured** (`ok:false`) — TradeTicket CTA does **not** say “Confirm in your wallet…” |
+| Market pubkey set (+ optional `ENABLED=true`) + wallet | Build/sign/submit place (limit / IOC market / post-only); seat/ATA setup ixs prepended when needed |
+| **Buy No** | Prefer multi-ix tx: Meridian `mint` then Phoenix ask Yes @ `1−p_no` (needs vault/mints/treasury on `MarketView`) |
+| **Sell No** | Phoenix bid Yes only; **merge awaits Schema** (no `merge` in `meridian.prod.json`) |
+
+Seat claim helper: `buildClaimSeatInstructions` / README steps — claim via `getMakerSetupInstructionsForMarket` when placing.
+
+Composition unit tests: `src/lib/phoenix/compose.test.ts` (no live RPC).
+
+## Indexer
+
+`src/lib/indexer` — `listMarkets`, `getMarket`, optional `listFills` / `getPortfolioHints`. Prefer HTTP indexer URL, else RPC GPA on Meridian `StrikeMarket`, else fixtures + banner.
+
 ## Railway
 
 Web service build/start: `next build` / `next start` from this package.
-Env vars: `NEXT_PUBLIC_SOLANA_RPC_URL`, `NEXT_PUBLIC_SOLANA_CLUSTER`, `NEXT_PUBLIC_MERIDIAN_PROGRAM_ID`, `NEXT_PUBLIC_USDC_MINT` — see [`docs/DEPLOY.md`](../../docs/DEPLOY.md) §4.
+Env vars: see [`.env.example`](./.env.example) and [`.env.railway.staging.example`](./.env.railway.staging.example) — [`docs/DEPLOY.md`](../../docs/DEPLOY.md) §4 · [`docs/RAILWAY_STAGING.md`](../../docs/RAILWAY_STAGING.md).
 
 **Hard rule:** do not import `localnet-test` helpers, mock Pyth, `sim_*`, or `test_drain_vault` into this package. Clients load **`meridian.prod.json`** only.
 

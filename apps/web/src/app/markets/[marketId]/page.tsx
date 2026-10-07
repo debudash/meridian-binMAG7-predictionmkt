@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { getMarketById } from "@/lib/market/fixtures";
+import { getMarket } from "@/lib/indexer";
 import { TradeClient } from "./TradeClient";
 
 type Props = {
@@ -9,16 +9,16 @@ type Props = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
-export function generateMetadata({ params }: Props): Metadata {
-  const m = getMarketById(params.marketId);
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { market: m } = await getMarket(params.marketId);
   return {
     title: m ? `${m.underlyingSymbol} · Meridian` : "Market · Meridian",
     description: m?.question,
   };
 }
 
-export default function TradePage({ params, searchParams }: Props) {
-  const market = getMarketById(params.marketId);
+export default async function TradePage({ params, searchParams }: Props) {
+  const { market, usedFixtures, source } = await getMarket(params.marketId);
   if (!market) notFound();
 
   const intent =
@@ -36,6 +36,11 @@ export default function TradePage({ params, searchParams }: Props) {
 
   return (
     <div className="container">
+      {usedFixtures && (
+        <div className="banner" style={{ marginBottom: "1rem", borderRadius: 8 }}>
+          Fixture market data (source={source}). Live indexer/RPC returned no match.
+        </div>
+      )}
       <Suspense fallback={<div className="card">Loading trade…</div>}>
         <TradeClient
           market={market}

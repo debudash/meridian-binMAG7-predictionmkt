@@ -48,3 +48,8 @@ export function explorerTx(sig: string): string {
   const q = cluster === "mainnet-beta" ? "" : `?cluster=${cluster}`;
   return `${base}/tx/${sig}${q}`;
 }
+
+export function getPhoenixEnabledFlag(): string | undefined {
+  return process.env.NEXT_PUBLIC_PHOENIX_ENABLED;
+}
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Intent } from "@/lib/intents/types";
@@ -10,6 +10,9 @@ import { OrderBook } from "@/components/trade/OrderBook";
 import { TradeTicket } from "@/components/trade/TradeTicket";
 import { PositionPanel } from "@/components/trade/PositionPanel";
 import { fixtureBook } from "@/lib/market/fixtures";
+import { fetchPhoenixBook, isPhoenixPlacementEnabled } from "@/lib/phoenix";
+import { useConnection } from "@solana/wallet-adapter-react";
+import type { OrderBookSnapshot } from "@/lib/market/types";
 import { formatOutcomePrice } from "@/lib/format";
 import { noPriceFromYes, type Perspective } from "@/lib/market/bookTransform";
 import { yesDefinition, noDefinition, oneLineExplainer } from "@/lib/copy/payoff";
@@ -41,6 +44,7 @@ export function TradeClient({
   initialSize?: number;
 }) {
   const { nowSec } = useChainClock();
+  const { connection } = useConnection();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -51,7 +55,25 @@ export function TradeClient({
   const [fillPrice, setFillPrice] = useState<number | null>(null);
   const [fillIntentHint, setFillIntentHint] = useState<Intent | null>(null);
 
-  const book = useMemo(() => fixtureBook(market), [market]);
+  const [liveBook, setLiveBook] = useState<OrderBookSnapshot | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!isPhoenixPlacementEnabled(market.phoenixMarket)) {
+        if (!cancelled) setLiveBook(null);
+        return;
+      }
+      const snap = await fetchPhoenixBook(market.phoenixMarket, connection);
+      if (!cancelled) setLiveBook(snap);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [market.phoenixMarket, connection]);
+  const book = useMemo(
+    () => liveBook ?? fixtureBook(market),
+    [liveBook, market],
+  );
   const yes = market.yesMid ?? market.lastYes ?? 0.5;
   const no = noPriceFromYes(yes, market.tickSize);
 

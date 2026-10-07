@@ -4,7 +4,7 @@ Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** o
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017).
 **Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)).
 
-_Last refreshed: 2026-10-06 23:53 CT (rebase+merge !25 onto main @ 22b5208 incl. !26; Testers confirm suite program-id rotate Done).
+_Last refreshed: 2026-10-06 23:55 CT (eng/phoenix-place-indexer In Progress — composition + indexer + Railway templates).
 
 ## Done
 
@@ -40,7 +40,8 @@ _Last refreshed: 2026-10-06 23:53 CT (rebase+merge !25 onto main @ 22b5208 incl.
 ## In Progress
 
 - [ ] Reviewer continuous / demo readiness (beyond !17 nits) — demo walkthrough still owed (keypair tip-delete done in !24)
-- [ ] Phoenix Buy/Sell No composition + real on-book trade in sim E2E (sim trade today = off-book Yes SPL placeholder)
+- [ ] Phoenix place + Buy No mint/sell composition + indexer (`eng/phoenix-place-indexer`) — client SDK place wired; Sell No merge Schema TODO; sim E2E on-book still owed
+- [ ] Phoenix Buy/Sell No **sim E2E** real on-book trade (sim trade today = off-book Yes SPL placeholder)
 
 ## Todo
 
