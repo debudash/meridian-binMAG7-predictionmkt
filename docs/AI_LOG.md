@@ -14,6 +14,7 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 | **Branch** | `eng/p2-invariant-gates` from `origin/test/p2-invariant-gates` @ `1f6fc77`, rebased onto `main` @ `9f175d7` (!31 merge_pair) |
 | **Decision** | Implement Schema **D-018** P2 slices only: A-05 **Policy A** (`OutcomeInconsistent`) + X-07 **retire Settling** (unused/reserved; discriminant kept; Open-only `is_open`). **Did not** re-implement `merge_pair` (already green on main !31). No Phoenix matcher. Program id unchanged `9Rb7nx…`. |
 | **Impl** | `errors.rs` + `admin_settle.rs` consistency check; X-07 suite flip documenting retirement; R-08 / INV-* via existing `burn_losing` + fee trunc / prod IDL. `waitPastExpiry` +1.5s slack (localnet Clock lag). |
+| **Result** | Localnet **74 passing / 0 failing** (P0/P1/SIM + MP-01…08 + P2 A-05/R-08/X-07 + INV-*). |
 | **Related** | D-016 · D-018 · !27 suite · !31 merge_pair · TEST_MATRIX Cluster H |
 
 ---

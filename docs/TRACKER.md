@@ -42,7 +42,7 @@ _Last refreshed: 2026-10-07 00:30 CT (Eng P2 green on `eng/p2-invariant-gates` r
 ## In Progress
 
 - [ ] **Tester P2 suite** (!27) — may still be open; Eng greens A-05/X-07/INV on stacked MR
-- [ ] **Eng P2 green** (`eng/p2-invariant-gates`) — A-05 Policy A + X-07 Settling retired + R-08/INV-* — Owner: Meridian Engineers
+- [ ] **Eng P2 green** (`eng/p2-invariant-gates`) — A-05 Policy A + X-07 Settling retired + R-08/INV-* — **74/74 localnet** — Owner: Meridian Engineers
 - [ ] Reviewer continuous / demo readiness (beyond !17 nits) — demo walkthrough still owed (keypair tip-delete done in !24)
 - [ ] Phoenix place + Buy No mint/sell composition + indexer — client SDK place wired (!28); `merge_pair` on main (!31); sim E2E on-book still owed
 - [ ] Phoenix Buy/Sell No **sim E2E** real on-book trade (sim trade today = off-book Yes SPL placeholder)
