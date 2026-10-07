@@ -4,7 +4,7 @@ Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** o
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017). **D-018** locks prod `merge_pair`, A-05 Policy A, and X-07 Settling retire.
 **Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)) — deploy deferred locally; Debu browsing fixtures @ localhost:3000.
 
-_Last refreshed: 2026-10-07 14:30 CT (base `0c173ac`; DLV-066 web Phoenix fixes MR !43; localnet now runs real Phoenix V1 books for Debu)._
+_Last refreshed: 2026-10-07 14:30 CT (base `0c173ac`; DLV-066 web Phoenix fixes MR !43; DLV-067 localnet dev wallet MR !44; localnet now runs real Phoenix V1 books for Debu)._
 
 ## Done
 
@@ -53,6 +53,7 @@ _Last refreshed: 2026-10-07 14:30 CT (base `0c173ac`; DLV-066 web Phoenix fixes 
 - [x] Eng SimClock PDA `init`/`set`/`warp`/`disable` DLV-065 (MR !41; `eng/dlv065-sim-clock`) — `effective_clock` on mint/settle/admin_settle; SC-01…03; suite **87/87** expected localnet (84 prior + 3 SC; SC-IDL); localnet-test only; prod IDL stripped
 
 - [x] Eng: web Phoenix order path fixed against **real Phoenix V1 books on localnet** DLV-066 (MR !43; `fix/web-phoenix-onchain-orders`) — on-chain market load (no Ellipsis config), **size units D-020** (corrects !33 sign-off), Buy No mint fixes (SimClock-if-exists, Config treasury, same-tx ATAs + CU), ticket re-anchor, live book/balances, no-store caching, prod-IDL dangling SimClock account/event strip
+- [x] Eng: **localnet-only Dev Wallet** adapter + loopback-gated `/api/localnet-dev-wallet` + provider wiring DLV-067 (MR !44; `feat/web-localnet-dev-wallet`) — gates: cluster=localnet ∧ `NEXT_PUBLIC_LOCALNET_DEV_WALLET=true` ∧ loopback RPC ∧ loopback Host ∧ keypair path; never on devnet/mainnet; no keypair committed
 
 - [x] Reviewer continuous / demo readiness DLV-037 (MR !40; `docs/dlv037-demo-readiness-nits`) — fixtures/localnet walkthrough **conditional pass** @ `bcf5d23`; docs polish landed; Peak6 PRD demo **video** remains Todo (DLV-038)
 

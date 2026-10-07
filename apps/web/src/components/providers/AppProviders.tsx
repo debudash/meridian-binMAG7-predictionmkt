@@ -25,6 +25,10 @@ import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getRpcUrl, getCluster } from "@/lib/solana/config";
+import {
+  LocalnetDevWalletAdapter,
+  isLocalnetDevWalletAllowed,
+} from "@/lib/solana/localnetDevWallet";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 
@@ -172,9 +176,15 @@ function PythProvider({ children }: { children: ReactNode }) {
 
 export function AppProviders({ children }: { children: ReactNode }) {
   const endpoint = getRpcUrl();
+  // Localnet dev signer is registered ONLY when cluster=localnet + flag + loopback RPC.
+  const devWallet = isLocalnetDevWalletAllowed();
   const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    [],
+    () => [
+      ...(devWallet ? [new LocalnetDevWalletAdapter()] : []),
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter(),
+    ],
+    [devWallet],
   );
   const [queryClient] = useState(() => new QueryClient());
 
@@ -183,7 +193,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     { endpoint },
     createElement(
       Wal,
-      { wallets, autoConnect: false },
+      { wallets, autoConnect: devWallet },
       createElement(
         WalModal,
         null,
