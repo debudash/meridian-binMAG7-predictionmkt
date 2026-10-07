@@ -1,10 +1,11 @@
 /**
  * SimClock PDA (D-017 / DLV-065) — SC-01…SC-03.
  * localnet-test only. Does not replace !34 Clock-poll waitPastExpiry for non-sim paths.
+ * SimClock PDA is a singleton — initSimClock is idempotent across cases.
  */
 import { expect } from "chai";
 import { BN } from "@coral-xyz/anchor";
-import { TestCtx, expectErr, ONE } from "./helpers/harness";
+import { TestCtx, expectErr, ONE, loadMeridianIdl } from "./helpers/harness";
 import { MarketStatus } from "./helpers/fixtures";
 
 describe("localnet SimClock (D-017 / DLV-065)", function () {
@@ -15,8 +16,8 @@ describe("localnet SimClock (D-017 / DLV-065)", function () {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
     await ctx.initSimClock();
+    await ctx.resetSimClockToNow();
 
-    // Realistic expiry far in the future — warp closes the mint window.
     const expiry = Math.floor(Date.now() / 1000) + 3600;
     await ctx.createMarket({ expiryTs: expiry, pythPrice: 18_100_000_000n });
     await ctx.mint(ONE);
@@ -42,6 +43,8 @@ describe("localnet SimClock (D-017 / DLV-065)", function () {
     const ctx = await TestCtx.boot();
     await ctx.setupProtocol({ adminDelay: 0 });
     await ctx.initSimClock();
+    await ctx.resetSimClockToNow();
+
     const expiry = Math.floor(Date.now() / 1000) + 3600;
     await ctx.createMarket({ expiryTs: expiry });
     await ctx.mint(ONE);
@@ -57,9 +60,10 @@ describe("localnet SimClock (D-017 / DLV-065)", function () {
   it("SC-03: admin_settle with delay=1800 after warp past expiry+1800 (no wall sleep)", async () => {
     const caseId = "SC-03";
     const ctx = await TestCtx.boot();
-    // Keep production-like delay; warp past expiry + delay.
     await ctx.setupProtocol({ adminDelay: 1800 });
     await ctx.initSimClock();
+    await ctx.resetSimClockToNow();
+
     const expiry = Math.floor(Date.now() / 1000) + 7200;
     await ctx.createMarket({ expiryTs: expiry });
     await ctx.mint(ONE);
@@ -76,8 +80,8 @@ describe("localnet SimClock (D-017 / DLV-065)", function () {
   });
 
   it("SC-IDL: localnet IDL lists init/set/warp/disable_sim_clock", async () => {
-    const ctx = await TestCtx.boot();
-    const names = new Set(ctx.program.idl.instructions.map((i: any) => i.name));
+    const idl = loadMeridianIdl();
+    const names = new Set(idl.instructions.map((i) => i.name));
     for (const ix of ["init_sim_clock", "set_sim_clock", "warp_sim_clock", "disable_sim_clock"]) {
       expect(names.has(ix), `missing ${ix}`).to.equal(true);
     }

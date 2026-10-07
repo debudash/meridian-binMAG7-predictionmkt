@@ -21,6 +21,20 @@
 | **Branch** | `eng/dlv064-phoenix-onbook-e2e` |
 | **Result** | MR !38 merged — PHX suite **9/9** focused localnet; off-book demoted. |
 
+## 2026-10-07T09:25:00-05:00 — DLV-065 SimClock PDA (Meridian Engineers)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers (executor) |
+| **Branch** | `eng/dlv065-sim-clock` from `origin/main` @ `245c86d` (!38) |
+| **Decision** | Land **DLV-065 / D-017** SimClock PDA seeds `["sim_clock"]` + ixs `init_sim_clock` / `set_sim_clock` / `warp_sim_clock` / `disable_sim_clock` under `#[cfg(feature = "localnet-test")]` only. `effective_clock` wires mint / settle / admin_settle (+ Pyth `slot_now`); optional `sim_clock` account on those contexts. Harness `initSimClock`/`set`/`warp`/`disable`; SC-01…03 prove warp→settle / mint-after-expiry / admin_settle delay=1800 without wall sleep. **Does not** weaken !34 Clock-poll `waitPastExpiry` for non-sim paths. Prod `.so` / prod IDL strip fixtures (assert-prod-no-fixtures). Program id unchanged `9Rb7nx…`. |
+| **Files** | `programs/meridian/src/{state/sim_clock,utils/clock,instructions/*_sim_clock}.rs` · mint/settle/admin_settle · harness · `tests/sim_clock.ts` · emit/assert scripts · TRACKER/AI_LOG |
+| **Result** | Focused SC **4/4**; prior full suite **84/84** non-SC green; expected full **87/87** after SC fix (idempotent init + resetSimClockToNow). |
+| **Related** | D-017 · DLV-065 · !14 · !34 · !38 |
+
+---
+
+
 # Meridian AI decision log
 
 ## 2026-10-07T09:16:00-05:00 — Schema: D-019 pin MAG7 Pyth feed ids (DLV-041)

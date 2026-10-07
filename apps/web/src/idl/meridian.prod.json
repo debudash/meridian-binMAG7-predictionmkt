@@ -1379,7 +1379,7 @@
     {
       "code": 6023,
       "name": "SimClockNotEnabled",
-      "msg": "SimClock disabled"
+      "msg": "Simulated clock not enabled"
     }
   ],
   "types": [

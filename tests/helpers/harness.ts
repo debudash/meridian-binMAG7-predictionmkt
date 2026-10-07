@@ -789,8 +789,18 @@ export class TestCtx {
     )[0];
   }
 
+  /**
+   * Init SimClock PDA once per validator (singleton seeds ["sim_clock"]).
+   * Idempotent: if already created, attach and enable useSimClock.
+   */
   async initSimClock() {
     const pda = this.simClockAddress();
+    const existing = await this.provider.connection.getAccountInfo(pda, "confirmed");
+    if (existing) {
+      this.simClockPda = pda;
+      this.useSimClock = true;
+      return;
+    }
     await this.program.methods
       .initSimClock()
       .accounts({
@@ -802,6 +812,13 @@ export class TestCtx {
       .rpc();
     this.simClockPda = pda;
     this.useSimClock = true;
+  }
+
+  /** Seed sim clock to wall-ish now so mint window is open before warp. */
+  async resetSimClockToNow() {
+    const slot = await this.provider.connection.getSlot("confirmed");
+    const now = await this.getOnChainUnixTs();
+    await this.setSimClock(now, slot);
   }
 
   async setSimClock(unixTimestamp: number | BN, slot: number | BN) {

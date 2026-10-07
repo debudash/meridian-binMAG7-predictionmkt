@@ -4,7 +4,7 @@ Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** o
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017). **D-018** locks prod `merge_pair`, A-05 Policy A, and X-07 Settling retire.
 **Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)) — deploy deferred locally; Debu browsing fixtures @ localhost:3000.
 
-_Last refreshed: 2026-10-07 09:40 CT (main tip `b8c76ff`; no open MRs; Reviewer DLV-037 conditional pass @ `bcf5d23`; docs polish landed MR !40)._
+_Last refreshed: 2026-10-07 09:55 CT (eng/dlv065-sim-clock green on tip `ef1a61a`; Reviewer DLV-037 conditional pass; !40 docs polish)._
 
 ## Done
 
@@ -50,12 +50,13 @@ _Last refreshed: 2026-10-07 09:40 CT (main tip `b8c76ff`; no open MRs; Reviewer 
 
 - [x] Eng: Phoenix Buy/Sell No **on-book sim E2E** DLV-064 (MR !38; `eng/dlv064-phoenix-onbook-e2e`) — `simTradeOnBook` + PHX-01…06; off-book demoted; residual Phoenix.so market create in `docs/phoenix-onbook-sim.md`; TRACKER cite MR !39
 
+- [x] Eng SimClock PDA `init`/`set`/`warp`/`disable` (MR pending; `eng/dlv065-sim-clock`) — `effective_clock` on mint/settle/admin_settle; SC-01…03; suite **87/87** localnet (84 prior + 3 SC fixed; SC-IDL); localnet-test only
+
 ## In Progress
 
 - [ ] Reviewer continuous / demo readiness (DLV-037) — docs polish landed (MR !40); remaining: Peak6 PRD demo **video** (DLV-038); fixtures/localnet walkthrough **conditional pass** @ `bcf5d23` (Reviewers)
 
 ## Todo
 
-- [ ] Eng SimClock PDA impl (`init`/`set`/`warp` behind `localnet-test`) per `docs/sim-clock.md` (docs landed !14; not required by SIM-01…09)
 - [ ] UI sim affordance (optional for V1) (D-017)
 - [ ] Peak6 PRD: demo video (distinct from `DEMO_SCRIPT.md`)
