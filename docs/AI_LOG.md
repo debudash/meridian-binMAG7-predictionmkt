@@ -1,5 +1,17 @@
 # Meridian AI decision log
 
+## 2026-10-07T08:22:34-05:00 — Orchestrator: TRACKER sync post-!20…!34 (tip 65c1ddf)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Grok Bot (Orchestrator) |
+| **Branch** | `docs/tracker-post-34` from `origin/main` @ `65c1ddf` (!34) |
+| **Decision** | Refresh `docs/TRACKER.md` to tip after !20–!34: SPEC **Done/locked**; UI (!22/!23) Done; automation dual-mode (!21) Done; Phoenix place+Buy No (!28) Done; D-018 merge_pair (!29–!31) Done; P2 gates (!32) Done; Sell No client (!33) Done; X-03/SIM-08 flake harden (!34) Done — localnet **74/74**. In Progress: Reviewer demo readiness only. Todo: on-book sim E2E, SimClock PDA, optional UI sim, demo video, test-results artifact, MAG7 Pyth pins / SCHEMA §8. Workspace mirrors: `/workspace/meridian-deliverables.md`, `/workspace/meridian-kanban.md`. No prod/web code changes. Did not start localnet; did not touch running Next.js @ :3000. |
+| **Files** | `docs/TRACKER.md` · `docs/AI_LOG.md` |
+| **Related** | D-012 · D-016 · D-017 · D-018 · !20…!34 · program id `9Rb7nx…` |
+
+---
+
 Append-only log of agent decisions and orchestration events for Peak6 Meridian.
 Timestamps are America/Chicago (CDT, UTC-5). Newest entries at the top.
 Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DECISIONS.md).
