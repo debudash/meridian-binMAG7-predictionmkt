@@ -22,6 +22,7 @@ Do not duplicate long rationale here — link the log.
 | D-014 | SCM land path | **Official land path = `glab`** against `labs.gauntletai.com` (`GITLAB_HOST`, existing auth / `GAUNTLET_GITLAB_TOKEN`). Cursor enterprise GitLab + MCP GitLab **404 are NOT blockers**. | Debu / Grok Bot | 2026-10-06 |
 | D-015 | Phoenix V1 | **Phoenix V1 spot** is the **working assumption** (Yes/USDC book); confirmation widget skipped — do not invent confirm. | Debu / Grok Bot | 2026-10-06 |
 | D-016 | TDD | **TDD mandatory:** failing tests first for **vault $1**, **mint**, **settle**, **redeem**, **pause**; then implement. | Debu / Grok Bot | 2026-10-06 |
+| D-017 | Anytime sim (V1) | **Anytime open/close/settle simulation is a V1 hard acceptance requirement.** E2E create→mint→Phoenix trade→settle→redeem must run in one continuous harness with **no wait** for real US equity 9:30/4:00 ET. Harness drives simulated Open and Close; forces **YesWins / NoWins** at known prices while real Pyth reject paths (stale / wide conf) stay testable. Prod/devnet keeps real **≥4:00 PM ET** settle gate + Pyth quality; sim controls hard-gated (test feature / local validator / Config flag) and **must not weaken** production invariants. Documented one-command/scripted sim lifecycle in-repo alongside calendar automation. UI sim affordance optional for V1. Phoenix V1 spot working assumption (D-015); land path = `glab` (D-014). | Debu / Meridian PM | 2026-10-06 |
 
 ## Explicitly not locked (see AI_LOG)
 
