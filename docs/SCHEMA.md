@@ -56,8 +56,8 @@ One account per `(equity, expiry_day, strike)`. Holds Pyth + Phoenix wiring and 
 | `config` | `Pubkey` | 32 | Parent `Config` |
 | `market_id` | `u64` | 8 | Monotonic id from config counter (optional convenience) |
 | `equity_symbol` | `[u8; 8]` | 8 | ASCII, right-padded spaces; e.g. `AAPL\0\0\0\0` or space-pad — **default: space-pad** |
-| `pyth_price_feed` | `Pubkey` | 32 | Pyth price account for this equity |
-| `pyth_feed_id` | `[u8; 32]` | 32 | Pyth price feed id bytes (v2); redundant with account but useful for indexers |
+| `pyth_price_feed` | `Pubkey` | 32 | Solana Pyth price account for this equity (V1 MAG7 registry §3; or mock under `localnet-test`) |
+| `pyth_feed_id` | `[u8; 32]` | 32 | 32-byte Pyth Core feed id (no `0x` prefix in hex form); must match Hermes / price account; useful for indexers |
 | `strike_price_e6` | `u64` | 8 | Strike in `PRICE_SCALE` (1e6). Yes wins if settle ≥ strike (**default: ≥**) |
 | `expiry_ts` | `i64` | 8 | Unix seconds; target ~16:00 ET close window |
 | `yes_mint` | `Pubkey` | 32 | SPL mint for Yes tokens (decimals = collateral decimals) |
@@ -183,6 +183,30 @@ Stored on `StrikeMarket` and gated by `Config` global bounds:
 | Feed id | `StrikeMarket.pyth_feed_id` | 32-byte Pyth feed id |
 | Max staleness | `Config.settle_max_staleness_slots` | **150 slots** (~60s on 400ms) — tune for close window |
 | Max confidence ratio | `Config.settle_max_conf_ratio_bps` | **500 bps (5%)** — reject wider |
+
+**Field roles:** `StrikeMarket.pyth_feed_id` stores the **32-byte Pyth Core feed id**. `StrikeMarket.pyth_price_feed` stores the **Solana price account** pubkey from the V1 MAG7 registry below (prod/devnet), or a mock price account under `localnet-test`.
+
+### 3.1 V1 MAG7 registry (D-019)
+
+SPEC MAG7 symbols: **AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA** (Alphabet = **GOOGL** Class A, not GOOG Class C).
+
+Pyth Core stable feed ids from Hermes `Equity.US.*/USD` (hex, **no `0x` prefix**). Solana mainnet/devnet **shard-0** push-feed price accounts are PDAs of Price Feed program `pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT` (seeds = `u16le` shard `0` + feed_id bytes). All seven **exist** on mainnet; owner = receiver `rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ`; account space **134**. Same shard-0 PDAs apply on solana **mainnet and devnet** for these sponsored feeds under the **current** Price Feed program.
+
+| Symbol | Pyth symbol | `pyth_feed_id` (32-byte hex) | `pyth_price_feed` (mainnet/devnet) |
+| --- | --- | --- | --- |
+| AAPL | `Equity.US.AAPL/USD` | `49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688` | `DJ2FyTgUAkEtXW3U5P9PF19meFTRtW4ZWKKFgACfVbUy` |
+| MSFT | `Equity.US.MSFT/USD` | `d0ca23c1cc005e004ccf1db5bf76aeb6a49218f43dac3d4b275e92de12ded4d1` | `7VYuuJxz8w2rLA9tJG2KZ9T1fSMcjC7uECoYA6nDaqtK` |
+| GOOGL | `Equity.US.GOOGL/USD` | `5a48c03e9b9cb337801073ed9d166817473697efff0d138874e0f6a33d6d5aa6` | `HShKFQqhYkUiXpVyyLmrAALXwWqHB7ikLmPbrwJzpRNh` |
+| AMZN | `Equity.US.AMZN/USD` | `b5d0e0fa58a1f8b81498ae670ce93c872d14434b72c364885d4fa1b257cbb07a` | `GBkjjFxbaFY9TBHpAPypk5JBchpPPve2jskAcd9zuFNd` |
+| META | `Equity.US.META/USD` | `78a3e3b8e676a8f73c439f5d749737034b139bbbe899ba5775216fba596607fe` | `GsKrMNoa1Mqjpif4SYk2WjdduWZP699hXRdP51yBM6K2` |
+| NVDA | `Equity.US.NVDA/USD` | `b1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593` | `2w1Tg1XTZbUib7srfRoStJ4v5JXVsK7roQEGMsMaGZFC` |
+| TSLA | `Equity.US.TSLA/USD` | `16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1` | `E8WFH8brgP58arcuW2wwsPHiomYrSvrgWTsRLZLAEZUQ` |
+
+**Upgrade caveat:** Pyth Core upgrade program `pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou` would change PDAs. Upgraded accounts were **missing** on mainnet as of **2026-10-07** — V1 pins the **current** Price Feed program accounts above. **Re-derive and re-pin after any Pyth upgrade.**
+
+**Footnote (not V1 MAG7):** GOOG Class C feed `e65ff435be42630439c96396653a342829e877e2aafaeaf1a10d0ee5fd2cf3f2` exists on Hermes; SPEC uses **GOOGL** — do **not** include GOOG in the V1 set unless Debu overrides.
+
+**Sources:** Hermes `https://hermes.pyth.network/v2/price_feeds`; Pyth docs push-feeds / PDA derivation; mainnet RPC `getAccountInfo` verified 2026-10-07.
 
 **Accept settle iff:**
 
@@ -522,22 +546,29 @@ Same as `Settled` plus `authority: Pubkey`.
 
 ---
 
-## 8. Open questions (non-blocking defaults)
+## 8. Open questions / V1 lock inventory
 
-| Topic | Default in this doc | Open |
+Status of prior §8 topics for **V1**. Defaults below are what Engineers should ship unless Debu overrides.
+
+| Topic | V1 status | Notes |
 | --- | --- | --- |
-| Phoenix base mint side | **Yes mint** as base, USDC quote | Could use No as base; UI mapping changes |
-| Exact Pyth equity product / feed ids for MAG7 | Placeholder per-market `pyth_feed_id` | Pin mainnet/devnet feed accounts before deploy |
-| Strike comparison | Yes wins if `settle >= strike` | Confirm Peak6 wants `>` vs `>=` on exact touch |
-| `equity_symbol` encoding | `[u8; 8]` space-padded ASCII | vs separate `AssetRegistry` PDA |
-| StrikeMarket PDA seeds | `(symbol, expiry_ts, strike_e6)` | vs monotonic `market_id` only |
-| Losing-token burn ix | Recommended `burn_losing` | Optional for v1 |
-| `merge_pair` / Sell No | **Locked D-018** — prod `merge_pair`; client composes Phoenix | — |
-| `Settling` status | **Retired X-07** — value `1` unused/reserved | Do not use in state machine |
-| `admin_settle` outcome | **Policy A (A-05)** — must match `price >= strike` | — |
-| Protocol fees | Fields present; **default 0 bps**; `merge_pair` uses `redeem_fee_bps` | Product may keep fees off for platinum demo |
-| Settle window | Any time after `expiry_ts` with fresh Pyth | Automation retries 15m / 30s per PRD |
-| Multi-collateral | Single `collateral_mint` on Config | Out of scope v1 |
+| Phoenix Yes base | **Locked D-004 / D-015** | Yes mint = base; USDC = quote |
+| MAG7 Pyth feeds | **Proposed lock D-019** | Exact feed ids + shard-0 price accounts in §3.1 |
+| Strike comparison | **Locked D-005** (`>=`); product confirm | Propose **close** this §8 open — keep `settle >= strike`. Flag Debu only if Peak6 wants strict `>` on exact touch |
+| `equity_symbol` `[u8; 8]` space-pad | **V1 default OK** | No Debu lock unless they want `AssetRegistry` |
+| StrikeMarket PDA seeds `(symbol, expiry, strike)` | **V1 default OK** | `market_id` remains convenience field |
+| `burn_losing` | **V1 optional OK** | Recommended; not required for demo path |
+| `merge_pair` / Sell No | **Locked D-018** | Prod ix; client composes Phoenix |
+| `Settling` status | **Locked D-018 / X-07** | Unused/reserved |
+| `admin_settle` Policy A | **Locked D-018 / A-05** | `outcome_yes` must match `price >= strike` |
+| Protocol fees default 0 | **V1 OK** | Fields present; demo may keep 0 bps |
+| Settle window | **V1 OK** | Any time after `expiry_ts` with fresh Pyth; automation retries per PRD |
+| Multi-collateral | **Out of scope V1** | Single `collateral_mint` on Config |
+
+### Needs Debu lock
+
+1. **Merge D-019** — pin V1 MAG7 Pyth Core feed ids + shard-0 Solana price accounts (§3.1); Alphabet = GOOGL.
+2. **Confirm keep `>=`** (D-005) vs Peak6 strict `>` on exact touch — only if still product-open; Schema proposes leave D-005 as-is and close the §8 row.
 
 ---
 
