@@ -6,36 +6,30 @@ import { formatOutcomePrice } from "@/lib/format";
 import { impliedLabel, shortQuestion } from "@/lib/copy/payoff";
 import { noPriceFromYes } from "@/lib/market/bookTransform";
 import type { MarketView } from "@/lib/market/types";
-import { getCountdown } from "@/lib/market/countdown";
-import { useChainClock } from "@/components/providers/AppProviders";
-import { useIntentAvailability } from "@/hooks/useIntentAvailability";
-import { useTradingBlockedByBanner } from "@/components/layout/GlobalBanners";
 import { useWallet } from "@solana/wallet-adapter-react";
+import type { PositionSnapshot } from "@/lib/intents/types";
+import { MarketBuyLinks, useMarketTradeState } from "./MarketBuyLinks";
 
 export function MarketCard({
   market,
   lastViewed = false,
+  livePosition,
 }: {
   market: MarketView;
+  /** Connected wallet's live Yes/No balance (batched by the list, DLV-074). */
+  livePosition?: PositionSnapshot | null;
   /** Market the user last opened (sessionStorage) — marked "Last viewed" (D-022). */
   lastViewed?: boolean;
 }) {
-  const { nowSec } = useChainClock();
   const { connected } = useWallet();
-  const tradingBlocked = useTradingBlockedByBanner();
-  const { availability, position } = useIntentAvailability(market.marketId);
+  const trade = useMarketTradeState(market, livePosition);
+  const { position } = trade;
   const yes = market.yesMid ?? market.lastYes;
   const no = yes != null ? noPriceFromYes(yes, market.tickSize) : undefined;
   const whenShort = new Date(market.tradingCloseTs * 1000).toLocaleDateString(
     "en-US",
     { month: "short", day: "numeric", timeZone: "America/Chicago" },
   );
-  const cd = getCountdown(market, nowSec);
-  const tradeDisabled = !cd.tradingEnabled || tradingBlocked;
-
-  const buyYesOk = availability["buy-yes"].enabled && !tradeDisabled;
-  const buyNoOk = availability["buy-no"].enabled && !tradeDisabled;
-
   const holdBadge =
     connected && position.yesQty >= (market.lotSize ?? 1)
       ? `You: Yes ${position.yesQty}`
@@ -98,43 +92,15 @@ export function MarketCard({
         {market.openInterest?.toLocaleString() ?? "—"}
       </div>
       {holdBadge && (
-        <span className={`chip ${position.yesQty > 0 ? "chip-yes" : "chip-no"}`}>
+        <span
+          className={`chip ${position.yesQty > 0 ? "chip-yes" : "chip-no"}`}
+          style={{ alignSelf: "flex-start" }}
+        >
           {holdBadge}
         </span>
       )}
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "auto" }}>
-        <Link
-          className="btn btn-yes"
-          href={`/markets/${market.marketId}?intent=buy-yes&side=yes`}
-          aria-disabled={!buyYesOk}
-          title={
-            !availability["buy-yes"].enabled
-              ? availability["buy-yes"].copy
-              : tradeDisabled
-                ? "Trading unavailable"
-                : undefined
-          }
-          tabIndex={!buyYesOk ? -1 : undefined}
-          style={!buyYesOk ? { pointerEvents: "none" } : undefined}
-        >
-          Buy Yes
-        </Link>
-        <Link
-          className="btn btn-no"
-          href={`/markets/${market.marketId}?intent=buy-no&side=no`}
-          aria-disabled={!buyNoOk}
-          title={
-            !availability["buy-no"].enabled
-              ? availability["buy-no"].copy
-              : tradeDisabled
-                ? "Trading unavailable"
-                : undefined
-          }
-          tabIndex={!buyNoOk ? -1 : undefined}
-          style={!buyNoOk ? { pointerEvents: "none" } : undefined}
-        >
-          Buy No
-        </Link>
+        <MarketBuyLinks market={market} state={trade} />
       </div>
     </article>
   );
