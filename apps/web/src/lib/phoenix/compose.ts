@@ -12,6 +12,17 @@ import { intentToBookAction, noPriceFromYes, toTicks, fromTicks } from "@/lib/ma
 import type { ComposePlanSummary, PhoenixOrderType } from "./types";
 import { SELL_NO_MERGE_CAVEAT } from "./config";
 
+/** D-021: post-only is hidden in V1 — the ticket never sends it. */
+export const POST_ONLY_ENABLED = false;
+
+/** Phoenix order type for the ticket's Market | Limit choice (never post-only in V1, D-021). */
+export function ticketPhoenixOrderType(
+  orderType: "market" | "limit",
+  postOnly = false,
+): PhoenixOrderType {
+  return orderType === "limit" && postOnly && POST_ONLY_ENABLED ? "post-only" : orderType;
+}
+
 export interface ComposeInput {
   intent: Intent;
   /** User-facing price (Yes terms for Yes intents; No terms for No intents) */

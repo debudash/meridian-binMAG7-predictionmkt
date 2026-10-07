@@ -3,6 +3,8 @@ import {
   effectiveYesLimitPrice,
   planIntentComposition,
   snapYesPrice,
+  ticketPhoenixOrderType,
+  POST_ONLY_ENABLED,
 } from "./compose";
 import { intentToBookAction } from "@/lib/market/bookTransform";
 
@@ -116,5 +118,19 @@ describe("planIntentComposition", () => {
     });
     expect(plan.orderType).toBe("post-only");
     expect(plan.phoenixSide).toBe("bid");
+  });
+});
+
+describe("ticketPhoenixOrderType (D-021: post-only hidden in V1)", () => {
+  it("is off", () => {
+    expect(POST_ONLY_ENABLED).toBe(false);
+  });
+  it("passes market/limit through", () => {
+    expect(ticketPhoenixOrderType("market")).toBe("market");
+    expect(ticketPhoenixOrderType("limit")).toBe("limit");
+  });
+  it("never sends post-only, even if a caller asks for it", () => {
+    expect(ticketPhoenixOrderType("limit", true)).toBe("limit");
+    expect(ticketPhoenixOrderType("market", true)).toBe("market");
   });
 });
