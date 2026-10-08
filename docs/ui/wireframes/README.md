@@ -2,7 +2,7 @@
 
 **Status:** V1 desktop wireframes on SPEC freeze MR **!20** (`docs/d012-spec-freeze`).  
 **Rule (Debu):** Wireframes land **in this MR**, not a separate merge request.  
-**SPEC pointer:** [`../SPEC.md`](../SPEC.md) §3.10 · §8.  
+**SPEC pointer:** [`../SPEC.md`](../../SPEC.md) §3.10 · §8.  
 **Normative specs:** `docs/ui/01`–`07` remain source of truth; images illustrate layout.
 
 ## Coverage (V1)

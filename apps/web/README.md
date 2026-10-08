@@ -113,7 +113,7 @@ Composition unit tests: `src/lib/phoenix/compose.test.ts` (no live RPC).
 ## Railway
 
 Web service build/start: `next build` / `next start` from this package.
-Env vars: see [`.env.example`](./.env.example) and [`.env.railway.staging.example`](./.env.railway.staging.example) — [`docs/DEPLOY.md`](../../docs/DEPLOY.md) §4 · [`docs/RAILWAY_STAGING.md`](../../docs/RAILWAY_STAGING.md).
+Env vars: see [`.env.example`](./.env.example) and [`.env.railway.staging.example`](./.env.railway.staging.example) — [`docs/DEPLOY.md`](../../docs/DEPLOY.md) §5.
 
 **Hard rule:** do not import `localnet-test` helpers, mock Pyth, `sim_*`, or `test_drain_vault` into this package. Clients load **`meridian.prod.json`** only.
 

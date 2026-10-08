@@ -1,7 +1,7 @@
-# Meridian red team checklist (Reviewers)
+# Meridian security review checklist (red team)
 
 Abuse **cases** and review prompts — **no exploit steps, payloads, or reproduction procedures**.  
-Audience: Meridian Reviewers before demo / deploy ladder advance.
+Audience: reviewers before a demo or a deploy-ladder step. Findings and their fixes are recorded in [`TEST_RESULTS.md`](TEST_RESULTS.md) §6 and [`PRD_TRACE.md`](PRD_TRACE.md).
 
 ## Custody & vault
 
@@ -19,7 +19,7 @@ Audience: Meridian Reviewers before demo / deploy ladder advance.
 ## Oracle & settlement
 
 - [ ] Stale or wide-confidence Pyth prices are rejected; outcome immutable after successful settle.
-- [ ] Prod decoder rejects Meridian **mock** price magic; only real Pyth Price layout.
+- [ ] Prod `settle` accepts only a Pyth receiver-owned, Full-verified `PriceUpdateV2` with the market's feed id, the first update at or after expiry, within the window (D-025); the localnet mock layout is rejected.
 - [ ] `admin_settle` respects delay; cannot silently rewrite a settled market.
 
 ## Phoenix / trading
@@ -31,6 +31,10 @@ Audience: Meridian Reviewers before demo / deploy ladder advance.
 ## Ops / Railway
 
 - [ ] Deployer and authority keys only in secret stores — never in git.
+- [ ] Authority, settler and pauser keys are distinct; the upgrade key never reaches Railway.
+- [ ] The pauser is a full Phoenix Seat Manager authority (can unpause, move authority): rotation and offline backup per [`runbooks/PAUSER_ROTATION.md`](runbooks/PAUSER_ROTATION.md); replaced by a program PDA before mainnet ([`design/phoenix-pause-pda-authority.md`](design/phoenix-pause-pda-authority.md)).
+- [ ] Operator prices (`admin_settle`) always carry a logged source and are bound to one market and day.
+- [ ] The Localnet Dev Wallet route is unreachable in production builds and on non-loopback servers.
 - [ ] Railway services cannot toggle `localnet-test` against public clusters.
 - [ ] CI `assert-prod-no-fixtures` green on the exact artifact to deploy.
 
@@ -39,4 +43,4 @@ Audience: Meridian Reviewers before demo / deploy ladder advance.
 - [ ] Demo script uses localnet/sim or clearly labeled staging — no accidental mainnet funds.
 - [ ] No regulatory/compliance claims in UI copy or docs.
 
-If a finding is **In Progress**, file an MR or TRACKER line — do not use “Blocked” wording.
+Known history: a program keypair was once committed to git; it is revoked and the program id was rotated ([`keys/README.md`](../keys/README.md)). Old git history still contains it.

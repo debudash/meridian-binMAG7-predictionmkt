@@ -9,7 +9,7 @@ For a first-time tester who isn't the operator. Do the part for the track you're
 **Track A: localnet, on the operator's box**
 
 1. Ask the operator to **update the box to the latest `main`** and restart the local validator and the web app. Ask which commit (SHA) it's on and write it down.
-2. Open the **box desktop**: the operator's shared computer, which you can open from the Grok Bot app. The app at http://localhost:3000 and the **Localnet Dev Wallet** only exist there. `localhost:3000` on your own computer won't work.
+2. Open the **box desktop**: the operator's shared computer, shared by the operator. The app at http://localhost:3000 and the **Localnet Dev Wallet** only exist there. `localhost:3000` on your own computer won't work.
 3. In the browser on the box desktop, open http://localhost:3000 and carry on with 0.1–0.2 below. There's nothing to install: the Localnet Dev Wallet signs by itself.
 4. **Existing positions on the current Localnet Dev Wallet (dev wallet 2).** It already holds **Yes 5** on **NVDA ≥ $140.00 at close Oct 14** and **MSFT ≥ $420.00 at close Oct 14** (card titles use that short form from `shortQuestion`; Portfolio shows the same). Those are leftover from earlier Track A runs — **don't count them as your fills** from this session. For a truly flat wallet, ask the operator for a fresh key ([`apps/web/README.md`](../apps/web/README.md) "Fresh (flat) dev wallet") or pick a market where the card has **no** `You: …` badge (e.g. AAPL / TSLA / META / AMZN / GOOGL on the current ledger).
 
@@ -32,7 +32,7 @@ For a first-time tester who isn't the operator. Do the part for the track you're
 | **Owner** | Meridian Testers |
 | **For** | Debu, testing by hand. No terminal needed except where a step says **[operator]** |
 | **Written against** | main `7e8120d` (`7e8120d25a946c3ee9da4132886cdd37040e04c3`, Merge !84 Fills refresh + docs through !75). Every on-screen string below is checked against `apps/web/src` at that SHA. Wallet-adapter button labels (**Connect** / **Select Wallet**) come from `@solana/wallet-adapter-react-ui` (locked 0.9.40), not from app source |
-| **Track A** | **Localnet** at http://localhost:3000 with the **Localnet Dev Wallet**. Use it now: real localnet markets with Phoenix books and mock Pyth prices. The operator opens/closes sim sessions and settles from scripts (`docs/SIM_LIFECYCLE.md`) |
+| **Track A** | **Localnet** at http://localhost:3000 with the **Localnet Dev Wallet**. Use it now: real localnet markets with Phoenix books and mock Pyth prices. The operator opens/closes sim sessions and settles from scripts ([`DEPLOY.md`](DEPLOY.md) §3) |
 | **Track B** | **Devnet staging** at https://web-production-77fbb.up.railway.app with **Phantom on devnet** (wallet A), plus **wallet B** for fills. Needs the program deployed and the markets bootstrapped (DLV-077). Full detail and operator steps: [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) |
 | **Not in scope** | Deploying, Railway changes, starting validators. This runbook is read-and-click |
 
@@ -88,7 +88,7 @@ The rule (`app/globals.css`): whatever is selected gets a blue ring/tint, and to
 | 3.1 | Open a market with a book. Use a wide window (≥ 1024 px). | Top: `← Markets`, the question (e.g. `Will AAPL close at or above $305.00?`), an underlying line `AAPL $… · Pyth · Ns ago · 24h … · OI …` (**[A]** shows `mock Pyth`), **Yes / No** price buttons and the countdown `Closes in …`. Left column: **Chart (stub)**, then **Order book · Yes** (`Spread 0.xx · Mid 0.xx`, columns Price / Size / Total, footer `Live Phoenix V1 book (Yes/USDC) — refreshes every 6s.`), then the **Position / Open orders / Fills** tabs and **Rules & resolution**. Right column: **Order ticket** (it stays visible when you scroll). | [ ] |
 | 3.2 | Look at the ticket. | Buttons **Buy Yes / Sell Yes / Buy No / Sell No**, **Market / Limit**, `Size (contracts)`, a payoff box (§8), the submit button (e.g. `Buy Yes 10`, or `Connect wallet` when disconnected) and the line `Each contract pays 1.00 USDC if your side is right at settlement, and 0 if not.` When connected: `Wallet USDC <balance>`. | [ ] |
 | 3.3 | Flat wallet: the **Position** tab. | `No position. You can buy Yes or No.` | [ ] |
-| 3.4 | Scroll to **Rules & resolution**. | It ends with `marketId … · program 9Rb7nx… · phoenix <pubkey>`. `phoenix unset` means the market has no book: trading buttons read `Phoenix not configured — …`. | [ ] |
+| 3.4 | Scroll to **Rules & resolution**. | It ends with `marketId … · program <program id prefix>… · phoenix <pubkey>`. `phoenix unset` means the market has no book: trading buttons read `Phoenix not configured — …`. | [ ] |
 
 ## 4. Order book row click syncs the ticket
 
@@ -100,7 +100,6 @@ The rule (`app/globals.css`): whatever is selected gets a blue ring/tint, and to
 | 4.4 | Switch the header to **No** and click an ask row. | The book shows No prices (= 1.00 − Yes). The ticket gets **Buy No** at that No price. | [ ] |
 | 4.5 | Click a row in the book, then press ↓ / ↑ on the keyboard. | Focus moves row by row. | [ ] |
 
-Reference shots: `meridian-orderbook-highlight.png`, `meridian-orderbook-highlight-book.png`.
 
 ## 5. Buy Yes, Sell Yes, Buy No, Sell No (Market and Limit)
 
@@ -150,7 +149,6 @@ On a market like **AAPL ≥ 305, Oct 9** (fees 0 on staging):
 | 8.4 | Switch to **Market**. | The sentence recomputes at the live best price, matching the `Market fills at best …` line. With an empty book: `No live price on the book for a market order yet.` | [ ] |
 | 8.5 | Read the line under the sentence (and the small one on each market card). | `AAPL $<price> · needs +x.x%` (below strike), `is x.x% above strike` (above), or `at strike (Yes if ≥)`. If the price feed can't be read: `AAPL — · distance to strike —`. | [ ] |
 
-Reference shots: `meridian-payoff-line-ticket.png`, `meridian-payoff-line-sell-yes-ticket.png`, `meridian-payoff-line-buy-no-ticket.png`, `meridian-payoff-line-trade.png`, `meridian-payoff-distance-cards.png`.
 
 ## 9. Resting order filled by the other wallet, Phoenix balance, Withdraw, Cancel, Cancel all
 
@@ -188,7 +186,6 @@ Reference shots: `meridian-payoff-line-ticket.png`, `meridian-payoff-line-sell-y
 | 11.6 | Click **Export CSV**. | A CSV downloads. The page notes `CSV: ISO-8601 UTC + America/Chicago.` | [ ] |
 | 11.7 | Look for wallet B's fill of your resting order (from 9.2) in **wallet A's** History. | It is **not** listed as a fill (known limit, box at the end). You see it only through your withdraw/cancel rows and the seat balance. | [ ] |
 
-Reference shots: `meridian-selection-portfolio.png`, `meridian-selection-portfolio-orders.png`, `meridian-selection-history.png` (older builds: use them for the highlight style; the tile names have changed since).
 
 ## 12. "Checking your balances…" and Retry
 
@@ -222,9 +219,9 @@ If 13.6–13.8 fail on a paused book, that's a **blocker for !73**: report it.
 **[B]** The operator pipeline settles the 20-min market (STAGING_TEST_PLAN 7.5 / 7.6). From expiry + 90 s it tries, in order:
 1. **Pyth pull settle**: the market's **sponsored** Pyth price account if it already holds the expiry price, otherwise the **Hermes** expiry price posted through the Pyth receiver (needs the Hermes API key). Signed by the low-balance **settler** key.
 2. The legacy permissionless settle against the sponsored account (settler).
-3. From expiry + 330 s, if still unsettled: **`admin_settle`** by the config authority at the **Hermes AAPL price at expiry** (publish time within 10 min of expiry). If Hermes has no such price (off-hours, key not entitled), the pipeline **refuses** to settle on its own and waits for the operator to supply the real expiry price **with its source** (e.g. the official close); the source is logged. It never uses the stale shard-0 account price (Reviewers mr72-73 M3). Checked 2026-10-08: the current `PYTH_HERMES_API_KEY` gets HTTP 403 **"Not entitled … asset type 'equity'"** for the AAPL feed (crypto feeds return 200), so until the key's plan includes equities, both the Hermes pull settle and the Hermes fallback price refuse and the **operator price** path is what settles.
+3. From expiry + 330 s, if still unsettled: **`admin_settle`** by the config authority at the **Hermes AAPL price at expiry** (publish time within 60 s of expiry). If Hermes has no such price (off-hours, key not entitled), the pipeline **refuses** to settle on its own and waits for the operator to supply the real expiry price **with its source** (e.g. the official close); the source is logged. It never uses the stale shard-0 account price (Reviewers mr72-73 M3). Checked 2026-10-08: the current `PYTH_HERMES_API_KEY` gets HTTP 403 **"Not entitled … asset type 'equity'"** for the AAPL feed (crypto feeds return 200), so until the key's plan includes equities, both the Hermes pull settle and the Hermes fallback price refuse and the **operator price** path is what settles.
 
-**[A]** The operator closes the sim session and settles against the mock Pyth price (`docs/SIM_LIFECYCLE.md`).
+**[A]** The operator closes the sim session (or warps the SimClock) and settles against the mock Pyth price ([`DEPLOY.md`](DEPLOY.md) §3).
 
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
@@ -237,7 +234,7 @@ If 13.6–13.8 fail on a paused book, that's a **blocker for !73**: report it.
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
 | 15.1 | Settled market page → **Settlement proof** card. | Chip **Yes wins** / **No wins**, the line `AAPL $X ≥ $300.00 → Yes wins` (or `< … → No wins`), and rows **Settlement price**, **Confidence**, **Strike** `$300.00 (Yes if ≥, D-005)`, **Settled at** `… · slot N`, **Settle tx** `…↗`, **Pyth feed id** `0x…↗` · `price account …↗`. `On-chain outcome does not match price ≥ strike — investigate.` must **not** appear. | [ ] |
-| 15.2 | Read the price label and the note under the rows. | **Pyth settle:** price `$X Pyth` (**[A]** `$X mock Pyth (localnet)`), a Confidence like `± $0.04`, and the note `Pyth publish time isn't stored on-chain; settle required it within 150 slots (D-005).` **Admin settle:** `$X admin fallback` (the mainnet Pyth price read at about expiry + 330 s, see 14), Confidence `n/a (admin settle)`, and the note `Settled by admin fallback (no Pyth read; price checked against strike on-chain).` | [ ] |
+| 15.2 | Read the price label and the note under the rows. | **Pyth settle:** price `$X Pyth` (**[A]** `$X mock Pyth (localnet)`), a Confidence like `± $0.04`, and the note `Pyth publish time isn't stored on-chain; settle required it within 150 slots (D-005).` **Admin settle:** `$X admin fallback` (the Hermes price at expiry or the operator price with its source, see 14), Confidence `n/a (admin settle)`, and the note `Settled by admin fallback (no Pyth read; price checked against strike on-chain).` | [ ] |
 | 15.3 | Click **Settle tx ↗**. | Explorer opens the operator's settle signature. If the RPC has pruned it: `Settle transaction not found in RPC history (pruned or not yet indexed); values are from the market account.` | [ ] |
 | 15.4 | Go to `/markets`. | A chip **Recently settled (N)**. Click it: the settled market is listed with **View settlement proof →** instead of Buy buttons. | [ ] |
 | 15.5 | With the **winning** wallet: look at the header. | A dot next to **Portfolio** (hover: `Redeemable: N.NN USDC`). | [ ] |
@@ -245,7 +242,6 @@ If 13.6–13.8 fail on a paused book, that's a **blocker for !73**: report it.
 | 15.7 | With the **losing** wallet: open the market's Position tab. | `Your side did not win. Payout 0.00 USDC.` No Redeem row. | [ ] |
 | 15.8 | **History → Settlements / Redemptions**. | A `settlement · Result: Yes` (or `No`) row and a `redemption · Redeem Yes` (or `No`) row with `+N.00`. | [ ] |
 
-Reference shots: `meridian-settle-proof-card.png` (Pyth settle, localnet), `meridian-settle-proof-admin-card.png` (admin fallback), `meridian-settle-proof-trade.png`, `meridian-recently-settled.png`.
 
 ## 16. 404 pages
 
@@ -267,36 +263,17 @@ Use a phone, or Chrome DevTools → device toolbar → **390 × 844**.
 | 17.3 | Open a trade page. | One column in this order: header (question, Yes/No, countdown) → **Order ticket** → order book → chart stub → Position / Open orders / Fills → Rules. Nothing is cut off. The bottom bar doesn't cover the submit button once you scroll. | [ ] |
 | 17.4 | Place a small order on mobile (5.1). | Same toasts as on desktop. | [ ] |
 
-Reference shots: `meridian-trade-layout-mobile-390x844.png` (mobile), `meridian-trade-layout-desktop-1280x800.png` and `meridian-trade-layout-desktop-1280x800-full.png` (desktop).
-
----
-
-## What good looks like (screenshots on the box)
-
-These are in `/workspace/` on the shared box and were taken on **localnet on 2026-10-07**. Some come from builds before !63/!67, so a few labels differ from today's app (e.g. the old Portfolio tiles, and the pre-payoff "Cost … · Pays …" ticket box in the order-book shots). Where a screenshot and a step disagree, **the step text wins**.
-
-| Use case | Screenshot |
-| --- | --- |
-| 1 Market list: cards / table / ladder, with "You:" badges | `meridian-markets-exposure.png`, `meridian-markets-exposure-table.png`, `meridian-markets-exposure-ladder.png` |
-| 2 Selection highlights | `meridian-selection-markets.png`, `meridian-selection-markets-table.png`, `meridian-selection-trade.png`, `meridian-selection-trade-full.png`, `meridian-selection-wallet-menu.png`, `meridian-selection-portfolio.png`, `meridian-selection-portfolio-orders.png`, `meridian-selection-history.png` |
-| 3 Trade layout | `meridian-trade-layout-desktop-1280x800.png`, `meridian-trade-layout-desktop-1280x800-full.png` |
-| 4 Book row click → ticket | `meridian-orderbook-highlight.png`, `meridian-orderbook-highlight-book.png` |
-| 8 Payoff + distance | `meridian-payoff-line-ticket.png`, `meridian-payoff-line-sell-yes-ticket.png`, `meridian-payoff-line-buy-no-ticket.png`, `meridian-payoff-line-trade.png`, `meridian-payoff-distance-cards.png` |
-| 15 Proof card / Recently settled | `meridian-settle-proof-card.png`, `meridian-settle-proof-admin-card.png`, `meridian-settle-proof-trade.png`, `meridian-recently-settled.png` |
-| 17 Mobile | `meridian-trade-layout-mobile-390x844.png` |
-
-There are no screenshots yet for 5–7, 9–14 or 16. The paused-book flow (13) has never been captured.
 
 ---
 
 ## Known limitations (not bugs: Pass = the behaviour described)
 
 > - **DLV-069: a resting (limit) Sell No doesn't merge on fill.** You end up holding Yes + No ("Both sides held") until you sell both (5.8).
-> - **Fills by others aren't in your History.** When another wallet fills your resting order, History doesn't show a fill row; you see it in the Phoenix balance and your later withdraw/cancel rows (11.7). TRACKER follow-up to DLV-088.
-> - **Pyth off-hours → admin fallback.** Permissionless settle needs the first AAPL Pyth update **within 60 s after expiry** (D-025). Equity prices don't update outside US market hours. The sponsored accounts are also stale on devnet (RAILWAY_STAGING §0), and Hermes needs an API key. So a market that expires off-hours (or without a usable Hermes post) settles by **`admin_settle`** after the 5-min admin delay, at the last published mainnet Pyth price as read at about expiry + 330 s (not the price at expiry). The proof card then says `admin fallback` (15.2).
+> - **Fills by others aren't in your History.** When another wallet fills your resting order, History doesn't show a fill row; you see it in the Phoenix balance and your later withdraw/cancel rows (11.7). Tracked follow-up to DLV-088.
+> - **Pyth off-hours → admin fallback.** Permissionless settle needs the first AAPL Pyth update **within 60 s after expiry** (D-025). Equity prices don't update outside US market hours. The sponsored accounts are also stale on devnet, and Hermes needs an API key with an equity entitlement (DLV-106). So a market that expires off-hours (or without a usable Hermes post) settles by **`admin_settle`** after the 5-min admin delay, at the Hermes price at expiry or, failing that, an operator price with its logged source (14). The proof card then says `admin fallback` (15.2).
 > - **Short window at expiry.** The pause lands seconds after expiry (box) or by the next automation tick, not in the same instant. Cancel resting orders before expiry if you don't want them exposed (13.9). The app has no "Paused" badge.
 > - **Market orders are fill-or-kill.** If the book can't fill your whole size within the price limit, nothing trades (5.9). That's on purpose.
 
 ## Related
 
-[`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) (full devnet plan with operator steps and invariant checks) · [`TEST_RESULTS.md`](TEST_RESULTS.md) · [`SIM_LIFECYCLE.md`](SIM_LIFECYCLE.md) · [`RAILWAY_STAGING.md`](RAILWAY_STAGING.md) · [`../ops/README.md`](../ops/README.md) (pause at expiry, operator tools)
+[`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) (full devnet plan with operator steps and invariant checks) · [`TEST_RESULTS.md`](TEST_RESULTS.md) · [`DEPLOY.md`](DEPLOY.md) · [`../ops/README.md`](../ops/README.md) (pause at expiry, operator tools)
