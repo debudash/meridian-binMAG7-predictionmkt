@@ -43,10 +43,14 @@ done
 
 # 4. validator
 RESET_FLAG=""
+# --bpf-program only takes effect in a new ledger: a rebuilt program means a fresh chain.
+if [ -f "$DATA/ledger/genesis.bin" ] && [ target/deploy/meridian.so -nt "$DATA/ledger/genesis.bin" ]; then
+  log "program rebuilt since the ledger was created — resetting the chain"; RESET=1
+fi
 if [ "${RESET:-0}" = "1" ]; then RESET_FLAG="--reset"; rm -f "$DATA/state/"*.json; fi
 log "starting solana-test-validator on :8899 ${RESET_FLAG}"
 solana-test-validator --ledger "$DATA/ledger" $RESET_FLAG \
-  --rpc-port 8899 --bind-address 0.0.0.0 \
+  --rpc-port 8899 --bind-address 127.0.0.1 \
   --bpf-program 9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6 target/deploy/meridian.so \
   --bpf-program PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY "$DATA/programs/phoenix.so" \
   --bpf-program PSMxQbAoDWDbvd9ezQJgARyq6R9L5kJAasaLDVcZwf1 "$DATA/programs/seat_manager.so" \
@@ -72,5 +76,8 @@ WEB=$!
 # Relay inside the namespace: Docker's port mapping lands on :3001 and is forwarded to 127.0.0.1:3000, so Next sees a
 # loopback peer and the dev-wallet gates (DLV-080/081) hold. Published on Windows 127.0.0.1 only (compose file).
 socat TCP-LISTEN:3001,fork,reuseaddr TCP:127.0.0.1:3000 &
+# Agave 4.x refuses to bind the validator to 0.0.0.0, so RPC (8899) and WebSocket (8900) are relayed the same way.
+socat TCP-LISTEN:18899,fork,reuseaddr TCP:127.0.0.1:8899 &
+socat TCP-LISTEN:18900,fork,reuseaddr TCP:127.0.0.1:8900 &
 log "ready. settle expired markets: docker compose -f docker/compose.localnet.yml exec local node docker/localnet/settle.cjs"
 wait -n "$VALIDATOR" "$WEB"
