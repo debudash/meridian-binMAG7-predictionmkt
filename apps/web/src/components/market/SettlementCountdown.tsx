@@ -30,7 +30,7 @@ export function SettlementCountdown({
       className={compact ? "chip" : "tabular"}
     >
       {compact ? (
-        <span>{cd.relativeLabel}</span>
+        <span>{cd.state === "settled" ? cd.relativeLabel.split(" · ")[0] : cd.relativeLabel}</span>
       ) : (
         <div>
           <div style={{ fontWeight: 650, fontSize: "1.05rem" }}>{cd.relativeLabel}</div>

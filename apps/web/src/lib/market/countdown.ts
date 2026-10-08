@@ -79,7 +79,7 @@ export function getCountdown(
     const side = mapped.outcome === "yes" ? "Yes" : "No";
     const price =
       market.resolvedPrice != null
-        ? ` · ${market.underlyingSymbol} closed $${market.resolvedPrice.toFixed(2)} ${market.comparator} $${market.strike.toFixed(2)}`
+        ? ` · ${market.underlyingSymbol} closed $${market.resolvedPrice.toFixed(2)} ${market.resolvedPrice >= market.strike ? "≥" : "<"} $${market.strike.toFixed(2)}`
         : "";
     return {
       state: "settled",

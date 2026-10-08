@@ -19,7 +19,12 @@ export interface MarketView {
   outcome?: "yes" | "no" | "void";
   resolvedPrice?: number;
   resolvedAt?: number;
+  /** Pyth price ACCOUNT pubkey (`StrikeMarket.pyth_price_feed`) — name kept for compat */
   pythFeedId?: string;
+  /** 32-byte Pyth feed id hex (`StrikeMarket.pyth_feed_id`); undefined if all-zero */
+  pythFeedIdHex?: string;
+  /** `StrikeMarket.settled_slot` (effective clock slot at settle) */
+  settledSlot?: number;
   phoenixMarket?: string;
   yesMint?: string;
   noMint?: string;

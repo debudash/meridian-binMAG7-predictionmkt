@@ -150,11 +150,23 @@ export function MarketsClient({
       list.sort((a, b) => (b.openInterest ?? 0) - (a.openInterest ?? 0));
     } else if (sort === "newest") {
       list.sort((a, b) => b.tradingCloseTs - a.tradingCloseTs);
+    } else if (status === "settled") {
+      // Recently settled: newest settlement first (DLV-076).
+      list.sort((a, b) => (b.resolvedAt ?? b.settleTs) - (a.resolvedAt ?? a.settleTs));
     } else {
       list.sort((a, b) => a.tradingCloseTs - b.tradingCloseTs);
     }
     return list;
   }, [markets, status, q, sort, nowSec, underlyings, expiry]);
+
+  const settledCount = useMemo(
+    () =>
+      markets.filter((m) => {
+        const st = getCountdown(m, nowSec).state;
+        return st === "settled" || st === "voided";
+      }).length,
+    [markets, nowSec],
+  );
 
   const ladderGroups = useMemo(() => {
     const groups = new Map<string, MarketView[]>();
@@ -210,7 +222,7 @@ export function MarketsClient({
           <option value="open">Open</option>
           <option value="closing-soon">Closing soon</option>
           <option value="closed">Closed</option>
-          <option value="settled">Settled</option>
+          <option value="settled">Recently settled</option>
           <option value="all">All</option>
         </select>
         <select
@@ -259,6 +271,23 @@ export function MarketsClient({
           alignItems: "center",
         }}
       >
+        {settledCount > 0 && (
+          <button
+            type="button"
+            className="filter-chip"
+            data-testid="recently-settled-chip"
+            aria-pressed={status === "settled"}
+            title="Settled markets with their Pyth settlement proof"
+            onClick={() => {
+              const next: StatusFilter = status === "settled" ? "open" : "settled";
+              setStatus(next);
+              syncUrl({ status: next });
+            }}
+            style={{ marginRight: 8 }}
+          >
+            Recently settled ({settledCount})
+          </button>
+        )}
         <span className="muted" style={{ fontSize: "0.8rem", marginRight: 4 }}>
           Underlying
         </span>

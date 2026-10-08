@@ -166,6 +166,14 @@ Rules:
 - Timestamps: trading close, observation, expected resolution.
 - Addresses: market `<MARKET_PUBKEY>`, Phoenix market `<PHOENIX_MARKET>`, program `<PROGRAM_ID>` with copy buttons.
 
+## 9a. Settlement proof card (DLV-076, D-023 — as built)
+Shown at the top of the left column once a market is not Open (chart stub and order book are hidden then; the ticket shows "Trading closed").
+- **Settled:** "Settlement proof" + Yes/No-wins chip; headline "NVDA $138.25 ≥ $135.00 → Yes wins" (≥ per D-005); rows: settlement price + source (Pyth / mock Pyth (localnet) / admin fallback), confidence (± $, from the `Settled` event's `pyth_conf` × the feed account's current expo; "n/a" for admin settle), strike, settled at (CT) + settle slot, **settle tx** explorer link, **Pyth feed id** (Hermes link for real feeds; "(mock)" on localnet) + price-account explorer link.
+- Data: `StrikeMarket` (status, settlement_price_e6, settled_at_ts, settled_slot, pyth_feed_id, pyth_price_feed) + the `Settled`/`AdminSettled` event decoded from the settle tx logs, found via `getSignaturesForAddress(market)` (exact `settled_slot` match first, ≤5×200 sigs). Missing tx → values from the account + note.
+- Not on-chain (shown as a note): the Pyth publish time of the price used (settle enforced ≤150-slot staleness, D-005).
+- Explorer links add `?cluster=custom&customUrl=<rpc>` on localnet; a query already baked into `NEXT_PUBLIC_EXPLORER_URL` is kept after the path.
+- **Settling** (retired status, D-018): "Settlement in progress". **Void:** "Market voided".
+
 ## 10. Data needed
 | Data | Fields | Source | Freshness |
 |---|---|---|---|
