@@ -15,8 +15,8 @@ import { fixturesAllowed } from "@/lib/solana/config";
 import { fetchPhoenixBook, isPhoenixPlacementEnabled } from "@/lib/phoenix";
 import { useConnection } from "@solana/wallet-adapter-react";
 import type { OrderBookSnapshot } from "@/lib/market/types";
-import { formatOutcomePrice } from "@/lib/format";
-import { noPriceFromYes, type Perspective } from "@/lib/market/bookTransform";
+import { type Perspective } from "@/lib/market/bookTransform";
+import { headerPills, impliedText, marketPriceDisplay } from "@/lib/market/priceDisplay";
 import {
   bookKeys,
   bookSelectionReducer,
@@ -132,12 +132,13 @@ export function TradeClient({
   }, [tKey]);
   const highlightKey = resolveHighlightKey(selection, tKey, levelKeys);
 
-  const liveMid =
-    liveBook && liveBook.bids[0] && liveBook.asks[0]
-      ? (liveBook.bids[0].price + liveBook.asks[0].price) / 2
-      : undefined;
-  const yes = liveMid ?? market.yesMid ?? market.lastYes ?? 0.5;
-  const no = noPriceFromYes(yes, market.tickSize);
+  // DLV-116 (docs/ui/08): header pills show EXECUTABLE Buy prices (live book when we have one, else the
+  // market snapshot) + a separate `NN% implied`; never a bare mid, never a `?? 0.5` default.
+  const priceView = marketPriceDisplay(market, {
+    book: liveBook,
+    open: getCountdown(market, nowSec).tradingEnabled,
+  });
+  const pills = headerPills(priceView);
 
   // Wallet Yes/No/USDC + Phoenix seat + resting orders (DLV-088/087). Demo only for localnet fixtures.
   const demoMarket = demoMarketAllowed(market.marketId);
@@ -268,31 +269,42 @@ export function TradeClient({
           </div>
         </div>
         <div className="trade-header-right">
-          {/* Yes/No prices double as the book perspective toggle */}
+          {/* Buy prices double as the book perspective toggle (aria-pressed = perspective, not an order) */}
           <div className="trade-persp" role="group" aria-label="Book perspective">
             <button
               type="button"
               className="btn sel-yes"
               aria-pressed={perspective === "yes"}
               onClick={() => syncPerspective("yes")}
+              title={pills.yes.title}
             >
-              Yes{" "}
-              <strong className="tabular" style={{ color: "var(--yes)" }}>
-                {formatOutcomePrice(yes)}
-              </strong>
+              {pills.yes.label}
+              {pills.yes.price != null && (
+                <strong className="tabular" style={{ color: "var(--yes)" }} data-testid="pill-buy-yes-price">
+                  {pills.yes.price}
+                </strong>
+              )}
             </button>
             <button
               type="button"
               className="btn sel-no"
               aria-pressed={perspective === "no"}
               onClick={() => syncPerspective("no")}
+              title={pills.no.title}
             >
-              No{" "}
-              <strong className="tabular" style={{ color: "var(--no)" }}>
-                {formatOutcomePrice(no)}
-              </strong>
+              {pills.no.label}
+              {pills.no.price != null && (
+                <strong className="tabular" style={{ color: "var(--no)" }} data-testid="pill-buy-no-price">
+                  {pills.no.price}
+                </strong>
+              )}
             </button>
           </div>
+          {pills.implied != null && (
+            <span className="muted tabular" style={{ fontSize: "0.85rem" }} data-testid="trade-implied">
+              {pills.implied}
+            </span>
+          )}
           <SettlementCountdown market={market} />
         </div>
       </header>
@@ -316,8 +328,8 @@ export function TradeClient({
             <div className="card trade-chart">
               <strong>Chart (stub)</strong>
               <p className="muted" style={{ fontSize: "0.85rem", margin: "0.5rem 0 0" }}>
-                Chart stub — implied price series + Pyth overlay not wired (TODO(indexer)). Mid{" "}
-                {formatOutcomePrice(perspective === "yes" ? yes : no)} ({perspective}).
+                Chart stub — implied price series + Pyth overlay not wired (TODO(indexer)). Yes{" "}
+                {impliedText(priceView)}.
               </p>
             </div>
           )}

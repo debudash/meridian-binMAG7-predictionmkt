@@ -46,8 +46,10 @@ export function decodeClockSysvar(data: Buffer | undefined | null): ClockSnapsho
 function applyTopOfBook(v: MarketView, bid: number | undefined, ask: number | undefined): void {
   if (bid != null) v.yesBid = bid;
   if (ask != null) v.yesAsk = ask;
+  // DLV-116 (docs/ui/08): mid only when both sides exist — a one-sided book has no mid.
+  // An empty book leaves the mapped value (e.g. settled 1 / 0) alone, as before.
   if (bid != null && ask != null) v.yesMid = Math.round(((bid + ask) / 2) * 1000) / 1000;
-  else if (bid != null || ask != null) v.yesMid = (bid ?? ask) as number;
+  else if (bid != null || ask != null) v.yesMid = undefined;
 }
 
 export async function attachPhoenixQuotes(

@@ -10,6 +10,7 @@ import { useIntentAvailability } from "@/hooks/useIntentAvailability";
 import { useTradingBlockedByBanner } from "@/components/layout/GlobalBanners";
 import { shortBuyBlockedTitle } from "@/lib/intents/shortCopy";
 import { cardAvailabilityOptions, type BalancesLock } from "@/lib/intents/cardLock";
+import { buyButtonPrices, marketPriceDisplay } from "@/lib/market/priceDisplay";
 
 export interface MarketTradeState {
   availability: IntentAvailabilityMap;
@@ -18,6 +19,8 @@ export interface MarketTradeState {
   buyNoOk: boolean;
   buyYesTitle?: string;
   buyNoTitle?: string;
+  /** Countdown says trading is open (closed / settled → no executable prices, DLV-116). */
+  tradingOpen: boolean;
 }
 
 /**
@@ -51,10 +54,15 @@ export function useMarketTradeState(
     buyNoOk: availability["buy-no"].enabled && !tradeDisabled,
     buyYesTitle: title("yes"),
     buyNoTitle: title("no"),
+    tradingOpen: cd.tradingEnabled,
   };
 }
 
-/** Buy Yes / Buy No links; blocked side uses the shared disabled style (D-022). */
+/**
+ * Buy Yes / Buy No links; blocked side uses the shared disabled style (D-022).
+ * DLV-116 (docs/ui/08): each shows its EXECUTABLE price (Buy Yes = best Yes ask, Buy No = 1 − best Yes bid);
+ * an empty side shows — and stays enabled for a limit order, with a no-liquidity tooltip.
+ */
 export function MarketBuyLinks({
   market,
   state,
@@ -64,11 +72,15 @@ export function MarketBuyLinks({
   state: MarketTradeState;
   compact?: boolean;
 }) {
-  const style = compact ? { padding: "0.2rem 0.5rem", fontSize: "0.78rem" } : undefined;
+  // Price adds width: slightly tighter horizontal padding so both fit a 4-up card row (DLV-116).
+  const style = compact ? { padding: "0.2rem 0.5rem", fontSize: "0.78rem" } : { padding: "0.55rem 0.65rem" };
+  const display = marketPriceDisplay(market, { open: state.tradingOpen });
+  const prices = buyButtonPrices(display);
   const link = (side: "yes" | "no") => {
     const ok = side === "yes" ? state.buyYesOk : state.buyNoOk;
     const title = side === "yes" ? state.buyYesTitle : state.buyNoTitle;
     const label = side === "yes" ? "Buy Yes" : "Buy No";
+    const cell = side === "yes" ? prices.yes : prices.no;
     return (
       <Link
         className={`btn ${side === "yes" ? "btn-yes" : "btn-no"}`}
@@ -76,14 +88,19 @@ export function MarketBuyLinks({
         aria-disabled={!ok}
         aria-label={!ok && title ? `${label} — unavailable: ${title}` : undefined}
         tabIndex={!ok ? -1 : undefined}
-        title={title}
+        title={title ?? cell.title}
         onClick={(e) => {
           if (!ok) e.preventDefault();
         }}
-        style={{ ...style, ...(!ok ? { cursor: "not-allowed" } : null) }}
+        style={{ whiteSpace: "nowrap", ...style, ...(!ok ? { cursor: "not-allowed" } : null) }}
         data-blocked={!ok || undefined}
       >
         {label}
+        {display.open && (
+          <span className="tabular" data-testid={`buy-${side}-price`}>
+            {cell.price}
+          </span>
+        )}
       </Link>
     );
   };
