@@ -24,9 +24,9 @@ ln -sf "$KEYS/authority.json" /root/.config/solana/id.json
 solana config set --url http://127.0.0.1:8899 >/dev/null
 
 # node deps (named volumes, Linux binaries)
-[ -d node_modules/@coral-xyz ] || { log "npm install (root)"; npm install --no-audit --no-fund; }
-[ -d apps/web/node_modules/next ] || { log "npm install (web)"; npm install --prefix apps/web --no-audit --no-fund; }
-[ -d apps/automation/node_modules/typescript ] || { log "npm install (automation)"; npm install --prefix apps/automation --no-audit --no-fund; }
+[ -d node_modules/@coral-xyz ] || { log "npm install (root)"; npm ci --legacy-peer-deps --no-audit --no-fund; }
+[ -d apps/web/node_modules/next ] || { log "npm install (web)"; npm ci --prefix apps/web --legacy-peer-deps --no-audit --no-fund; }
+[ -d apps/automation/node_modules/typescript ] || { log "npm install (automation)"; npm ci --prefix apps/automation --legacy-peer-deps --no-audit --no-fund; }
 npm run build --prefix apps/automation >/dev/null
 
 # 2. program (localnet-test build; the prod build never goes on this validator's twin on devnet)
