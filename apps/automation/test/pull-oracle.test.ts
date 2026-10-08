@@ -123,6 +123,17 @@ describe("DLV-078 Hermes client (API key gated since 2026-08-26)", () => {
       expect(e).to.be.instanceOf(HermesApiKeyError);
     }
   });
+  it("HTTP 403 'Not entitled' (valid key, no equity grant) → HermesApiKeyError naming the missing entitlement", async () => {
+    try {
+      await fetchUpdateAt({ apiKey: "k", feedIdHex: AAPL, publishTime: EXPIRY,
+        fetchImpl: fakeFetch(403, "Not entitled: feed 49f6 (no grant accepts this feed (asset type 'equity', instrument type 'spot', exchange 1))") });
+      expect.fail("should throw");
+    } catch (e) {
+      expect(e).to.be.instanceOf(HermesApiKeyError);
+      expect(String((e as Error).message)).to.match(/not entitled to this feed .*asset type 'equity'/);
+      expect(String((e as Error).message)).to.not.match(/rejected the API key/);
+    }
+  });
 });
 
 describe("DLV-078 settleWithPullOracle orchestration", () => {

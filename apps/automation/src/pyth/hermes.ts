@@ -47,7 +47,12 @@ export async function fetchUpdateAt(opts: {
   const url = hermesUpdateUrl(opts.baseUrl ?? DEFAULT_HERMES_URL, opts.feedIdHex, opts.publishTime);
   const res = await f(url, { headers: { Authorization: `Bearer ${opts.apiKey}`, Accept: "application/json" } });
   if (res.status === 401 || res.status === 403) {
-    throw new HermesApiKeyError(`Hermes rejected the API key (HTTP ${res.status})`);
+    // 403 "Not entitled" = the key is valid but its plan has no grant for this feed (e.g. equities). Never echo the key.
+    const body = (await res.text().catch(() => "")).slice(0, 200);
+    const why = /not entitled/i.test(body)
+      ? `Hermes key is valid but not entitled to this feed (HTTP ${res.status}: ${(body.match(/\(no grant[^]*$/)?.[0] ?? "").slice(0, 120)})`
+      : `Hermes rejected the API key (HTTP ${res.status})`;
+    throw new HermesApiKeyError(why);
   }
   if (!res.ok) throw new Error(`Hermes HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const body = await res.json();
