@@ -30,7 +30,7 @@ solana config set --url http://127.0.0.1:8899 >/dev/null
 npm run build --prefix apps/automation >/dev/null
 
 # 2. program (localnet-test build; the prod build never goes on this validator's twin on devnet)
-if [ ! -f target/deploy/meridian.so ] || [ "${REBUILD:-0}" = "1" ]; then
+if [ ! -f target/deploy/meridian.so ] || [ ! -f target/idl/meridian.json ] || [ "${REBUILD:-0}" = "1" ]; then
   log "anchor build --features localnet-test (first run takes a while)"
   anchor build -- --features localnet-test
 fi
@@ -45,14 +45,15 @@ done
 RESET_FLAG=""
 if [ "${RESET:-0}" = "1" ]; then RESET_FLAG="--reset"; rm -f "$DATA/state/"*.json; fi
 log "starting solana-test-validator on :8899 ${RESET_FLAG}"
-solana-test-validator --ledger "$DATA/ledger" $RESET_FLAG --quiet \
+solana-test-validator --ledger "$DATA/ledger" $RESET_FLAG \
   --rpc-port 8899 --bind-address 0.0.0.0 \
   --bpf-program 9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6 target/deploy/meridian.so \
   --bpf-program PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY "$DATA/programs/phoenix.so" \
   --bpf-program PSMxQbAoDWDbvd9ezQJgARyq6R9L5kJAasaLDVcZwf1 "$DATA/programs/seat_manager.so" \
   > "$DATA/validator.log" 2>&1 &
 VALIDATOR=$!
-for i in $(seq 1 60); do solana cluster-version >/dev/null 2>&1 && break; sleep 1; done
+# the first start writes genesis with three preloaded programs; give it up to 3 minutes
+for i in $(seq 1 180); do solana cluster-version >/dev/null 2>&1 && break; kill -0 "$VALIDATOR" 2>/dev/null || break; sleep 1; done
 solana cluster-version >/dev/null || { log "validator did not start; see /data/validator.log"; tail -30 "$DATA/validator.log"; exit 1; }
 
 # 5. seed (idempotent: re-running on an existing ledger only adds what's missing)
