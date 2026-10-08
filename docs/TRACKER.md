@@ -73,7 +73,7 @@ _Last refreshed: 2026-10-07 14:30 CT (base `0c173ac`; DLV-066 web Phoenix fixes 
 - [ ] Program: **prod Pyth decoder reads legacy `Price` layout** — D-019 accounts are receiver `PriceUpdateV2` (134 B) → permissionless settle fails `InvalidPythAccount` off-localnet; decode PriceUpdateV2 (owner `rec5EK…`, feed-id compare, publish-time staleness) and handle stale sponsored MAG7 feeds (post updates via Hermes key or re-pin). **Prod blocker** (DLV-078)
 - [ ] Web: live Portfolio / History / trade-page Open orders + Fills from chain (Phoenix trader state + token balances) — today demo fixtures (DLV-068)
 - [ ] Web: merge-on-fill for **resting** Sell No (limit/post-only bid fills → `merge_pair`); Market Sell No already merges in-tx (DLV-069)
-- [ ] Web: Buy No under-fill — IOC ask past the ±0.02 cap can fill 0/partial and leave the user holding Yes+No; set min-fill (abort whole tx) or auto-merge remainder (DLV-070)
+- [x] Web: Buy No under-fill — IOC ask past the ±0.02 cap can fill 0/partial and leave the user holding Yes+No (DLV-070) → **fixed** (`fix/market-fill-or-kill`, D-024): Market orders set Phoenix min fill = full size, so the mint + ask (and every market order) is all-or-nothing; no-fill / paused / closed show plain copy (`lib/phoenix/errors.ts` + `errors.test.ts` 5). Also fixes the silent 0-fill "Submitted" toast on Buy/Sell Yes. Verified on a fresh isolated validator by `localnet.hardening.e2e.test.ts` (10 real-Phoenix cases, 25 invariant checks)
 - [ ] UI sim affordance (optional for V1) (D-017 / DLV-048)
 - [ ] Peak6 PRD: demo video (DLV-038; distinct from `DEMO_SCRIPT.md`)
 - [ ] Remaining SCHEMA §8 opens as needed for V1 (DLV-042; MAG7/D-019 Done; multi-collateral OOS)

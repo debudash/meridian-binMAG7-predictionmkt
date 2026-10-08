@@ -32,6 +32,8 @@ export type PlaceFailureReason =
   | "merge-accounts-missing"
   | "merge-schema-todo"
   | "sdk-error"
+  | "no-fill"
+  | "program-error"
   | "user-rejected";
 
 export interface MappedBookAction {

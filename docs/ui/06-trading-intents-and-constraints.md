@@ -26,7 +26,7 @@ The user always picks **an intent**, never a raw Phoenix side. The UI translates
 ### 1.1 Order types
 | Type | Phoenix mapping | Ticket label | Default |
 |---|---|---|---|
-| Market | IOC with limit = worst acceptable price (slippage cap) | "Market" | Yes |
+| Market | IOC with limit = worst acceptable price (slippage cap), **fill-or-kill**: min fill = full size, else the whole tx reverts (D-024) | "Market" | Yes |
 | Limit | Limit (GTC) | "Limit" | — |
 | ~~Post-only~~ | Limit post-only | **Hidden in V1** (D-021, simplification per Debu) — no checkbox; always sent as post-only = false | off (forced) |
 

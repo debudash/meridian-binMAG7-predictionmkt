@@ -311,6 +311,9 @@ export function TradeTicket({
         push("neutral", result.message);
       } else if (result.reason === "merge-schema-todo") {
         push("neutral", result.message);
+      } else if (result.reason === "no-fill" || result.reason === "program-error") {
+        // Plain copy from explainPlaceError (D-024) — nothing was traded.
+        push("error", result.message);
       } else {
         const tone = result.ok ? "success" : result.reason === "user-rejected" ? "neutral" : "error";
         push(
