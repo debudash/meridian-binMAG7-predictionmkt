@@ -42,11 +42,44 @@ export function getExplorerUrl(): string {
   return process.env.NEXT_PUBLIC_EXPLORER_URL ?? "https://explorer.solana.com";
 }
 
+/**
+ * Explorer cluster query. localnet → `cluster=custom&customUrl=<rpc>` so links open
+ * against the local validator (explorer.solana.com reads it from the browser).
+ */
+export function explorerClusterQuery(
+  cluster = getCluster(),
+  rpcUrl = getRpcUrl(),
+): string {
+  if (cluster === "mainnet-beta" || cluster === "mainnet") return "";
+  if (cluster === "localnet" || cluster === "custom") {
+    return `?cluster=custom&customUrl=${encodeURIComponent(rpcUrl)}`;
+  }
+  return `?cluster=${cluster}`;
+}
+
+/**
+ * Build an explorer link. If NEXT_PUBLIC_EXPLORER_URL already carries a query
+ * (e.g. `https://explorer.solana.com/?cluster=custom&customUrl=…` on localnet), the
+ * query is moved after the path instead of being glued in front of it.
+ */
+export function explorerLink(
+  path: string,
+  explorerUrl = getExplorerUrl(),
+  cluster = getCluster(),
+  rpcUrl = getRpcUrl(),
+): string {
+  const [rawBase, rawQuery] = explorerUrl.split("?", 2);
+  const base = rawBase.replace(/\/+$/, "");
+  const query = rawQuery ? `?${rawQuery}` : explorerClusterQuery(cluster, rpcUrl);
+  return `${base}${path}${query}`;
+}
+
 export function explorerTx(sig: string): string {
-  const base = getExplorerUrl();
-  const cluster = getCluster();
-  const q = cluster === "mainnet-beta" ? "" : `?cluster=${cluster}`;
-  return `${base}/tx/${sig}${q}`;
+  return explorerLink(`/tx/${sig}`);
+}
+
+export function explorerAddress(addr: string): string {
+  return explorerLink(`/address/${addr}`);
 }
 
 export function getPhoenixEnabledFlag(): string | undefined {

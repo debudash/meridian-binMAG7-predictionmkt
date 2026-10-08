@@ -31,6 +31,8 @@ export interface RawStrikeMarket {
   treasury?: PublicKey | string;
   phoenixMarket?: PublicKey | string;
   pythPriceFeed?: PublicKey | string;
+  pythFeedId?: number[] | Uint8Array;
+  settledSlot?: { toNumber?: () => number } | number | bigint;
   settlementPriceE6?: { toNumber?: () => number } | number | bigint;
   settledAtTs?: { toNumber?: () => number } | number | bigint;
 }
@@ -43,6 +45,13 @@ function bnToNumber(v: unknown): number {
     return (v as { toNumber: () => number }).toNumber();
   }
   return Number(v);
+}
+
+function feedIdHex(raw: number[] | Uint8Array | undefined): string | undefined {
+  if (!raw || raw.length !== 32) return undefined;
+  const bytes = Array.from(raw);
+  if (bytes.every((b) => b === 0)) return undefined;
+  return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 const DEFAULT_TICK = 0.01;
@@ -96,6 +105,8 @@ export function mapStrikeMarketToView(
     resolvedPrice: settledPrice > 0 ? settledPrice / 1e6 : undefined,
     resolvedAt: bnToNumber(acc.settledAtTs) || undefined,
     pythFeedId: acc.pythPriceFeed ? pkStr(acc.pythPriceFeed) : undefined,
+    pythFeedIdHex: feedIdHex(acc.pythFeedId),
+    settledSlot: bnToNumber(acc.settledSlot) || undefined,
     phoenixMarket: phoenix,
     yesMint: acc.yesMint ? pkStr(acc.yesMint) : undefined,
     noMint: acc.noMint ? pkStr(acc.noMint) : undefined,

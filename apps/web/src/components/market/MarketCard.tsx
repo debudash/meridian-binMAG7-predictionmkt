@@ -82,15 +82,17 @@ export function MarketCard({
           {impliedLabel(yes)}
         </div>
       )}
-      <DistanceReadout
-        compact
-        market={market}
-        underlying={
-          market.underlyingPrice != null
-            ? { price: market.underlyingPrice, source: "indexer" }
-            : null
-        }
-      />
+      {market.status === "open" && (
+        <DistanceReadout
+          compact
+          market={market}
+          underlying={
+            market.underlyingPrice != null
+              ? { price: market.underlyingPrice, source: "indexer" }
+              : null
+          }
+        />
+      )}
       <div className="muted" style={{ fontSize: "0.75rem" }}>
         24h vol {market.volume24hUsdc?.toLocaleString() ?? "—"} USDC · OI{" "}
         {market.openInterest?.toLocaleString() ?? "—"}
@@ -104,7 +106,17 @@ export function MarketCard({
         </span>
       )}
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "auto" }}>
-        <MarketBuyLinks market={market} state={trade} />
+        {market.status === "settled-yes" || market.status === "settled-no" ? (
+          <Link
+            href={`/markets/${market.marketId}`}
+            className="btn"
+            data-testid="view-settle-proof"
+          >
+            View settlement proof →
+          </Link>
+        ) : (
+          <MarketBuyLinks market={market} state={trade} />
+        )}
       </div>
     </article>
   );

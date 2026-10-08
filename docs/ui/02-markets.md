@@ -8,7 +8,7 @@
 ## Layout
 Desktop:
 1. Page title "Markets" + search (ticker or question text).
-2. **Filter bar**: Status [Open (default) · Closing soon · Closed · Settled], Underlying (multi-select), Expiry (date chips), Sort [Closing soonest · Volume 24h · Open interest · Newest].
+2. **Filter bar**: Status [Open (default) · Closing soon · Closed · Recently settled (newest settlement first)]. When any market is settled, a **"Recently settled (N)"** chip (D-022 pressed state) toggles that filter; settled cards swap Buy buttons for **"View settlement proof →"** and hide the distance readout (DLV-076), Underlying (multi-select), Expiry (date chips), Sort [Closing soonest · Volume 24h · Open interest · Newest].
 3. **View toggle**: Cards (default) | Table | **Ladder** (grouped by underlying+expiry, rows = strikes).
 4. Results; infinite scroll or pagination (50/page).
 
