@@ -1,5 +1,31 @@
 # Meridian visual test runbook (click-by-click)
 
+## Tester setup (do this first)
+
+For a first-time tester who isn't the operator. Do the part for the track you're testing (or both), then go on to **Before you start**.
+
+> **Never share your seed phrase (Secret Recovery Phrase) or private key** with anyone: not the operator, not an agent, not in chat or email. Nobody needs them. The only thing you ever send is your **public** wallet address.
+
+**Track A: localnet, on the operator's box**
+
+1. Ask the operator to **update the box to the latest `main`** and restart the local validator and the web app. Ask which commit (SHA) it's on and write it down.
+2. Open the **box desktop**: the operator's shared computer, which you can open from the Grok Bot app. The app at http://localhost:3000 and the **Localnet Dev Wallet** only exist there. `localhost:3000` on your own computer won't work.
+3. In the browser on the box desktop, open http://localhost:3000 and carry on with 0.1–0.2 below. There's nothing to install: the Localnet Dev Wallet signs by itself.
+
+**Track B: devnet staging, Phantom**
+
+1. Install the **Phantom** browser extension, only from the official site https://phantom.com.
+2. Create a new wallet (or import one you only use for testing). Phantom shows a seed phrase: write it down on paper and keep it to yourself. Never type it into a website, chat or email.
+3. Phantom → **Settings → Developer Settings** → turn on **Testnet Mode** → choose **Solana Devnet**.
+4. This first account is **wallet A**. In Phantom's account menu, add a **second account** and name it **wallet B**.
+5. Copy each account's **public** Solana address (32–44 letters and digits) and send both to the operator, labelled **A** and **B**.
+6. Wait until the operator has funded them (the operator's side is [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) **1.4** for wallet A and **1.5** for wallet B). Expect about **2 SOL** on wallet A (at least 1) and about **0.5 SOL** on wallet B, plus **mUSDC** on both (wallet B gets 1,000). This is devnet: none of it has real value.
+7. Recognise **mUSDC**. Phantom may show it as an **unknown token** with no name or logo (look in the token list, including hidden tokens, if it isn't on the main screen). Open it and compare its mint / token address with `GEBRsT3Nc3PaEio2qf3x4JUgFtPSYXr7bmVitMuzMBXq`: it must **start with `GEBRsT3N`** and **end with `MXq`**. Any other token isn't the test token, so don't use it.
+
+**Ready when:** **[A]** the box is on the latest `main` and http://localhost:3000 opens on the box desktop · **[B]** Phantom is on Devnet, and wallets A and B each show SOL (A ≥ 1, B ~0.5) and mUSDC (`GEBRsT3N…MXq`).
+
+---
+
 | Field | Value |
 | --- | --- |
 | **Owner** | Meridian Testers |
