@@ -1,12 +1,28 @@
-## 2026-10-07T23:35:00-05:00 — Testers: STAGING_TEST_PLAN reviewer fixes (!63/!65 notes) + TEST_RESULTS count nit
+## 2026-10-07T23:55:00-05:00 — Engineers: M2 fixtures need a loopback RPC (`custom` label no longer enough)
 
 | Field | Value |
 | --- | --- |
-| **Actor** | Meridian Testers |
-| **Branch** | `test/staging-plan-review-fixes` from `origin/main` @ `ea84698` (!66) |
-| **Decision** | Address the Meridian Reviewers' requested doc changes on `docs/STAGING_TEST_PLAN.md` (MR !65 notes; `/workspace/meridian-review-mr63.md`), re-based on main `ea84698`. (1) **1.1b [operator]** deployed-binary check: `solana program dump -u devnet 9Rb7nx… /tmp/m.so && bash scripts/assert-prod-no-fixtures.sh /tmp/m.so idl/meridian.prod.json` → no fixture strings (prod `.so` only), plus an optional 1.1c `InstructionFallbackNotFound` negative. (2) **1.2b / 2.1** `NEXT_PUBLIC_SOLANA_CLUSTER=devnet` set explicitly; never `custom` until M2 (no URL cluster param exists; chip text is the env label). (3) **2.3b / 2.4b** `curl -I` + browser 404 checks for `/markets/fixture-anything` and `/api/localnet-dev-wallet`. (4) **Known limits** table: M1, M2, M3 (authority = keeper/settler), unreviewed box-only ops scripts, post-expiry window, M4/M5, L11/L14, Hermes/`admin_settle`. (5) **§3** whole-contracts caution, with what the ticket, `size.ts` and the Phoenix SDK do with fractions, plus optional 3.11. (6) **4.9–4.11** sweep next to a resting order (order still resting, seat free 0) and failed fill-or-kill atomicity (seat unchanged). (7) **§7** Phoenix books stay live between expiry and settle: what to expect and avoid, plus optional 7.3b. (8) **§11.1** "Absolute byte offsets (including the 8-byte discriminator)". The 20-min AAPL market now has a Phoenix book and wallet B is funded **per staging script** (box-only `run-staging.sh` / `devnet-bootstrap.cjs`, not in git), with fallback lines. TEST_RESULTS: per-prefix count rows fixed to sum to the headline 87 / 108 (`B 1` removed, S 15 → 14 = 10 + 4 `S-10` vectors, `U 3` compose added), sourced from the box mocha logs (`108 passing`; hardening 66 ✔ + 33 passing = 87 unique). Docs only: no deploy, no Railway, no validators, no code. |
-| **Files** | `docs/STAGING_TEST_PLAN.md` · `docs/TEST_RESULTS.md` · `docs/AI_LOG.md` |
-| **Related** | !63 · !65 · !66 · Reviewers M1/M2/M3/M4/M5, L11/L12/L14 · DLV-077 · DLV-085 · DLV-087 · D-024 · D-025 |
+| **Actor** | Meridian Engineers |
+| **Branch** | `fix/fixtures-custom-loopback` from `origin/main` @ `7aa1fe5` (!67) |
+| **Source** | `/workspace/meridian-review-mr52-61.md` **M2** (!59) |
+| **Decision** | TDD. `isFixtureCluster(cluster, rpcUrl)` / `fixturesAllowed(cluster, rpcUrl)` now require a fixture-style label (`localnet` / `localhost` / `custom`) **and** a loopback RPC (`127.0.0.1` / `localhost` / `[::1]`, shared `LOOPBACK_RPC` with the dev-wallet gate; look-alikes like `127.0.0.1.evil.com` / `localhost@evil.com` rejected). `rpcUrl` defaults to the raw `NEXT_PUBLIC_SOLANA_RPC_URL` (no devnet fallback, so unset = off). Applies to fixture markets, the fixture book, middleware fixture slugs (→ 404) and the demo portfolio. Kept `custom` for loopback validators on other ports. Existing localnet-mode tests now set a loopback RPC explicitly. |
+| **Evidence** | web vitest 320 passed / 14 skipped (new `fixtureRpcGate.test.ts` 12) · `tsc --noEmit` clean. Debu's `.env.local` (localnet + `127.0.0.1`) is unaffected. |
+| **Files** | `apps/web/src/lib/market/marketIdRoute.ts` · `lib/solana/config.ts` · `middleware.ts` · `lib/solana/localnetDevWallet.ts` · tests · `docs/RAILWAY_STAGING.md` |
+| **Related** | M2 · DLV-084 · DLV-081 · !59 |
+
+---
+
+## 2026-10-07T23:45:00-05:00 — Engineers: Reviewer Mediums M1/M4/M5 + L8/L10/L11/L12/L13/L14 (web)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `fix/web-reviewer-mediums` from `origin/main` @ `ea84698` |
+| **Source** | `/workspace/meridian-review-mr52-61.md` (M1, L8, L10) · `/workspace/meridian-review-mr63.md` (M4, M5, L11–L14) |
+| **Decision** | TDD (failing vitest first, then the fix). **M1/L12:** sizes must be a positive whole number of Phoenix base lots — refused in the ticket (inline error, CTA disabled) and in `placePhoenixOrder` before anything is loaded or signed (`lotSizeError`), then authoritatively from the loaded market (`contractsToLots`): one integer lot count drives mint raw (= lots × baseLotSize), the Phoenix size and the FOK min-fill; half-lot headroom so the SDK float floor can't drop a lot (0.29 / 0.01-lot → 29, not 28). **M4:** server-side TTL cache + in-flight dedupe for the market scan (`MARKET_LIST_CACHE_MS`, default 20 s; failures 3 s), shared by `listMarkets`, `/api/markets` and `getMarket` misses (closes **L10**); Header reads only settled markets' ATAs, no Phoenix (60 s, was 30 s over everything); Phoenix market-state reads only for open markets (Portfolio also reads settled seats for withdraw leftovers); trade account 10 s (was 4 s), book 6 s and paused while hidden / not open; history 60 s and only while the Fills tab is open on the trade page; 429 → exponential backoff (cap 5 min). **M5:** connected + no data + read error → locked ("Couldn't read your balances. Retrying…") with a Retry button — fails closed. **L8:** market worst price clamped to `[minPrice, maxPrice]`. **L11:** one-line sweep disclosure on the ticket and in the success toast. **L13:** Cancel all chunked (20 orders/tx; a full chunk serialises ≤ 1232 bytes). **L14:** success only after `confirmTransaction` with no `value.err`; failed → error, timeout → "not confirmed, check explorer" (Phoenix actions and the ticket). |
+| **Evidence** | web vitest 310 passed / 14 skipped (was 252/14) · `tsc --noEmit` clean. No program / IDL / automation changes. |
+| **Files** | `apps/web/src/lib/phoenix/{size,client,compose,manage,sweepCopy,types,index}.ts` · `lib/rpc/pollPolicy.ts` · `lib/indexer/{index,listCache}.ts` · `lib/intents/resolveInputs.ts` · `lib/solana/confirm.ts` · hooks (`useWalletAccount`, `useMarketAccount`, `usePortfolio`, `useWalletPositions`, `useWalletHistory`, `useMarketList`, `useIntentAvailability`) · `TradeTicket.tsx` · `TradeClient.tsx` · `Header.tsx` · `PhoenixActions.tsx` · tests |
+| **Related** | M1 · M4 · M5 · L8 · L10 · L11 · L12 · L13 · L14 · D-024 · DLV-070 · DLV-087 · DLV-088 · !54 · !63 |
 
 ---
 
@@ -19,6 +35,18 @@
 | **Decision** | Add `docs/STAGING_TEST_PLAN.md`: a step-by-step Phantom checklist (Action / Expected / Pass-Fail) for Railway staging https://web-production-77fbb.up.railway.app on devnet, program `9Rb7nx…`, to run once the prod `.so` is deployed (DLV-077). Every step is grounded in main @ `0d856ed` (`apps/web` labels and toasts, `programs/meridian` errors and seeds, RAILWAY_STAGING §0 params: mUSDC, `admin_settle_delay_secs` 300). Covers connect, the four intents × Market/Limit, a resting fill by a 2nd wallet + Cancel / Withdraw to wallet (DLV-087, !63), real Portfolio/History (DLV-088, !63), the opposite-side UI gate (the program doesn't block, by design), the 20-min AAPL ≥ 300 close + operator `admin_settle` (Policy A, delay), redeem, the settle proof card, the payoff line, and Explorer invariants (vault == `pairs_minted − pairs_redeemed`, Yes == No supply while Open) at mint / trades / settle / redeem with PDA seeds + raw `StrikeMarket` offsets. Marked pending on main: resting Sell No merge-on-fill (DLV-069) and History maker fills. The short market has no Phoenix book (box bootstrap), so the plan asks the operator for tokens. Lists automated gaps (no component tests, opt-in E2E needs local seed scripts, no labs CI runners) and a sign-off table. Docs only: no deploy, no Railway, no validators. |
 | **Files** | `docs/STAGING_TEST_PLAN.md` · `docs/TRACKER.md` · `README.md` · `docs/AI_LOG.md` |
 | **Related** | DLV-077 · DLV-085 · DLV-087 · DLV-088 · DLV-069 · D-018 · D-024 · D-025 · !63 · !64 |
+
+---
+
+## 2026-10-07T23:40:00-05:00 — Testers: STAGING_TEST_PLAN reviewer fixes (!63/!65 notes) + TEST_RESULTS count nit
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Testers |
+| **Branch** | `test/staging-plan-review-fixes` from `origin/main` @ `ea84698` (!66); re-checked against `6e3c91b` (!67 + !69) in a follow-up commit |
+| **Decision** | Address the Meridian Reviewers' requested doc changes on `docs/STAGING_TEST_PLAN.md` (MR !65 notes; `meridian-review-mr63.md`). (1) **1.1b [operator]** deployed-binary check: `solana program dump -u devnet 9Rb7nx… /tmp/m.so && bash scripts/assert-prod-no-fixtures.sh /tmp/m.so idl/meridian.prod.json` → no fixture strings (prod `.so` only), plus an optional 1.1c `InstructionFallbackNotFound` negative. (2) **1.2b / 2.1** `NEXT_PUBLIC_SOLANA_CLUSTER=devnet` set explicitly; never `custom` on staging (M2 fixed by !69, but Explorer links and the chip still depend on the label; no URL cluster param exists). (3) **2.3b / 2.4b** `curl -I` + browser 404 checks for `/markets/fixture-anything` and `/api/localnet-dev-wallet`. (4) **Known limits** table: M1/M4/M5/L11/L13/L14 marked fixed in the web by !67 and M2 by !69 (not yet re-reviewed); M3 open (authority = keeper/settler; fix in open !70); unreviewed box-only ops scripts; post-expiry window; Hermes/`admin_settle`. (5) **§3** whole-contracts caution, with what the ticket, `size.ts` and the order path do with fractions on `7aa1fe5` (refused before signing) and before !67, plus the 3.11 check. (6) **4.9–4.11** sweep next to a resting order (order still resting, seat free 0, L11 sweep copy) and failed fill-or-kill atomicity (seat unchanged). (7) **§7** Phoenix books stay live between expiry and settle: what to expect and avoid, plus optional 7.3b. (8) **§11.1** "Absolute byte offsets (including the 8-byte discriminator)". The 20-min AAPL market now has a Phoenix book and wallet B is funded **per staging script** (box-only `run-staging.sh` / `devnet-bootstrap.cjs`, not in git), with fallback lines. TEST_RESULTS: per-prefix count rows fixed to sum to the headline 87 / 108 (`B 1` removed, S 15 → 14 = 10 + 4 `S-10` vectors, `U 3` compose added), sourced from the mocha logs (`108 passing`; hardening 66 ✔ + 33 passing = 87 unique). Docs only: no deploy, no Railway, no validators, no code. (This entry sits below the !65 entry rather than on top so the branch merges cleanly next to the !67 / !69 entries without rewriting the branch.) |
+| **Files** | `docs/STAGING_TEST_PLAN.md` · `docs/TEST_RESULTS.md` · `docs/AI_LOG.md` |
+| **Related** | !63 · !65 · !66 · !67 · !69 · !70 · Reviewers M1/M2/M3/M4/M5, L11/L12/L13/L14 · DLV-077 · DLV-085 · DLV-087 · D-024 · D-025 |
 
 ---
 
