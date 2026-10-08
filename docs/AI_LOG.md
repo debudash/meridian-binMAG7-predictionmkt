@@ -1,3 +1,11 @@
+## 2026-10-08T14:12:00-05:00 — Engineers: !91 merged; Railway redeploy; operator prices; one creator; Reviewers follow-up (DLV-119, MR !92)
+
+- **Merge:** !91 (DLV-118) merged pinned to `8f0f54e` → `4521ee0` after Meridian Reviewers' approval (report `/workspace/meridian-review-mr91.md`).
+- **Railway (meridian-staging, project token, RAILWAY_API_TOKEN unset):** web `d77b24fe` and automation `78688492` from `4521ee0` SUCCESS; web /api/health 200. `PHOENIX_MARKETS` confirmed empty (L-8). Empty `OPERATOR_STRIKE_PRICES` / `OPERATOR_CLOSE_PRICES` added (skip-deploys); the operator command's clear + explicit redeploy produced automation `f5d965d0` SUCCESS. Worker log: Hermes served AAPL latest (strikes 335/340/345) but create failed — keeper has no devnet SOL; `STRIKE_SYMBOLS=AAPL`.
+- **One creator:** the box bootstrap no longer creates daily markets (`BOOTSTRAP_DAILY_MARKETS=0`, read at run time — the running watcher PID 3213849 picks it up without a restart; box copy also refuses a 20-min market past today's close / on early closes).
+- **DLV-119 (TDD):** M-1 early closes refused + ALERT across worker / ops-cli / run-staging / bootstrap / localnet; L-1…L-8 and nits (see TRACKER). L-9 deferred (program change). `ops/operator-prices.cjs` for operator strike / close prices. Automation 228 passing + 13 pending; web 418 + 14 skipped; `tsc` + lint clean.
+- **Local :3000** restarted on `4521ee0` (127.0.0.1, dev wallet 2 unchanged): health 200, chip HDwU..4981, today's 7 markets by default (10 others behind the toggle), `Buy Yes 0.xx` / `NN% implied Yes`, picker [Localnet Dev Wallet, Phantom, Solflare].
+
 ## 2026-10-08T13:49:00-05:00 — Engineers: same-day 0DTE MAG7 markets expire at today's 16:00 ET close (DLV-118, MR !91)
 
 - **Ask (Debu via Grok Bot, SPEC violation):** SPEC §1/§3.3 require MAG7 markets expiring at TODAY's 4:00 PM ET close; localnet cards expired Oct 14 and the staging bootstrap made next-close books. Localnet tooling, automation/staging and tests; MR for Meridian Reviewers, **no self-merge**.
