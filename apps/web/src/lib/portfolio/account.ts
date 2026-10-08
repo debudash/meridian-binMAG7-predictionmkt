@@ -24,8 +24,13 @@ export interface WalletBalances {
 export interface MarketAccountState {
   marketId: string;
   wallet: WalletBalances;
-  /** null = no Phoenix seat on this market (or no book) */
+  /** null = no Phoenix seat on this market (or no book) — or a failed read when `phoenixReadFailed` */
   phoenix: PhoenixTraderSnapshot | null;
+  /**
+   * L7 (review mr72-73): the Phoenix market account was requested but couldn't be read (missing
+   * account or decode error). `phoenix` is then null for lack of data, not because the seat is empty.
+   */
+  phoenixReadFailed?: true;
 }
 
 export interface LabelledOrder extends PhoenixOpenOrder {

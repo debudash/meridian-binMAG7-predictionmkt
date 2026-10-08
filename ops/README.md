@@ -21,7 +21,7 @@ every keypair path, RPC, program id and secret comes from the environment or an 
 | `upgrade-authority.json` | program upgrade authority, payer, Phoenix book creator, **initial** seat-manager authority | operator box only. **Never Railway.** |
 | `keeper.json` | Meridian config authority (create, `admin_settle`) | box + Railway `AUTOMATION_KEYPAIR` |
 | `settler.json` | permissionless `settle` signer/payer (M3) | box + Railway `SETTLER_KEYPAIR` |
-| `pauser.json` | Phoenix **seat-manager authority** after the handoff: pause/resume books, evict seats (funds return to traders), fee recipient. Can't move user funds | box + Railway `PHOENIX_PAUSER_KEYPAIR` (automation service only) |
+| `pauser.json` | Phoenix **seat-manager authority** after the handoff — **not pause-only** (review mr72-73 M1): it is the book's full Seat Manager authority — `ChangeMarketStatus` to any status (incl. **unpause** Paused → Active), `NameSuccessor` (6) / `ConfirmRenounceSeatManagerAuthority` (11) to move or burn the SM authority, `NameMarketAuthoritySuccessor` (9) to hand the raw Phoenix market authority to another key (which then leaves PSM for good), evict seats, add/remove DMMs, change the fee recipient. It can't withdraw user funds to itself (evict / force-cancel return funds to traders). Treat it as a hot, high-value key: rotation + offline backup in [`docs/runbooks/PAUSER_ROTATION.md`](../docs/runbooks/PAUSER_ROTATION.md); mainnet replaces it with a PDA (M1) | box + Railway `PHOENIX_PAUSER_KEYPAIR` (automation service only) + offline backup |
 
 ## Pausing Phoenix books at expiry
 
@@ -77,6 +77,15 @@ the state (pre-!73 Friday books included; idempotent: on the pauser → ok, on t
 `[pause] ALERT`), then `ops-cli pause-status --state $STATE --expect-pauser <pauser pubkey>` (no key) which prints
 `N/M books have the pauser … as seat-manager authority` and exits 2 with `[pause] ALERT` lines otherwise. Retried 3×.
 `DRY_RUN=1` runs the same path read-only once `$AUTO/dist` has it.
+
+## M2 monitoring (paused books stay watched)
+
+The worker and `ops-cli pause-watch` re-read **every** book each pass (240-byte header incl. the Phoenix market authority +
+96-byte seat manager). A book that goes Active again after expiry is re-paused with
+`[pause] ALERT book … went Active again after it was paused … re-pausing`; a Phoenix market authority that isn't the
+Seat Manager PDA, or an SM authority that moved away from the pauser, raises `[pause] ALERT` (once per book per hour,
+immediately again if the value changes). `pause-watch` now keeps monitoring until `--max-hours` (96);
+`--exit-when-paused` restores the old early exit. Grep the logs for `[pause] ALERT`.
 
 ## Box watcher
 

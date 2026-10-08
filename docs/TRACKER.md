@@ -101,6 +101,7 @@ _Last refreshed: 2026-10-08 09:30 CT (main `81e79db` + per-book Phoenix quotes D
 
 ## In Progress
 
+- [ ] Engineers: **pause monitoring M2 + review mr72-73 Lows 1/2/3/5/6/7** DLV-104 (open MR, awaiting Meridian Reviewers; not merged). Pauser re-checks every book each pass: re-pauses a book set Active again and ALERTs on seat-manager / market authority drift (rate-limited); failed passes ALERT; serial worker passes; lead/alert range checks; pauser must differ from keeper/settler/SM-authority keys; `run-staging.sh` devnet assert, `mktemp` run dir, mint/pause ALERTs; web keeps polling on a failed Phoenix seat read. Docs: the pauser is the full PSM authority (not pause-only); [`runbooks/PAUSER_ROTATION.md`](runbooks/PAUSER_ROTATION.md) with offline backup. Low 4 skipped (config-only, done in !77 / DLV-103)
 - [ ] Ops: **Railway staging (devnet)** DLV-077 — project `meridian-staging` with `web` (https://web-production-77fbb.up.railway.app, `/api/health` 200) + `automation` (calendar, `/health` green; keeper key as Railway secret) live on devnet env; dev wallet off. **Blocked on devnet SOL** for the prod-build program deploy + Phoenix books (public airdrop 429); web shows an empty "No markets on Solana devnet yet" state until then (fixtures localnet-only, DLV-084). Dry run of the prod `.so` green for bootstrap + Buy Yes / Buy No; see [`RAILWAY_STAGING.md`](RAILWAY_STAGING.md) §0
 
 ## Todo

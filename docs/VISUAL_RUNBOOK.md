@@ -198,7 +198,7 @@ Reference shots: `meridian-selection-portfolio.png`, `meridian-selection-portfol
 
 ## 13. Expiry: the book is paused, cancel/withdraw still work, trading is blocked (!73)
 
-**What changed in !73:** at the moment a market expires, a dedicated **pauser** key tells the Phoenix **Seat Manager** to set the book to **Paused** (`ChangeMarketStatus → Paused`). On a paused book, Phoenix refuses **every new order** (posts and crosses) but still allows **cancel** and **withdraw**. Nobody can trade against leftover orders after the price is known. The UI shows **no** "Paused" badge, so the status check is an operator/Explorer step.
+**What changed in !73:** at the moment a market expires, a dedicated **pauser** key tells the Phoenix **Seat Manager** to set the book to **Paused** (`ChangeMarketStatus → Paused`). On a paused book, Phoenix refuses **every new order** (posts and crosses) but still allows **cancel** and **withdraw**. Nobody can trade against leftover orders after the price is known. (The pauser key could also set the book Active again; automation re-checks paused books and re-pauses with an alert, review mr72-73 M1/M2.) The UI shows **no** "Paused" badge, so the status check is an operator/Explorer step.
 
 **[B]** (the 20-minute AAPL ≥ 300 market, STAGING_TEST_PLAN 1.7 / 7.3b / 7.3c). **[A]**: localnet books aren't handed to the pauser by default, so skip unless the operator pauses a localnet book with `ops-cli pause-once`.
 

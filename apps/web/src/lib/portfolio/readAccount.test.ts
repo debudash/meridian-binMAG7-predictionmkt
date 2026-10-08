@@ -82,6 +82,23 @@ describe("readWalletAccount", () => {
     err.mockRestore();
   });
 
+  it("L7 (review mr72-73): a failed Phoenix read is flagged phoenixReadFailed (missing account or decode error); a decoded book with no seat is not", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const bad = await readWalletAccount(fakeConnection({}, { [m1.phoenixMarket]: Buffer.from("junk") }) as never, owner, [m1], {
+      usdcMint: null,
+      loadMarketState: () => {
+        throw new Error("bad market header");
+      },
+    });
+    expect(bad.markets.get(m1.marketId)).toMatchObject({ phoenix: null, phoenixReadFailed: true });
+    const missing = await readWalletAccount(fakeConnection({}, {}) as never, owner, [m1], { usdcMint: null, loadMarketState: () => fakeMarket(new Map()) });
+    expect(missing.markets.get(m1.marketId)).toMatchObject({ phoenix: null, phoenixReadFailed: true });
+    const noSeat = await readWalletAccount(fakeConnection({}, { [m1.phoenixMarket]: Buffer.from("phx") }) as never, owner, [m1], { usdcMint: null, loadMarketState: () => fakeMarket(new Map()) });
+    expect(noSeat.markets.get(m1.marketId)?.phoenix).toBeNull();
+    expect(noSeat.markets.get(m1.marketId)?.phoenixReadFailed).toBeUndefined();
+    err.mockRestore();
+  });
+
   it("chunks >100 accounts", async () => {
     const many = Array.from({ length: 60 }, () => ({ marketId: pk(), yesMint: pk(), noMint: pk() }));
     const conn = fakeConnection({}, {});

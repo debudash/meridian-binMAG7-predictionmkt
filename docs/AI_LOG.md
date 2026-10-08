@@ -26,6 +26,20 @@
 
 ---
 
+## 2026-10-08T09:20:00-05:00 — Engineers: pause monitoring M2 + review mr72-73 Lows 1/2/3/5/6/7, pauser-powers docs, pauser rotation runbook (open MR for Reviewers, not merged)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `fix/pause-monitoring-m2-lows` from `origin/main` @ `6d0a2a0` |
+| **Source** | `/workspace/meridian-review-mr72-73.md` M2, Lows 1, 2, 3, 5, 6, 7, the rate-limit nit, and the "pauser = full seat-manager authority" doc finding. Debu: open the fix MR and send it to Meridian Reviewers **before** merge. |
+| **Decision** | The pauser keeps watching **every** book (no permanent "done" skip): each pass re-reads status, Phoenix market authority (header @208) and the seat-manager authority. A book that went Active again after a pause is re-paused with `[pause] ALERT`; authority drift (SM authority no longer the pauser, market authority no longer the SM PDA) alerts, rate-limited per key (1 h). A failed list/read pass alerts when books are due instead of rejecting silently. Worker passes run serially. Pause lead / alert values outside a sane range fail start-up. The pauser key must differ from the keeper / settler / seat-manager authority keys. Docs no longer call the pauser "pause-only": it is the full PSM authority (any status incl. unpause, successor naming 6/9, renounce 11). Rotation and an offline backup are in a runbook; keys are never committed, paths come from env. Low 4 skipped (config-only; done by the Railway var in !77). M1 (PDA authority) is a separate design note. |
+| **Change** | `apps/automation/src/phoenix/pauseAtExpiry.ts` (`PauseMemory`, `runPausePass` re-check + re-pause + authority alerts + `passError`, `serialRunner`, per-book decode errors, 240-byte header slice), `seatManager.ts` (`decodePhoenixMarketHeader`, full-powers header comment), `worker.ts`, `config.ts` (`intInRange`, `assertPauserDistinct`), `ops-cli.ts` (pause-watch keeps monitoring to `--max-hours`; `--exit-when-paused`; pause-once exits 1 on failure); `ops/run-staging.sh` (devnet genesis assert, `mktemp -d` run dir, no `/tmp` literals, `$STATE` as argv to python, keeper/pauser distinct env, mint/pause ALERTs, Railway tokens unset); web `readAccount.ts` / `pollPolicy.ts` (`phoenixReadFailed` keeps polling instead of treating a failed read as an empty seat); docs ops/README (M2 monitoring), STAGING_TEST_PLAN, DEPLOY, RAILWAY_STAGING, VISUAL_RUNBOOK; new `docs/runbooks/PAUSER_ROTATION.md`. |
+| **Tests** | Red first: `test/pause-monitoring.test.ts` (M2, L1, L2, L3, L5, L6, docs, runbook) → automation **125 passing + 12 pending**, `tsc` clean. Opt-in localnet Phoenix suite on a temporary `:8699` validator **12/12** (new: header authority = SM PDA; a book set Active again is re-paused + ALERTed). Web vitest **350 passed + 14 skipped**, `tsc` clean. |
+| **Related** | DLV-104 · DLV-097 · DLV-102 · DLV-105 (M1 design note) · review mr72-73 M2 / L1–L3 / L5–L7 |
+
+---
+
 ## 2026-10-08T09:10:00-05:00 — Engineers: staging gates from review mr72-73 (M3 admin_settle price never stale; handoff repair for every book; pause lead 5 s)
 
 | Field | Value |

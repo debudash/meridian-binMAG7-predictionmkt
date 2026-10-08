@@ -9,8 +9,14 @@
  *  - SeatManager.authority starts as the ClaimMarketAuthority payer (the box upgrade key). PSM
  *    NameSuccessor (6, signed by the current SM authority) + ClaimSeatManagerAuthority (7, signed by
  *    the successor) move it, per market, to a dedicated pauser key.
- *  - The SM authority can also evict seats (funds go back to traders), add/remove DMMs and change
- *    the fee recipient; it can't move user funds to itself. Not the Meridian upgrade/config key.
+ *  - The SM authority is a FULL book authority, not "pause only" (Reviewers mr72-73 M1): besides
+ *    ChangeMarketStatus to ANY status (incl. Paused → Active) it can NameSuccessor (6) /
+ *    ConfirmRenounceSeatManagerAuthority (11) to move or burn the SM authority, and
+ *    NameMarketAuthoritySuccessor (9) to name a new raw Phoenix market authority that then leaves PSM
+ *    for good (Phoenix ClaimAuthority 101: status, seats, force-cancel, evict, fee recipient). It can
+ *    also evict seats, add/remove DMMs and change the fee recipient. It can't withdraw user funds to
+ *    itself (evict / force-cancel return funds to traders). Mainnet needs a PDA authority instead
+ *    (docs/design/phoenix-pause-pda-authority.md). Never the Meridian upgrade/config key.
  *  - Phoenix MarketStatus is Borsh-encoded (1-byte variant). Paused (3) = only reductions (cancel)
  *    and withdrawals; Active↔Paused, Paused→Closed are valid transitions.
  */
@@ -117,6 +123,19 @@ export function decodePhoenixMarketStatus(data: Buffer | Uint8Array): PhoenixMar
   const s = Number(b.readBigUInt64LE(8));
   if (!(s in PhoenixMarketStatus)) throw new Error(`Unknown Phoenix market status ${s}`);
   return s as PhoenixMarketStatus;
+}
+
+/** Byte offset of MarketHeader.authority (after status, size params, base/quote TokenParams, lot/tick sizes). */
+export const PHOENIX_HEADER_AUTHORITY_OFFSET = 208;
+/** Header slice that covers status (@8) and authority (@208..240). */
+export const PHOENIX_HEADER_SLICE = 240;
+
+/** Status (+ market authority when the slice reaches 240 bytes). Throws on short data / unknown status. */
+export function decodePhoenixMarketHeader(data: Buffer | Uint8Array): { status: PhoenixMarketStatus; authority: PublicKey | null } {
+  const b = Buffer.from(data);
+  const status = decodePhoenixMarketStatus(b);
+  const end = PHOENIX_HEADER_AUTHORITY_OFFSET + 32;
+  return { status, authority: b.length >= end ? new PublicKey(b.subarray(PHOENIX_HEADER_AUTHORITY_OFFSET, end)) : null };
 }
 
 /** PSM SeatManager (bytemuck, no discriminator): market @0, authority @32, successor @64. */

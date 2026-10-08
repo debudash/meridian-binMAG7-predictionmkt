@@ -39,7 +39,7 @@ import {
   seatManagerAddress,
   seatManagerHandoffIxs,
 } from "../src/phoenix/seatManager";
-import { livePauseDeps, runPausePass } from "../src/phoenix/pauseAtExpiry";
+import { createPauseMemory, livePauseDeps, readBookStates, runPausePass } from "../src/phoenix/pauseAtExpiry";
 
 const RPC = process.env.PHOENIX_LOCALNET_RPC;
 const MARKET_SPACE = 232544;
@@ -143,6 +143,24 @@ describe("localnet PSM: handoff + ChangeMarketStatus(Paused) on a real Phoenix b
   it("the pauser can resume (Paused → Active) for ops recovery", async () => {
     await sendAndConfirmTransaction(conn, new Transaction().add(psmChangeMarketStatusIx({ market, authority: pauser.publicKey, status: PhoenixMarketStatus.Active })), [pauser]);
     expect(await status()).to.equal(PhoenixMarketStatus.Active);
+  });
+
+  it("M2 (review mr72-73): header authority = SM PDA; a book set Active again after a pass is re-paused + ALERTed on the next pass", async () => {
+    const book = { strikeMarket: Keypair.generate().publicKey, phoenixMarket: market, expiryTs: Math.floor(Date.now() / 1000) - 1, label: "localnet-m2" };
+    const st = (await readBookStates(conn, [book])).get(market.toBase58())!;
+    expect(st.marketAuthority!.toBase58()).to.equal(seatManagerAddress(market).toBase58());
+    const alerts: string[] = [];
+    const deps = { ...livePauseDeps({ connection: conn, program: undefined as any, pauser }), listBooks: async () => [book], log: () => {}, alert: (m: string) => alerts.push(m) };
+    const mem = createPauseMemory();
+    const r1 = await runPausePass(deps, pauser.publicKey, {}, mem);
+    expect(r1.paused).to.have.length(1);
+    expect(alerts).to.deep.equal([]);
+    await sendAndConfirmTransaction(conn, new Transaction().add(psmChangeMarketStatusIx({ market, authority: pauser.publicKey, status: PhoenixMarketStatus.Active })), [pauser]);
+    expect(await status()).to.equal(PhoenixMarketStatus.Active);
+    const r2 = await runPausePass(deps, pauser.publicKey, {}, mem);
+    expect(r2.paused).to.have.length(1);
+    expect(await status()).to.equal(PhoenixMarketStatus.Paused);
+    expect(alerts.some((a) => /went Active again after it was paused/.test(a))).to.equal(true);
   });
 });
 

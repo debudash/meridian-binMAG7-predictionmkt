@@ -6,7 +6,10 @@
  *                                                                        --expect-pauser: ALERT + exit 2 if any book's
  *                                                                        SM authority isn't that pubkey (no key needed)
  *   node dist/ops-cli.js pause-once   [--state <file>]                    pause every due book once
- *   node dist/ops-cli.js pause-watch  [--state <file>] [--max-hours 96]   pause each book at its expiry, then exit
+ *   node dist/ops-cli.js pause-watch  [--state <file>] [--max-hours 96]   pause each book at its expiry and keep
+ *                                                                        monitoring (M2: re-pause + ALERT if a book goes
+ *                                                                        Active again or an authority changes) until
+ *                                                                        --max-hours; --exit-when-paused = old behaviour
  *   node dist/ops-cli.js handoff      [--state <file>] [--phoenix <pk>]…  seat-manager authority → pauser (PSM 6 + 7)
  *   node dist/ops-cli.js pull-settle  --market <strikeMarket>             permissionless settle via Pyth pull oracle
  *   node dist/ops-cli.js admin-price  --market <strikeMarket>             read-only: admin_settle fallback price (M3) =
@@ -18,17 +21,19 @@
  *   SEAT_MANAGER_AUTHORITY_KEYPAIR (handoff only: the CURRENT seat-manager authority; box only, never Railway),
  *   SETTLER_KEYPAIR + PYTH_HERMES_API_KEY [+ PYTH_HERMES_URL] (pull-settle), MERIDIAN_IDL_PATH / MERIDIAN_PROGRAM_ID
  *   (chain listing / settle), PHOENIX_PAUSE_LEAD_SECS, PHOENIX_PAUSE_ALERT_SECS, DRY_RUN=1 (read-only, no tx),
- *   ADMIN_PRICE_MAX_SKEW_SECS (admin-price: max |publish_time − expiry|, default 600).
+ *   ADMIN_PRICE_MAX_SKEW_SECS (admin-price: max |publish_time − expiry|, default 600),
+ *   PAUSER_MUST_DIFFER_FROM (comma list of pubkeys the pauser must not equal — keeper / settler / upgrade key; L5).
  * A missing --state file means "no books yet" (fresh staging), not an error.
  * Without --state, books come from the chain (every StrikeMarket with a Phoenix book; needs the prod IDL).
  */
 import * as fs from "fs";
 import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
-import { loadConfig, loadKeypairFromEnv } from "./config";
+import { assertPauserDistinct, loadConfig, loadKeypairFromEnv } from "./config";
 import { createProgram } from "./solana/client";
 import { configPda } from "./solana/pdas";
 import { livePullSettleDeps, publishWindowSecs, settleWithPullOracle } from "./solana/pullSettle";
 import {
+  createPauseMemory,
   listBooksFromChain,
   livePauseDeps,
   readBookStates,
@@ -69,10 +74,13 @@ export function booksFromState(file: string): { books: BookAtExpiry[]; complete:
   return { books, complete: !!(s.shortBootstrappedAt || s.shortSkipped) };
 }
 
-function pauserKeypair(): Keypair {
+function pauserKeypair(opts: { checkSeatManagerAuthority?: boolean } = {}): Keypair {
   const raw = process.env.PHOENIX_PAUSER_KEYPAIR;
   if (!raw) throw new Error("PHOENIX_PAUSER_KEYPAIR required");
-  return loadKeypairFromEnv(raw);
+  const kp = loadKeypairFromEnv(raw);
+  // L5: same distinctness rules as the worker's resolvePauser, plus the upgrade key / current SM authority.
+  assertPauserDistinct(kp.publicKey, process.env, opts);
+  return kp;
 }
 
 async function main() {
@@ -113,7 +121,7 @@ async function main() {
   }
 
   if (cmd === "handoff") {
-    const pauser = pauserKeypair();
+    const pauser = pauserKeypair(); // planHandoff refuses pauser == SEAT_MANAGER_AUTHORITY_KEYPAIR (rotation reuses this path)
     const currentRaw = process.env.SEAT_MANAGER_AUTHORITY_KEYPAIR;
     if (!currentRaw) throw new Error("SEAT_MANAGER_AUTHORITY_KEYPAIR (current seat-manager authority) required for handoff");
     const current = loadKeypairFromEnv(currentRaw);
@@ -143,31 +151,31 @@ async function main() {
   }
 
   if (cmd === "pause-once" || cmd === "pause-watch") {
-    const pauser = pauserKeypair();
-    const done = new Set<string>();
+    const pauser = pauserKeypair({ checkSeatManagerAuthority: true });
+    // M2: no done-set filter — every book is re-read each pass; memory carries re-pause / authority state.
+    const memory = createPauseMemory();
     const deps: PauseDeps = stateFile
-      ? { ...livePauseDeps({ connection, program: undefined as any, pauser, doneBooks: done }), listBooks: async () => (await listBooks()).filter((b) => !done.has(b.phoenixMarket.toBase58())) }
-      : livePauseDeps({ connection, program: createProgram(cfg, pauser).program, pauser, doneBooks: done });
+      ? { ...livePauseDeps({ connection, program: undefined as any, pauser }), listBooks }
+      : livePauseDeps({ connection, program: createProgram(cfg, pauser).program, pauser });
     if (DRY) deps.sendPause = async (b) => { log(`[DRY_RUN] would pause ${b.label}`); return "dry-run"; };
     const maxMs = Number(arg("--max-hours") ?? "96") * 3600_000;
     const pollMs = Number(process.env.PAUSE_POLL_MS ?? "30000");
+    const exitWhenPaused = process.argv.includes("--exit-when-paused");
     const t0 = Date.now();
     log(`${cmd} pauser=${pauser.publicKey.toBase58()} lead=${timing.leadSecs}s alertAfter=${timing.alertAfterSecs}s source=${stateFile ? "state" : "chain"}`);
     for (;;) {
-      let next: number | null = null;
-      try {
-        const r = await runPausePass(deps, pauser.publicKey, timing);
-        next = r.nextDelayMs;
-        const pending = r.decisions.filter((d) => d.action !== "done").length - r.paused.length;
-        if (cmd === "pause-once") return void log(`pause-once: paused ${r.paused.length}, failed ${r.failed.length}, still pending ${pending}`);
-        const complete = stateFile ? booksFromState(stateFile).complete : false;
-        if (pending === 0 && r.decisions.length > 0 && complete) return void log("pause-watch: every book is paused — exiting");
-      } catch (e) {
-        console.error(`[ops] pause pass error: ${String(e).slice(0, 300)}`);
-        if (cmd === "pause-once") process.exit(1);
+      const r = await runPausePass(deps, pauser.publicKey, timing, memory);
+      if (r.passError) console.error(`[ops] pause pass error: ${r.passError.slice(0, 300)}`);
+      const pending = r.decisions.filter((d) => d.action !== "done").length - r.paused.length;
+      if (cmd === "pause-once") {
+        log(`pause-once: paused ${r.paused.length}, failed ${r.failed.length}, still pending ${pending}`);
+        if (r.passError || r.failed.length) process.exit(1);
+        return;
       }
+      const complete = stateFile ? booksFromState(stateFile).complete : false;
+      if (exitWhenPaused && pending === 0 && r.decisions.length > 0 && complete) return void log("pause-watch: every book is paused — exiting (--exit-when-paused)");
       if (Date.now() - t0 > maxMs) return void log("pause-watch: max hours reached — exiting");
-      await new Promise((r) => setTimeout(r, next === null ? pollMs : Math.min(pollMs, next + 500)));
+      await new Promise((res) => setTimeout(res, r.nextDelayMs === null ? pollMs : Math.min(pollMs, r.nextDelayMs + 500)));
     }
   }
 
