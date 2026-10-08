@@ -24,6 +24,8 @@
  *   SYMBOLS             default all MAG7; REF_PRICES e.g. "AAPL=227.31,MSFT=415" (default: localnet mock levels)
  *   STATE_OUT           default /workspace/meridian-localnet-today-<dateKey>.json (feed keypairs next to it, 0600)
  *   MAKER_PAIRS         default 3000
+ *   ANYTIME_EXPIRY_MINUTES  D-017 anytime play (Docker localnet): expiry = now + N minutes instead of today's 16:00 ET
+ *                       close, ignoring the ET calendar (5..10080). Unset = the same-day rule above.
  */
 "use strict";
 const fs = require("fs");
@@ -109,6 +111,7 @@ async function main() {
     (clock.sim ? ` | SimClock ${clock.simClockPda.toBase58()} enabled=${clock.sim.enabled} ts=${clock.sim.ts}` : ""));
   const plan = planTodayMarkets(md, {
     nowSec: clock.nowSec, symbols: SYMBOLS, refPricesE6: parseRefPrices(process.env.REF_PRICES), allowNonTradingDay: process.env.ALLOW_NON_TRADING_DAY === "1",
+    anytimeExpirySecs: process.env.ANYTIME_EXPIRY_MINUTES ? Number(process.env.ANYTIME_EXPIRY_MINUTES) * 60 : undefined,
   });
   if (!plan.ok) {
     console.error(`${plan.code === "early_close" || plan.code === "unknown_year" ? "ALERT " : ""}REFUSED (${plan.code}): ${String(plan.reason).replace(/^ALERT /, "")}${plan.nextDateKey ? ` — next trading day ${plan.nextDateKey}` : ""}`);

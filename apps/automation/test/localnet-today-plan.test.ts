@@ -46,4 +46,14 @@ describe("DLV-118 localnet today-markets plan", () => {
     expect(r.markets[0].fairYes).to.equal(0.54);
     expect(() => plan.planTodayMarkets(md, { nowSec: utc(2026, 10, 8, 18), symbols: ["NFLX"] })).to.throw(/MAG7/);
   });
+
+  it("Docker localnet anytime play: expiry = now + N min (minute-rounded) even after the close / on a weekend", () => {
+    const after = 1791489600 + 600; // 10 min after the 2026-10-08 close
+    const r = plan.planTodayMarkets(md, { nowSec: after, symbols: ["AAPL"], anytimeExpirySecs: 90 * 60 });
+    expect(r.ok).to.equal(true);
+    expect(r.session.anytime).to.equal(true);
+    expect(r.markets[0].expiryTs).to.equal(Math.ceil((after + 5400) / 60) * 60);
+    expect(plan.planTodayMarkets(md, { nowSec: utc(2026, 10, 10, 15), symbols: ["AAPL"], anytimeExpirySecs: 3600 }).ok).to.equal(true);
+    expect(() => plan.planTodayMarkets(md, { nowSec: after, symbols: ["AAPL"], anytimeExpirySecs: 60 })).to.throw(/ANYTIME_EXPIRY_MINUTES/);
+  });
 });
