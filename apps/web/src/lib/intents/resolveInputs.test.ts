@@ -3,7 +3,7 @@
  * Live on-chain data always wins; demo only for fixture markets on localnet; while a connected
  * wallet's balances are still loading the ticket is locked instead of guessing "flat".
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import {
   applyBalanceLock,
   balancesErrorAvailability,
@@ -11,6 +11,16 @@ import {
   resolveAvailabilityInputs,
 } from "./resolveInputs";
 import { getIntentAvailability } from "./getIntentAvailability";
+
+// M2: fixtures need a loopback RPC as well as a localnet-style label — these cases model local dev.
+const savedRpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+beforeAll(() => {
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL = "http://127.0.0.1:8899";
+});
+afterAll(() => {
+  if (savedRpcUrl === undefined) delete process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+  else process.env.NEXT_PUBLIC_SOLANA_RPC_URL = savedRpcUrl;
+});
 
 const live = { position: { yesQty: 4, noQty: 0 }, openOrders: { openBuyYesQty: 6, openBuyNoQty: 0 } };
 
