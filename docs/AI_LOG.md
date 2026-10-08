@@ -1,3 +1,11 @@
+## 2026-10-08T13:49:00-05:00 — Engineers: same-day 0DTE MAG7 markets expire at today's 16:00 ET close (DLV-118, MR !91)
+
+- **Ask (Debu via Grok Bot, SPEC violation):** SPEC §1/§3.3 require MAG7 markets expiring at TODAY's 4:00 PM ET close; localnet cards expired Oct 14 and the staging bootstrap made next-close books. Localnet tooling, automation/staging and tests; MR for Meridian Reviewers, **no self-merge**.
+- **Decision:** creation at/after the close is **rejected** (SPEC is same-day only; no roll to tomorrow). Weekends / NYSE holidays skip; unknown calendar year refuses; early closes not modelled (open item for PM).
+- **Price source:** Hermes equities still 403 (DLV-106) and devnet RPC was unreachable from the box, so the **operator-sourced** path (`OPERATOR_STRIKE_PRICES` at the open, `OPERATOR_CLOSE_PRICES` for `admin_settle`, both bound to the ET day with a required source) is the working path; Hermes and a fresh (≤ 300 s) sponsored on-chain feed are tried first automatically.
+- **TDD:** new automation suites `market-day`, `same-day-calendar`, `localnet-today-plan`, `ops-today-plan` (DST Mar 6/9, Oct 8, Nov 2; after-close; holidays; operator create/settle; bootstrap guard) and web `sameDay.test.ts` written red first. Automation 201 passing + 13 pending; web vitest 415 + 14 skipped; `tsc` + lint clean.
+- **Localnet:** `scripts/localnet/today-markets.cjs` tested on a temporary :8699 validator, then run additively on :8899 (SimClock not initialized → chain clock; no clock change; only new PDAs + Config `next_market_id`): AAPL 225, MSFT 415, GOOGL 160, AMZN 185, NVDA 140, META 570, TSLA 250, all expiring 2026-10-08 16:00 ET with Phoenix books + maker ladders. :3000 lists them without a restart. No Railway redeploy or variable change; watcher untouched.
+
 ## 2026-10-08T12:40:00-05:00 — Engineers: implied labels read `NN% implied Yes` on every surface (DLV-117)
 
 - **Ask (Meridian UI, after accepting !88):** label the mid as the Yes-implied probability everywhere, also in the No perspective; tooltip `0.42 ≈ 42% implied Yes chance`, never "chance of winning". Keep card padding, one-sided `Spread —`, settled cards, Mark fallback and ticket `?? 0.5`; don't touch docs/ui.
