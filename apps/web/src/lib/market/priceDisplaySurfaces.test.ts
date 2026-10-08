@@ -49,6 +49,8 @@ describe("MarketCard", () => {
     expect(card).not.toMatch(/impliedLabel\(/);
     expect(card).not.toMatch(/market\.yesMid/);
     expect(card).not.toMatch(/noPriceFromYes/);
+    expect(card).toMatch(/display\.open && \(/);
+    expect(card).toMatch(/title=\{impliedTooltip\(display\)\}/);
   });
 });
 
@@ -86,6 +88,7 @@ describe("Trade header + chart stub + book spread row", () => {
     expect(trade).not.toMatch(/market\.lastYes \?\? 0\.5/);
     expect(trade).not.toMatch(/liveMid/);
     expect(trade).toMatch(/data-testid="trade-implied"/);
+    expect(trade).toMatch(/title=\{impliedTooltip\(priceView\)\}/);
   });
   it("chart stub and spread row never print a bare mid", () => {
     expect(trade).not.toMatch(/Mid\{" "\}/);

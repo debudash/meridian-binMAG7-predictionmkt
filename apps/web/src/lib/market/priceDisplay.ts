@@ -1,5 +1,5 @@
 /**
- * DLV-116 — docs/ui/08-price-display.md (rules from Meridian UI; 08 not on main yet).
+ * DLV-116 — docs/ui/08-price-display.md (Meridian UI; doc in MR !87).
  *
  * One place for what a price control shows:
  *  - Controls show EXECUTABLE prices only: Buy Yes = best Yes ask, Buy No = 1 − best Yes bid,
@@ -23,7 +23,10 @@ export interface PriceDisplayInput {
   bestAsk?: number;
   lastYes?: number;
   tickSize?: number;
-  /** false = closed / settled: no executables. */
+  /** Executables stay within [minPrice, maxPrice] (defaults 0.01–0.99). */
+  minPrice?: number;
+  maxPrice?: number;
+  /** false = closed / settled: no executables, implied hidden. */
   open?: boolean;
 }
 
@@ -34,6 +37,8 @@ export interface PriceDisplay {
   /** 1–99 */
   impliedPct?: number;
   impliedSource: "mid" | "last" | "none";
+  /** Price behind the implied % (mid may be a half tick) — tooltip long form only, never rendered bare. */
+  impliedPrice?: number;
   spread?: number;
 }
 
@@ -49,9 +54,9 @@ function clean(ticks: number, tick: number): number {
   return Number(fromTicks(ticks, tick).toFixed(tickDecimals(tick)));
 }
 
-function capTicks(ticks: number, tick: number): number {
-  const lo = Math.ceil(0.01 / tick - EPS);
-  const hi = Math.floor(0.99 / tick + EPS);
+function capTicks(ticks: number, tick: number, min = 0.01, max = 0.99): number {
+  const lo = Math.ceil(Math.max(0.01, min) / tick - EPS);
+  const hi = Math.floor(Math.min(0.99, max) / tick + EPS);
   return Math.min(hi, Math.max(lo, ticks));
 }
 
@@ -64,7 +69,8 @@ export function priceDisplay(input: PriceDisplayInput): PriceDisplay {
   const open = input.open ?? true;
   const bidT = input.bestBid != null ? toTicks(input.bestBid, tick) : undefined;
   const askT = input.bestAsk != null ? toTicks(input.bestAsk, tick) : undefined;
-  const px = (t: number | undefined) => (t == null ? undefined : clean(capTicks(t, tick), tick));
+  const px = (t: number | undefined) =>
+    t == null ? undefined : clean(capTicks(t, tick, input.minPrice, input.maxPrice), tick);
   // No prices via noPriceFromYes on the tick grid (1 − p), then capped.
   const inv = (t: number | undefined) =>
     t == null ? undefined : px(toTicks(noPriceFromYes(fromTicks(t, tick), tick), tick));
@@ -74,17 +80,20 @@ export function priceDisplay(input: PriceDisplayInput): PriceDisplay {
 
   let impliedPct: number | undefined;
   let impliedSource: PriceDisplay["impliedSource"] = "none";
+  let impliedPrice: number | undefined;
   let spread: number | undefined;
   if (bidT != null && askT != null) {
     // mid% = (bid + ask) / 2 × 100, half up, computed from ticks.
     impliedPct = capPct(Math.round((bidT + askT) * tick * 50 + EPS));
     impliedSource = "mid";
+    impliedPrice = Number((((bidT + askT) * tick) / 2).toFixed(tickDecimals(tick) + 1));
     spread = clean(Math.max(0, askT - bidT), tick);
   } else if (input.lastYes != null) {
     impliedPct = capPct(Math.round(input.lastYes * 100 + EPS));
     impliedSource = "last";
+    impliedPrice = input.lastYes;
   }
-  return { tickSize: tick, open, exec, impliedPct, impliedSource, spread };
+  return { tickSize: tick, open, exec, impliedPct, impliedSource, impliedPrice, spread };
 }
 
 export function formatPrice(p: number | undefined, tickSize = DEFAULT_TICK): string {
@@ -101,14 +110,22 @@ export function execTitle(d: PriceDisplay, intent: ExecIntent): string | undefin
   return intent.startsWith("buy") ? NO_SELLERS_TITLE : NO_BUYERS_TITLE;
 }
 
+/** `42% implied` / `42% implied (last trade)` / `—` (also `—` when closed / settled). */
 export function impliedText(d: PriceDisplay): string {
-  if (d.impliedPct == null) return "—";
+  if (!d.open || d.impliedPct == null) return "—";
   return d.impliedSource === "last" ? `${d.impliedPct}% implied (last trade)` : `${d.impliedPct}% implied`;
+}
+
+/** Long form for a tooltip (06 §4.1): `0.42 ≈ 42% implied chance`. */
+export function impliedTooltip(d: PriceDisplay): string | undefined {
+  if (!d.open || d.impliedPct == null || d.impliedPrice == null) return undefined;
+  const long = `${formatPrice(d.impliedPrice, d.tickSize)} ≈ ${d.impliedPct}% implied chance`;
+  return d.impliedSource === "last" ? `Last trade ${long}` : long;
 }
 
 /** Book spread row: `Spread 0.02 · 42% implied`; null when a side is empty. */
 export function spreadText(d: PriceDisplay): string | null {
-  if (d.spread == null || d.impliedSource !== "mid") return null;
+  if (!d.open || d.spread == null || d.impliedSource !== "mid") return null;
   return `Spread ${formatPrice(d.spread, d.tickSize)} · ${impliedText(d)}`;
 }
 
@@ -117,7 +134,8 @@ export function spreadText(d: PriceDisplay): string | null {
  * emptied isn't backfilled with a stale quote. `yesMid` is never used.
  */
 export function marketPriceDisplay(
-  market: Pick<MarketView, "yesBid" | "yesAsk" | "lastYes" | "tickSize" | "status">,
+  market: Pick<MarketView, "yesBid" | "yesAsk" | "lastYes" | "tickSize" | "status"> &
+    Partial<Pick<MarketView, "minPrice" | "maxPrice">>,
   opts: { book?: Pick<OrderBookSnapshot, "bids" | "asks"> | null; open?: boolean } = {},
 ): PriceDisplay {
   const bestBid = opts.book ? opts.book.bids[0]?.price : market.yesBid;
@@ -127,6 +145,8 @@ export function marketPriceDisplay(
     bestAsk,
     lastYes: market.lastYes,
     tickSize: market.tickSize,
+    minPrice: market.minPrice,
+    maxPrice: market.maxPrice,
     open: market.status === "open" && (opts.open ?? true),
   });
 }

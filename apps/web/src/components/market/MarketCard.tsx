@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { SettlementCountdown } from "./SettlementCountdown";
 import { shortQuestion } from "@/lib/copy/payoff";
-import { impliedText, marketPriceDisplay } from "@/lib/market/priceDisplay";
+import { impliedText, impliedTooltip, marketPriceDisplay } from "@/lib/market/priceDisplay";
 import type { MarketView } from "@/lib/market/types";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { LiveExposure } from "@/hooks/useWalletPositions";
@@ -30,8 +30,8 @@ export function MarketCard({
   const trade = useMarketTradeState(market, livePosition, balancesLock);
   const { position } = trade;
   // DLV-116 (docs/ui/08): no bare mid on the card — `NN% implied` only; prices live on the Buy buttons.
+  // Closed / settled: no executables and implied hidden (08 fallbacks); countdown + proof link unchanged.
   const display = marketPriceDisplay(market, { open: trade.tradingOpen });
-  const settled = market.status === "settled-yes" || market.status === "settled-no" || market.status === "void";
   const whenShort = new Date(market.tradingCloseTs * 1000).toLocaleDateString(
     "en-US",
     { month: "short", day: "numeric", timeZone: "America/Chicago" },
@@ -68,8 +68,13 @@ export function MarketCard({
           whenShort,
         )}
       </Link>
-      {!settled && (
-        <div className="tabular" style={{ fontSize: "0.95rem" }} data-testid="card-implied">
+      {display.open && (
+        <div
+          className="tabular"
+          style={{ fontSize: "0.95rem" }}
+          data-testid="card-implied"
+          title={impliedTooltip(display)}
+        >
           {impliedText(display)}
         </div>
       )}

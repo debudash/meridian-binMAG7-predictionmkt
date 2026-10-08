@@ -3,6 +3,7 @@
  * Debu on Trade AMZN ≥ 190 read the header mid 0.42 / 0.58 as tradable while the book was ask 0.43 / bid 0.41.
  */
 import { describe, expect, it } from "vitest";
+import { transformBook } from "./bookTransform";
 import {
   NO_BUYERS_TITLE,
   NO_SELLERS_TITLE,
@@ -10,6 +11,7 @@ import {
   execTitle,
   formatPrice,
   impliedText,
+  impliedTooltip,
   marketPriceDisplay,
   priceDisplay,
   spreadText,
@@ -84,10 +86,39 @@ describe("priceDisplay core", () => {
     expect(impliedText(d)).toBe("—");
   });
 
-  it("closed / settled: no executables, no liquidity tooltips", () => {
+  it("closed / settled: no executables, no liquidity tooltips, implied hidden (08 fallbacks)", () => {
     const d = priceDisplay({ ...AMZN, open: false });
     expect(d.exec).toEqual({ "buy-yes": undefined, "buy-no": undefined, "sell-yes": undefined, "sell-no": undefined });
     expect(execTitle(d, "buy-yes")).toBeUndefined();
+    expect(impliedText(d)).toBe("—");
+    expect(spreadText(d)).toBeNull();
+  });
+
+  it("both perspectives: the No book's best ask/bid are Buy No / Sell No, spread identical", () => {
+    const yesBook = { bids: [{ price: 0.41, size: 90 }, { price: 0.39, size: 200 }], asks: [{ price: 0.43, size: 90 }] };
+    const no = transformBook(yesBook, "no", 0.01);
+    const d = priceDisplay({ bestBid: 0.41, bestAsk: 0.43 });
+    expect(Number(no.asks[0].price.toFixed(2))).toBe(d.exec["buy-no"]);
+    expect(Number(no.bids[0].price.toFixed(2))).toBe(d.exec["sell-no"]);
+    expect(Number((no.asks[0].price - no.bids[0].price).toFixed(2))).toBe(d.spread);
+    const no5 = transformBook({ bids: [{ price: 0.415, size: 1 }], asks: [{ price: 0.425, size: 1 }] }, "no", 0.005);
+    const d5 = priceDisplay({ bestBid: 0.415, bestAsk: 0.425, tickSize: 0.005 });
+    expect(Number(no5.asks[0].price.toFixed(3))).toBe(d5.exec["buy-no"]);
+    expect(Number(no5.bids[0].price.toFixed(3))).toBe(d5.exec["sell-no"]);
+  });
+
+  it("long form for tooltips (06 §4.1): 0.42 ≈ 42% implied chance", () => {
+    expect(impliedTooltip(priceDisplay(AMZN))).toBe("0.42 ≈ 42% implied chance");
+    expect(impliedTooltip(priceDisplay({ bestBid: 0.41, lastYes: 0.4 }))).toBe("Last trade 0.40 ≈ 40% implied chance");
+    expect(impliedTooltip(priceDisplay({ bestBid: 0.415, bestAsk: 0.425, tickSize: 0.005 }))).toBe("0.420 ≈ 42% implied chance");
+    expect(impliedTooltip(priceDisplay({}))).toBeUndefined();
+  });
+
+  it("executables stay within the market's [minPrice, maxPrice]", () => {
+    const d = priceDisplay({ bestBid: 0.02, bestAsk: 0.97, minPrice: 0.05, maxPrice: 0.95 });
+    expect(d.exec["buy-yes"]).toBe(0.95);
+    expect(d.exec["sell-yes"]).toBe(0.05);
+    expect(d.exec["buy-no"]).toBe(0.95);
   });
 
   it("formatPrice: — for missing, tick decimals otherwise", () => {

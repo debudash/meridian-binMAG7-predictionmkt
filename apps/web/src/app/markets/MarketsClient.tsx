@@ -11,7 +11,7 @@ import { useChainClock } from "@/components/providers/AppProviders";
 import { expiryChipLabel, expiryKey } from "@/lib/market/fixtures";
 import { formatOutcomePrice } from "@/lib/format";
 import { noPriceFromYes } from "@/lib/market/bookTransform";
-import { impliedText, marketPriceDisplay } from "@/lib/market/priceDisplay";
+import { impliedText, impliedTooltip, marketPriceDisplay } from "@/lib/market/priceDisplay";
 import { useLastViewedMarket } from "@/components/ui/useLastViewedMarket";
 import { useWalletPositions } from "@/hooks/useWalletPositions";
 import { MarketBuyCell } from "@/components/market/MarketBuyLinks";
@@ -426,7 +426,9 @@ export function MarketsClient({
                       {noAsk != null ? formatOutcomePrice(noAsk) : "—"}
                     </td>
                     {/* DLV-116 (docs/ui/08): implied, never a bare mid */}
-                    <td className="tabular">{impliedText(marketPriceDisplay(m))}</td>
+                    <td className="tabular" title={impliedTooltip(marketPriceDisplay(m))}>
+                      {impliedText(marketPriceDisplay(m))}
+                    </td>
                     <td className="tabular">
                       {m.lastYes != null ? formatOutcomePrice(m.lastYes) : "—"}
                     </td>
@@ -524,7 +526,7 @@ export function MarketsClient({
                           <td className="tabular">
                             {noAsk != null ? formatOutcomePrice(noAsk) : "—"}
                           </td>
-                          <td className="tabular">
+                          <td className="tabular" title={impliedTooltip(marketPriceDisplay(m))}>
                             {impliedText(marketPriceDisplay(m))}
                           </td>
                           <td className="tabular">

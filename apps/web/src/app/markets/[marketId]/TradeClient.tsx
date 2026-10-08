@@ -16,7 +16,7 @@ import { fetchPhoenixBook, isPhoenixPlacementEnabled } from "@/lib/phoenix";
 import { useConnection } from "@solana/wallet-adapter-react";
 import type { OrderBookSnapshot } from "@/lib/market/types";
 import { type Perspective } from "@/lib/market/bookTransform";
-import { headerPills, impliedText, marketPriceDisplay } from "@/lib/market/priceDisplay";
+import { headerPills, impliedText, impliedTooltip, marketPriceDisplay } from "@/lib/market/priceDisplay";
 import {
   bookKeys,
   bookSelectionReducer,
@@ -301,7 +301,12 @@ export function TradeClient({
             </button>
           </div>
           {pills.implied != null && (
-            <span className="muted tabular" style={{ fontSize: "0.85rem" }} data-testid="trade-implied">
+            <span
+              className="muted tabular"
+              style={{ fontSize: "0.85rem" }}
+              data-testid="trade-implied"
+              title={impliedTooltip(priceView)}
+            >
               {pills.implied}
             </span>
           )}
