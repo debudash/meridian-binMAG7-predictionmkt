@@ -1,3 +1,16 @@
+## 2026-10-08T12:10:00-05:00 — Testers: VISUAL_RUNBOOK (+ STAGING) strings synced to apps/web @ 7e8120d
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Testers |
+| **Branch** | `test/runbook-strings-7e8120d` from `origin/main` @ `7e8120d` (Merge !84; !75 already on main) |
+| **Source** | Debu Track A on the box @ `7e8120d`: header wallet button shows **Connect**, not **Select Wallet**. |
+| **Decision** | Docs only. (1) Header connect flow: document wallet-adapter labels **Connect** (`has-wallet`) / **Select Wallet** (`no-wallet`) from `@solana/wallet-adapter-react-ui` 0.9.40; modal title and dropdown **Copy address / Change wallet / Disconnect** marked **text may vary**; Phantom approve copy marked **text may vary**. Fixed runbook 0.2 / 0.3 and STAGING 2.4. (2) Order-book footer `refreshes every 4s` → **every 6s** (`liveBookFooter` / `POLL_MS.tradeBook`). (3) Track A + §5 + Portfolio 11.1: current Localnet Dev Wallet (dev wallet 2) already holds **Yes 5** on **NVDA ≥ $140.00 at close Oct 14** and **MSFT ≥ $420.00 at close Oct 14** (`shortQuestion` card titles) — leftovers, not this session's fills. (4) STAGING 2.3: card titles use `shortQuestion`, trade page keeps full `Will …?` question. Written-against tips moved to `7e8120d`. |
+| **Files** | `docs/VISUAL_RUNBOOK.md`, `docs/STAGING_TEST_PLAN.md`, `docs/AI_LOG.md` |
+| **Related** | !75 · !84 · DLV-113 · DLV-114 · wallet-adapter-react-ui |
+
+---
+
 ## 2026-10-08T11:49:00-05:00 — Engineers: Fills row appears after a confirmed trade without a reload
 
 | Field | Value |
