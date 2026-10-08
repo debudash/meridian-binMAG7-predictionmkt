@@ -1,3 +1,18 @@
+## 2026-10-08T00:05:00-05:00 — Engineers: M3 separate low-balance settler key (no program change)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `fix/settler-key-m3` rebased on `origin/main` @ `6e3c91b` (!69) |
+| **Source** | `/workspace/meridian-review-mr52-61.md` **M3** (!57) |
+| **Finding** | `settle` already needs no authority: `Settle.settler` is a bare `Signer` with no `has_one` or constraint (`programs/meridian/src/instructions/settle.rs`). So there's **no program, Config or IDL change, and nothing that affects the devnet deploy**. The authority was only used because automation passed `settler: opts.authority`, and Anchor `.rpc()` also made the authority the fee payer (provider wallet). |
+| **Decision** | TDD. Automation: new `SETTLER_KEYPAIR` → `resolveSettler(cfg, authority)`. The settler must differ from the authority and is **required on mainnet-beta**; devnet/localnet fall back to the authority with a loud warning. The settler gets its own `Program`/provider, so it signs **and pays** for settle (legacy path, and pull path: Pyth post + `settle`). `admin_settle`, create and `set_phoenix_market` stay authority-only. Prod LiteSVM characterisation test **PULL-M3**: a non-authority key holding 0.01 SOL settles on the prod `.so`. Docs: DEPLOY, RAILWAY_STAGING, SIM_LIFECYCLE and `automation.staging.env.example`. The box-only staging ops scripts were updated separately (backed up, dry-run, watcher restarted). |
+| **Evidence** | automation `npm test` 47/47 (was 37; +10 in `settler-key.test.ts`) · automation `tsc --noEmit` clean · `tests/prod/settle_pull_oracle.ts` **22/22** on the prod `.so` (staging build of the same `programs/` tree, `assert-prod-no-fixtures` PASS) · root `tests/unit` 7/7. |
+| **Needs Debu** | Set a Railway secret `SETTLER_KEYPAIR` (low-balance, about 0.05 devnet SOL) on the automation service. Until then devnet automation keeps settling with the authority and logs a warning. |
+| **Related** | M3 · D-025 · DLV-078 · !57 |
+
+---
+
 ## 2026-10-07T23:55:00-05:00 — Engineers: M2 fixtures need a loopback RPC (`custom` label no longer enough)
 
 | Field | Value |
