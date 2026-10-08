@@ -105,6 +105,16 @@ export interface AutomationConfig {
    * authority with a warning when unset.
    */
   settlerKeypairRaw: string;
+  /**
+   * Review dd46769: dedicated low-privilege key that is each Phoenix book's seat-manager authority
+   * (after the PSM handoff) and pauses books at expiry. Never the upgrade key, the config authority
+   * or the settler. Unset → pausing disabled (warned) off mainnet; required on mainnet-beta.
+   */
+  pauserKeypairRaw: string;
+  /** Pause this many seconds before expiry (default 0 = at expiry). */
+  pauseLeadSecs: number;
+  /** Missed-pause alert threshold after expiry (default 120 s). */
+  pauseAlertSecs: number;
   collateralMint: PublicKey | null;
   symbols: string[];
   priorCloseE6: bigint;
@@ -200,6 +210,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
     idlPath,
     keypairRaw: env.AUTOMATION_KEYPAIR ?? "",
     settlerKeypairRaw: env.SETTLER_KEYPAIR ?? "",
+    pauserKeypairRaw: env.PHOENIX_PAUSER_KEYPAIR ?? "",
+    pauseLeadSecs: Number(env.PHOENIX_PAUSE_LEAD_SECS ?? "0"),
+    pauseAlertSecs: Number(env.PHOENIX_PAUSE_ALERT_SECS ?? "120"),
     collateralMint: collateral ? new PublicKey(collateral) : null,
     symbols: parseSymbols(env.STRIKE_SYMBOLS ?? "AAPL").map((s) => s.toUpperCase()),
     priorCloseE6: BigInt(env.PRIOR_CLOSE_E6 ?? "180000000"),
@@ -255,4 +268,25 @@ export function resolveSettler(cfg: AutomationConfig, authority: Keypair): Resol
     throw new Error("SETTLER_KEYPAIR must differ from AUTOMATION_KEYPAIR (the config authority)");
   }
   return { keypair, separate: true };
+}
+
+/**
+ * Review dd46769: the Phoenix pauser (per-book seat-manager authority). Refuses the config authority
+ * and the settler so each key keeps one job. Returns null when unset off mainnet (pausing disabled).
+ */
+export function resolvePauser(cfg: AutomationConfig, authority: Keypair, settler?: Keypair): Keypair | null {
+  if (!cfg.pauserKeypairRaw) {
+    if (cfg.cluster === "mainnet-beta") {
+      throw new Error("PHOENIX_PAUSER_KEYPAIR required on mainnet-beta (Phoenix books must pause at expiry)");
+    }
+    return null;
+  }
+  const kp = loadKeypairFromEnv(cfg.pauserKeypairRaw);
+  if (kp.publicKey.equals(authority.publicKey)) {
+    throw new Error("PHOENIX_PAUSER_KEYPAIR must differ from AUTOMATION_KEYPAIR (the config authority)");
+  }
+  if (settler && kp.publicKey.equals(settler.publicKey)) {
+    throw new Error("PHOENIX_PAUSER_KEYPAIR must differ from SETTLER_KEYPAIR");
+  }
+  return kp;
 }
