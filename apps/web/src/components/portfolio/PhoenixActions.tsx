@@ -2,7 +2,8 @@
 
 /**
  * Cancel resting orders / withdraw the Phoenix seat to the wallet (DLV-087).
- * After a confirmed tx the shared wallet-account + history caches refresh.
+ * After a confirmed tx the shared wallet-account + history caches refresh. Success is shown only
+ * when every tx confirmed without error (L14); Cancel all may span several txs (L13).
  */
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,9 +35,11 @@ function usePhoenixAction(phoenixMarket: string) {
         sendTransaction: wallet.sendTransaction,
       });
       if (r.ok && r.signature) {
-        push("info", `${r.message} Confirming…`);
-        await connection.confirmTransaction(r.signature, "confirmed").catch(() => undefined);
         push("success", `${r.message} · ${r.signature.slice(0, 8)}…`);
+      } else if (r.status === "unconfirmed") {
+        push("neutral", r.message);
+      } else if (r.message === "Wallet rejected the transaction.") {
+        push("neutral", r.message);
       } else {
         push("error", r.message);
       }

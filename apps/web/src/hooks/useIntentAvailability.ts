@@ -13,7 +13,7 @@ import {
   getIntentAvailability,
   getExposure,
 } from "@/lib/intents/getIntentAvailability";
-import { balancesLoadingAvailability, resolveAvailabilityInputs } from "@/lib/intents/resolveInputs";
+import { applyBalanceLock, resolveAvailabilityInputs } from "@/lib/intents/resolveInputs";
 import type {
   IntentAvailabilityMap,
   MarketLifecycleStatus,
@@ -34,6 +34,8 @@ export interface UseIntentAvailabilityOptions {
   pendingTxs?: PendingTxSnapshot;
   /** Connected wallet's first live read hasn't landed yet → lock intents. */
   balancesLoading?: boolean;
+  /** The wallet read errored before any data landed → stay locked (M5, fail closed). */
+  balancesError?: boolean;
   lotSize?: number;
   lifecycle?: MarketLifecycleStatus;
 }
@@ -46,6 +48,8 @@ export interface UseIntentAvailabilityResult {
   lifecycle: MarketLifecycleStatus;
   exposure: ReturnType<typeof getExposure>;
   source: "live" | "demo" | "flat";
+  /** Why intents are locked (balances pending / read failed), or null */
+  locked: "loading" | "error" | null;
 }
 
 export function useIntentAvailability(
@@ -65,8 +69,9 @@ export function useIntentAvailability(
         cluster: getCluster(),
         live: opts.position ? { position: opts.position, openOrders: opts.openOrders } : null,
         liveLoading: opts.balancesLoading ?? false,
+        liveError: opts.balancesError ?? false,
       }),
-    [connected, marketId, opts.position, opts.openOrders, opts.balancesLoading],
+    [connected, marketId, opts.position, opts.openOrders, opts.balancesLoading, opts.balancesError],
   );
   const { position, openOrders } = resolved;
 
@@ -81,10 +86,10 @@ export function useIntentAvailability(
 
   const availability = useMemo(() => {
     const a = getIntentAvailability(position, openOrders, pendingTxs, { lifecycle, lotSize });
-    // Closed markets keep their own copy; otherwise don't guess "flat" while balances load.
-    if (resolved.loading && a["buy-yes"].reason !== "market-closed") return balancesLoadingAvailability();
-    return a;
-  }, [position, openOrders, pendingTxs, lifecycle, lotSize, resolved.loading]);
+    // Closed markets keep their own copy; otherwise never guess "flat" while balances load or
+    // after the first read failed (M5: fail closed).
+    return applyBalanceLock(a, resolved);
+  }, [position, openOrders, pendingTxs, lifecycle, lotSize, resolved]);
 
   const exposure = useMemo(
     () => getExposure(position, openOrders, lotSize),
@@ -99,5 +104,6 @@ export function useIntentAvailability(
     lifecycle,
     exposure,
     source: resolved.source,
+    locked: resolved.locked,
   };
 }

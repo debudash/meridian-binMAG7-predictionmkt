@@ -11,6 +11,8 @@ export interface PhoenixPlaceOrderRequest {
   /** Price in intent-side terms (Yes or No) */
   price: number;
   size: number;
+  /** Ticket lot size in contracts (MarketView.lotSize); sizes must be whole multiples (M1) */
+  lotSize?: number;
   orderType: PhoenixOrderType;
   /** Slippage cap for market (side terms) */
   worstPrice?: number;
@@ -26,6 +28,7 @@ export interface PhoenixPlaceOrderRequest {
 
 export type PlaceFailureReason =
   | "not-configured"
+  | "invalid-size"
   | "wallet-required"
   | "seat-required"
   | "mint-accounts-missing"
@@ -52,6 +55,10 @@ export interface PhoenixPlaceOrderResult {
   plan?: ComposePlanSummary;
   signature?: string;
   signatures?: string[];
+  /** L11: the tx also withdrew free seat funds (WithdrawFunds(all)) to the wallet */
+  swept?: boolean;
+  /** Blockhash the tx was built with — for blockhash-expiry confirmation (L14) */
+  blockhash?: { blockhash: string; lastValidBlockHeight: number };
 }
 
 export interface ComposePlanSummary {

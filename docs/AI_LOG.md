@@ -1,3 +1,17 @@
+## 2026-10-07T23:45:00-05:00 — Engineers: Reviewer Mediums M1/M4/M5 + L8/L10/L11/L12/L13/L14 (web)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `fix/web-reviewer-mediums` from `origin/main` @ `ea84698` |
+| **Source** | `/workspace/meridian-review-mr52-61.md` (M1, L8, L10) · `/workspace/meridian-review-mr63.md` (M4, M5, L11–L14) |
+| **Decision** | TDD (failing vitest first, then the fix). **M1/L12:** sizes must be a positive whole number of Phoenix base lots — refused in the ticket (inline error, CTA disabled) and in `placePhoenixOrder` before anything is loaded or signed (`lotSizeError`), then authoritatively from the loaded market (`contractsToLots`): one integer lot count drives mint raw (= lots × baseLotSize), the Phoenix size and the FOK min-fill; half-lot headroom so the SDK float floor can't drop a lot (0.29 / 0.01-lot → 29, not 28). **M4:** server-side TTL cache + in-flight dedupe for the market scan (`MARKET_LIST_CACHE_MS`, default 20 s; failures 3 s), shared by `listMarkets`, `/api/markets` and `getMarket` misses (closes **L10**); Header reads only settled markets' ATAs, no Phoenix (60 s, was 30 s over everything); Phoenix market-state reads only for open markets (Portfolio also reads settled seats for withdraw leftovers); trade account 10 s (was 4 s), book 6 s and paused while hidden / not open; history 60 s and only while the Fills tab is open on the trade page; 429 → exponential backoff (cap 5 min). **M5:** connected + no data + read error → locked ("Couldn't read your balances. Retrying…") with a Retry button — fails closed. **L8:** market worst price clamped to `[minPrice, maxPrice]`. **L11:** one-line sweep disclosure on the ticket and in the success toast. **L13:** Cancel all chunked (20 orders/tx; a full chunk serialises ≤ 1232 bytes). **L14:** success only after `confirmTransaction` with no `value.err`; failed → error, timeout → "not confirmed, check explorer" (Phoenix actions and the ticket). |
+| **Evidence** | web vitest 310 passed / 14 skipped (was 252/14) · `tsc --noEmit` clean. No program / IDL / automation changes. |
+| **Files** | `apps/web/src/lib/phoenix/{size,client,compose,manage,sweepCopy,types,index}.ts` · `lib/rpc/pollPolicy.ts` · `lib/indexer/{index,listCache}.ts` · `lib/intents/resolveInputs.ts` · `lib/solana/confirm.ts` · hooks (`useWalletAccount`, `useMarketAccount`, `usePortfolio`, `useWalletPositions`, `useWalletHistory`, `useMarketList`, `useIntentAvailability`) · `TradeTicket.tsx` · `TradeClient.tsx` · `Header.tsx` · `PhoenixActions.tsx` · tests |
+| **Related** | M1 · M4 · M5 · L8 · L10 · L11 · L12 · L13 · L14 · D-024 · DLV-070 · DLV-087 · DLV-088 · !54 · !63 |
+
+---
+
 ## 2026-10-07T23:20:00-05:00 — Testers: devnet staging acceptance test plan (Phantom)
 
 | Field | Value |

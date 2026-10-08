@@ -134,3 +134,23 @@ describe("ticketPhoenixOrderType (D-021: post-only hidden in V1)", () => {
     expect(ticketPhoenixOrderType("market", true)).toBe("market");
   });
 });
+
+/** L8 (Reviewers, !54): market worst price = touch ± 0.02, clamped to the market's price band. */
+import { marketWorstPrice } from "./compose";
+
+describe("marketWorstPrice (L8)", () => {
+  const band = { minPrice: 0.01, maxPrice: 0.99 };
+  it("buy adds, sell subtracts the slippage", () => {
+    expect(marketWorstPrice(0.5, true, band)).toBeCloseTo(0.52);
+    expect(marketWorstPrice(0.5, false, band)).toBeCloseTo(0.48);
+  });
+  it("clamps into [minPrice, maxPrice]", () => {
+    expect(marketWorstPrice(0.98, true, band)).toBe(0.99);
+    expect(marketWorstPrice(0.02, false, band)).toBe(0.01);
+  });
+  it("Buy No at p_no 0.98 → Yes limit stays ≥ 0.01 (used to be ≤ 0)", () => {
+    const plan = planIntentComposition({ intent: "buy-no", price: 0.98, size: 1, orderType: "market", tickSize: 0.01 });
+    const yes = effectiveYesLimitPrice(plan, marketWorstPrice(0.98, true, band), 0.01);
+    expect(yes).toBeGreaterThanOrEqual(0.01);
+  });
+});

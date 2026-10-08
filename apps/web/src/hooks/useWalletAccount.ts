@@ -12,6 +12,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { logChainReadError } from "@/lib/log/chainRead";
 import { readWalletAccount, type AccountMarketRef, type WalletAccount } from "@/lib/portfolio/readAccount";
 import { getUsdcMint } from "@/lib/solana/config";
+import { refetchWithBackoff } from "@/lib/rpc/pollPolicy";
 
 export const WALLET_ACCOUNT_KEY = "wallet-account";
 
@@ -52,7 +53,7 @@ export function useWalletAccount(markets: readonly AccountMarketRef[], pollMs = 
   const q = useQuery({
     queryKey: [WALLET_ACCOUNT_KEY, owner, marketsKey, connection.rpcEndpoint],
     enabled: owner != null,
-    refetchInterval: pollMs,
+    refetchInterval: refetchWithBackoff(pollMs), // M4: back off on 429
     refetchIntervalInBackground: false,
     staleTime: Math.min(pollMs, 5_000),
     retry: 1,

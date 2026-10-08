@@ -34,7 +34,14 @@ import {
 import { explainPlaceError } from "./errors";
 import { buildClaimSeatInstructions } from "./seat";
 import { seatSweepIxs, type ManageMarketState } from "./manage";
-import { contractsToRawAmounts, DEFAULT_OUTCOME_DECIMALS } from "./size";
+import {
+  contractsToLots,
+  DEFAULT_OUTCOME_DECIMALS,
+  lotSizeError,
+  SizeNotLotAlignedError,
+  type LotSizing,
+  type PhoenixLotParams,
+} from "./size";
 import { logChainReadError } from "@/lib/log/chainRead";
 import type {
   ComposePlanSummary,
@@ -58,7 +65,7 @@ export interface PlaceContext {
   ensureSeat?: boolean;
   /**
    * Outcome / collateral decimals (default 6).
-   * Used by contractsToRawAmounts for mint, merge, and Phoenix sizeInBaseUnits.
+   * Used by contractsToLots for mint, merge, and Phoenix sizeInBaseUnits.
    */
   collateralDecimals?: number;
 }
@@ -110,10 +117,20 @@ async function buildPhoenixPlaceIx(
   trader: PublicKey,
   plan: ComposePlanSummary,
   limitYesPrice: number,
-  sizeInBaseUnits: number,
-): Promise<{ ix: TransactionInstruction; setup: TransactionInstruction[]; sweep: TransactionInstruction[] }> {
+  decimals: number,
+): Promise<{
+  ix: TransactionInstruction;
+  setup: TransactionInstruction[];
+  sweep: TransactionInstruction[];
+  sized: LotSizing;
+}> {
   const { PhoenixSdk, client } = await loadPhoenixClient(connection, [market]);
   const key = market.toBase58();
+  // M1: one integer lot count from the loaded market drives the mint, the order and FOK min-fill.
+  const meta = client.marketMetadatas.get(key) as PhoenixLotParams | undefined;
+  if (!meta) throw new Error(`Phoenix market ${key} not loaded`);
+  const sized = contractsToLots(plan.size, meta, decimals);
+  const sizeInBaseUnits = sized.phoenixBaseUnits;
   // Free Yes/USDC in this wallet's seat (resting fills) → wallet first, so the order can use it.
   const marketState = client.marketStates.get(key);
   const sweep = marketState
@@ -162,7 +179,7 @@ async function buildPhoenixPlaceIx(
   const setup =
     (await buildClaimSeatInstructions(connection, market, trader)).instructions ??
     [];
-  return { ix, setup, sweep };
+  return { ix, setup, sweep, sized };
 }
 
 /**
@@ -202,23 +219,28 @@ export async function placePhoenixOrder(
     };
   }
 
+  // M1 / L12: refuse non-lot-aligned sizes before loading or signing anything.
+  const sizeErr = lotSizeError(plan.size, req.lotSize ?? 1);
+  if (sizeErr) {
+    return { ok: false, reason: "invalid-size", message: sizeErr, mapped, plan };
+  }
+
   const limitYes = effectiveYesLimitPrice(
     plan,
     req.worstPrice,
     req.tickSize ?? 0.01,
   );
   const decimals = ctx.collateralDecimals ?? DEFAULT_OUTCOME_DECIMALS;
-  const sized = contractsToRawAmounts(plan.size, decimals);
 
   try {
     const market = new PublicKey(req.phoenixMarket);
-    const { ix: placeIx, setup, sweep } = await buildPhoenixPlaceIx(
+    const { ix: placeIx, setup, sweep, sized } = await buildPhoenixPlaceIx(
       ctx.connection,
       market,
       ctx.publicKey,
       plan,
       limitYes,
-      sized.phoenixBaseUnits,
+      decimals,
     );
 
     // Seat claim + mint + swap can exceed the 200k CU default.
@@ -282,8 +304,8 @@ export async function placePhoenixOrder(
 
     const tx = new Transaction().add(...ixs);
     tx.feePayer = ctx.publicKey;
-    const { blockhash } = await ctx.connection.getLatestBlockhash("confirmed");
-    tx.recentBlockhash = blockhash;
+    const latest = await ctx.connection.getLatestBlockhash("confirmed");
+    tx.recentBlockhash = latest.blockhash;
 
     const signature = await ctx.sendTransaction(tx, ctx.connection, {
       skipPreflight: false,
@@ -307,8 +329,13 @@ export async function placePhoenixOrder(
       plan,
       signature,
       signatures: [signature],
+      swept: sweep.length > 0,
+      blockhash: latest,
     };
   } catch (e) {
+    if (e instanceof SizeNotLotAlignedError) {
+      return { ok: false, reason: "invalid-size", message: e.message, mapped, plan };
+    }
     const msg = e instanceof Error ? e.message : String(e);
     const rejected =
       /reject|denied|cancel/i.test(msg) || msg.includes("User rejected");

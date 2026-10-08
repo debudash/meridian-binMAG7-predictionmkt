@@ -18,7 +18,7 @@ vi.mock("./http", () => ({
   httpPortfolioHints: vi.fn(async () => null),
 }));
 
-import { listMarkets, getMarket } from "./index";
+import { listMarkets, getMarket, resetMarketListCache } from "./index";
 import { fixturesAllowed } from "@/lib/solana/config";
 import { displayBook } from "@/lib/market/fixtures";
 
@@ -30,6 +30,7 @@ function setCluster(c: string | undefined) {
 }
 
 beforeEach(() => {
+  resetMarketListCache();
   rpc.fetchMarketsViaRpc.mockReset();
   rpc.fetchMarketViaRpc.mockReset();
 });
