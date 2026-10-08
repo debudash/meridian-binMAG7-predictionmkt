@@ -16,6 +16,7 @@ const W = need("WEB_NODE_MODULES").replace(/\/?$/, "/");
 const { spawnSync } = require("child_process");
 const { pullSettlePlan } = require("./lib/pull-settle.cjs");
 const { adminPriceGuard } = require("./lib/admin-price.cjs");
+const { writeFileAtomicSync } = require("./lib/atomic-write.cjs"); // N-1: atomic $STATE writes
 const web3 = require(W + "@solana/web3.js"); const spl = require(W + "@solana/spl-token"); const anchor = require(W + "@coral-xyz/anchor");
 const { PublicKey, Keypair, Connection, Transaction, ComputeBudgetProgram } = web3;
 const RPC = need("RPC"), STATE = need("STATE"), KEYS = need("KEYS");
@@ -77,7 +78,7 @@ async function send(ixs, signers, label) {
     const ix = await pk.methods.settle().accounts({ settler: settler.publicKey, config, strikeMarket: sm, pythPriceFeed: acc.pythPriceFeed, simClock: null }).instruction();
     if (mid.status === 0) state.settleTest.pythSettleSig = await send([ix], [settler], `permissionless settle (sponsored Pyth account; settler ${settler.publicKey.toBase58()})`);
     const fresh = await pk.account.strikeMarket.fetch(sm);
-    const guard = process.env.ADMIN_PRICE_E6 ? adminPriceGuard({ priceE6: process.env.ADMIN_PRICE_E6, source: process.env.ADMIN_PRICE_SOURCE }) : null;
+    const guard = process.env.ADMIN_PRICE_E6 ? adminPriceGuard({ priceE6: process.env.ADMIN_PRICE_E6, source: process.env.ADMIN_PRICE_SOURCE, market: process.env.ADMIN_PRICE_MARKET, expectedMarket: sm.toBase58() }) : null;
     if (fresh.status === 0 && guard && !guard.ok) console.log(`  [settle] ALERT admin_settle REFUSED: ${guard.reason}`);
     if (fresh.status === 0 && guard && guard.ok) {
       console.log(`  ${guard.line}`); state.settleTest.adminPriceSource = process.env.ADMIN_PRICE_SOURCE;
@@ -95,5 +96,5 @@ async function send(ixs, signers, label) {
     const after = (await conn.getTokenAccountBalance(ata(usdc))).value.uiAmount; console.log(`  trader mUSDC ${before} → ${after}`); state.settleTest.redeemUsdc = { before, after };
   }
   const end = await pk.account.strikeMarket.fetch(sm); console.log(`  final status=${end.status} settlementPriceE6=${end.settlementPriceE6}`); state.settleTest.finalStatus = end.status; state.settleTest.settlementPriceE6 = end.settlementPriceE6.toString();
-  fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
+  writeFileAtomicSync(STATE, JSON.stringify(state, null, 2));
 })().catch((e) => { console.error(e); process.exit(1); });

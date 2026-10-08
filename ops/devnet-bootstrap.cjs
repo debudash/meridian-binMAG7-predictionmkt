@@ -40,6 +40,7 @@ const spl = require(W + "@solana/spl-token");
 const anchor = require(W + "@coral-xyz/anchor");
 const phx = require(W + "@ellipsis-labs/phoenix-sdk");
 const psm = require("./lib/psm.cjs")(web3);
+const { writeFileAtomicSync } = require("./lib/atomic-write.cjs"); // N-1: the pause watcher reads $STATE concurrently
 const { PublicKey, Keypair, SystemProgram, Transaction, TransactionInstruction, ComputeBudgetProgram, Connection, LAMPORTS_PER_SOL } = web3;
 
 const RPC = need("RPC");
@@ -233,7 +234,7 @@ async function main() {
   if (DRY_RUN) return dryRun();
   if (!IDL) throw new Error("MERIDIAN_IDL required (prod IDL matching the deployed .so)");
   const state = fs.existsSync(STATE) ? JSON.parse(fs.readFileSync(STATE, "utf8")) : { markets: [] };
-  const save = () => { state.sigs = (state.sigs || []).concat(sigs.splice(0)); fs.writeFileSync(STATE, JSON.stringify(state, null, 2)); };
+  const save = () => { state.sigs = (state.sigs || []).concat(sigs.splice(0)); writeFileAtomicSync(STATE, JSON.stringify(state, null, 2)); };
   const payer = kp("upgrade-authority"), keeper = kp("keeper"), admin = kp("admin"), maker = kp("maker"), trader = kp("trader"), usdcKp = kp("usdc-mint");
   const usdc = usdcKp.publicKey;
   Object.assign(state, { rpcUsed: RPC, programId: PROGRAM_ID.toBase58(), usdcMint: usdc.toBase58(), keeper: keeper.publicKey.toBase58(),

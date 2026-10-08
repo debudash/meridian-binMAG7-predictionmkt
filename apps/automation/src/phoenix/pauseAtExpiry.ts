@@ -15,6 +15,14 @@
  * to once per book per hour, immediately again if the observed value changes). L2: one undecodable
  * book is a per-book alert, and an RPC failure during a pass alerts with the due books instead of
  * escaping as a generic worker error.
+ *
+ * Reviewers !78 follow-up:
+ *  N-2  a book that left PSM (market authority ≠ SM PDA) gets no pause send (`skip-left-psm`: PSM can't pause it, the
+ *       send only fails), and "went Active again" / "pause FAILED" go through the keyed rate limit
+ *       (PHOENIX_PAUSE_ALERT_REPEAT_SECS, default 1 h) instead of alerting every tick.
+ *  N-3  any listed book whose SM authority isn't the pauser alerts (rate-limited) whatever the memory / due time, and
+ *       the memory can be persisted across restarts (pauseMemoryStore.ts).
+ *  N-4  a failed pass with no successful listing yet (first pass after start) or 3 failures in a row alerts.
  */
 import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import type { Program } from "@coral-xyz/anchor";
@@ -50,6 +58,7 @@ export type PauseAction =
   | "wait"
   | "done"
   | "skip-not-authority"
+  | "skip-left-psm"
   | "skip-missing"
   | "skip-uninitialized";
 
@@ -65,6 +74,8 @@ export interface PauseTiming {
   leadSecs?: number;
   /** Alert when a due book is still not paused this many seconds after expiry. */
   alertAfterSecs?: number;
+  /** N-2: repeat interval for a standing (unchanged) alert per book / reason (default ALERT_REPEAT_SECS). */
+  alertRepeatSecs?: number;
 }
 
 const DONE = new Set([PhoenixMarketStatus.Paused, PhoenixMarketStatus.Closed, PhoenixMarketStatus.Tombstoned]);
@@ -84,6 +95,10 @@ export function planPauses(
     if (!s || s.status === null) return { book, action: "skip-missing" };
     if (DONE.has(s.status)) return { book, action: "done" };
     if (s.status === PhoenixMarketStatus.Uninitialized) return { book, action: "skip-uninitialized" };
+    // N-2: the book left PSM (PSM 9 → Phoenix 101): PSM ChangeMarketStatus can only fail, so never send it.
+    if (s.marketAuthority !== undefined && !(s.marketAuthority && s.marketAuthority.equals(seatManagerAddress(book.phoenixMarket)))) {
+      return { book, action: "skip-left-psm", alert: nowUnix >= book.expiryTs - lead };
+    }
     if (nowUnix < book.expiryTs - lead) return { book, action: "wait" };
     const overdue = nowUnix - book.expiryTs >= alertAfter;
     if (!s.seatManagerAuthority || !s.seatManagerAuthority.equals(pauser)) {
@@ -130,11 +145,16 @@ export interface PauseMemory {
   lastAlert: Map<string, number>;
   /** Last successful listing (L2: name the due books when a later pass fails) */
   lastBooks: BookAtExpiry[];
+  /** N-4: passes failed in a row (reset by a good pass) */
+  consecutiveFailures: number;
 }
 
 export function createPauseMemory(): PauseMemory {
-  return { pausedOnce: new Set(), onPauser: new Set(), lastAlert: new Map(), lastBooks: [] };
+  return { pausedOnce: new Set(), onPauser: new Set(), lastAlert: new Map(), lastBooks: [], consecutiveFailures: 0 };
 }
+
+/** N-4: alert on this many failed passes in a row even when no known book is due. */
+export const PASS_FAILURE_ALERT_AFTER = 3;
 
 /** Repeat interval for standing (non-changing) authority / handoff alerts. */
 export const ALERT_REPEAT_SECS = 3600;
@@ -158,9 +178,10 @@ export async function runPausePass(
   memory: PauseMemory = createPauseMemory(),
 ): Promise<PausePassResult> {
   const lead = timing.leadSecs ?? 0;
+  const repeat = timing.alertRepeatSecs ?? ALERT_REPEAT_SECS;
   const alertKeyed = (key: string, msg: string, now: number) => {
     const last = memory.lastAlert.get(key);
-    if (last !== undefined && now - last < ALERT_REPEAT_SECS) return;
+    if (last !== undefined && now - last < repeat) return;
     memory.lastAlert.set(key, now);
     deps.alert(msg);
   };
@@ -174,10 +195,16 @@ export async function runPausePass(
     // L2: never let an RPC failure skip the ALERT channel while books are due.
     const now = deps.nowUnix();
     const err = String(e instanceof Error ? e.message : e).slice(0, 300);
+    memory.consecutiveFailures = (memory.consecutiveFailures ?? 0) + 1;
+    const n = memory.consecutiveFailures;
     const due = memory.lastBooks.filter((b) => now >= b.expiryTs - lead);
     if (due.length) deps.alert(`pause pass FAILED while ${due.length} book(s) due (${due.map(name).join(", ")}): ${err}`);
+    // N-4: the first pass after start has no listing to name due books from — alert anyway.
+    else if (memory.lastBooks.length === 0) deps.alert(`pause pass FAILED with no successful listing yet (${n} in a row; books can't be checked): ${err}`);
+    else if (n >= PASS_FAILURE_ALERT_AFTER) alertKeyed("passfail", `pause pass FAILED ${n} consecutive times (no book due yet): ${err}`, now);
     return { paused: [], failed: [], decisions: [], nextDelayMs: null, passError: err };
   }
+  memory.consecutiveFailures = 0;
   memory.lastBooks = books;
   const now = deps.nowUnix();
   const decisions = planPauses(books, states, pauser, now, timing);
@@ -198,8 +225,20 @@ export async function runPausePass(
       if (s.seatManagerAuthority?.equals(pauser)) memory.onPauser.add(key);
       else if (memory.onPauser.has(key) && d.action !== "skip-not-authority") {
         alertKeyed(`sm:${key}:${s.seatManagerAuthority?.toBase58() ?? "none"}`,
-          `book ${name(b)} (phoenix ${key}) seat-manager authority changed from the pauser ${pauser.toBase58()} to ${s.seatManagerAuthority?.toBase58() ?? "none"}`, now);
+          `book ${name(b)} (phoenix ${key}) seat-manager authority changed from the pauser ${pauser.toBase58()} to ${s.seatManagerAuthority?.toBase58() ?? "none"} — it CHANGED away from the pauser`, now);
+      } else if (s.seatManagerAuthority && d.action !== "skip-not-authority") {
+        // N-3: alert for every listed book, not only due ones or ones this process saw on the pauser.
+        alertKeyed(`sm:${key}:${s.seatManagerAuthority.toBase58()}`,
+          `book ${name(b)} (phoenix ${key}) seat-manager authority ${s.seatManagerAuthority.toBase58()} is not the pauser ${pauser.toBase58()} — run the handoff (or it changed before this watcher started)`, now);
       }
+    }
+
+    if (d.action === "skip-left-psm") {
+      // N-2: the mkt: alert above names it; an unpause by the new raw authority is one keyed alert, no send.
+      if (s?.status === PhoenixMarketStatus.Active && memory.pausedOnce.has(key)) {
+        alertKeyed(`reopen:${key}`, `book ${name(b)} (phoenix ${key}) went Active again after it was paused, but it left the Seat Manager — ops can't re-pause it; tell users to cancel and withdraw`, now);
+      }
+      continue;
     }
 
     if (d.action === "skip-missing" && s?.error && d.alert) {
@@ -216,7 +255,7 @@ export async function runPausePass(
     }
     if (d.action !== "pause") continue;
     const reopened = memory.pausedOnce.has(key);
-    if (reopened) deps.alert(`book ${name(b)} (phoenix ${key}) went Active again after it was paused (status ${PhoenixMarketStatus[s!.status!]}) — re-pausing`);
+    if (reopened) alertKeyed(`reopen:${key}`, `book ${name(b)} (phoenix ${key}) went Active again after it was paused (status ${PhoenixMarketStatus[s!.status!]}) — re-pausing`, now);
     try {
       const signature = await deps.sendPause(b);
       out.paused.push({ book: b, signature });
@@ -228,7 +267,7 @@ export async function runPausePass(
     } catch (e) {
       const error = String(e instanceof Error ? e.message : e).slice(0, 300);
       out.failed.push({ book: b, error });
-      deps.alert(`pause FAILED for book ${name(b)} (phoenix ${key}, ${now - b.expiryTs}s past expiry): ${error}`);
+      alertKeyed(`fail:${key}`, `pause FAILED for book ${name(b)} (phoenix ${key}, ${now - b.expiryTs}s past expiry): ${error}`, now);
     }
   }
   // Exact-time follow-up only for books not yet due; failed / not-authority books retry on the next tick

@@ -116,6 +116,8 @@ export interface AutomationConfig {
   pauseLeadSecs: number;
   /** Missed-pause alert threshold after expiry (default 120 s). */
   pauseAlertSecs: number;
+  /** Reviewers !78 N-2: repeat interval for a standing pause ALERT per book / reason (default 3600 s). */
+  pauseAlertRepeatSecs: number;
   collateralMint: PublicKey | null;
   symbols: string[];
   priorCloseE6: bigint;
@@ -214,6 +216,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
     pauserKeypairRaw: env.PHOENIX_PAUSER_KEYPAIR ?? "",
     pauseLeadSecs: intInRange("PHOENIX_PAUSE_LEAD_SECS", env.PHOENIX_PAUSE_LEAD_SECS, 0, 0, 300),
     pauseAlertSecs: intInRange("PHOENIX_PAUSE_ALERT_SECS", env.PHOENIX_PAUSE_ALERT_SECS, 120, 10, 86_400),
+    pauseAlertRepeatSecs: intInRange("PHOENIX_PAUSE_ALERT_REPEAT_SECS", env.PHOENIX_PAUSE_ALERT_REPEAT_SECS, 3600, 60, 86_400),
     collateralMint: collateral ? new PublicKey(collateral) : null,
     symbols: parseSymbols(env.STRIKE_SYMBOLS ?? "AAPL").map((s) => s.toUpperCase()),
     priorCloseE6: BigInt(env.PRIOR_CLOSE_E6 ?? "180000000"),

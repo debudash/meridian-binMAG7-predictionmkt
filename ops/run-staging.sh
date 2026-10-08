@@ -26,7 +26,7 @@
 #   expiry + SETTLE_AFTER (330 s = admin_settle_delay_secs 300 + 30) the keeper admin_settles, then the trader redeems.
 # ── ADMIN_SETTLE FALLBACK PRICE (Reviewers mr72-73 M3) ───────────────────────────────────────────────────────────────
 #   Never the stale pyth-read.py account price. `ops-cli admin-price` returns the Hermes price AT EXPIRY (publish_time
-#   within ADMIN_PRICE_MAX_SKEW_SECS=600 of expiry, market feed, sane confidence). If Hermes can't give one (off-hours,
+#   within ADMIN_PRICE_MAX_SKEW_SECS=60 (the on-chain window; ≤ 300 as a logged override) of expiry, market feed, sane confidence). If Hermes can't give one (off-hours,
 #   no key, outage) the script REFUSES, logs "[settle] ALERT", and waits (OPERATOR_PRICE_WAIT_HOURS=24) for the operator
 #   to write $ADMIN_PRICE_FILE (default $OPS_DIR/ADMIN_PRICE_20M) with three lines:
 #       market=<20-min strike market>   price_e6=<integer micro-USD>   source=<where the price came from>
@@ -47,6 +47,7 @@ set -uo pipefail
 unset RAILWAY_API_TOKEN RAILWAY_TOKEN
 DEVNET_GENESIS=EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG
 RUN_TMP=$(mktemp -d -t stg-run.XXXXXX)
+trap 'rm -rf "$RUN_TMP"' EXIT   # Reviewers nit: per-run temp dir cleaned up
 OPS_DIR=${OPS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 ENV_FILE=${STAGING_ENV_FILE:-$OPS_DIR/staging.env}
 # shellcheck disable=SC1090
@@ -95,10 +96,17 @@ ops_cli_ro(){   # read-only ops-cli status reads: no pauser / settler key at all
   ( cd "$AUTO" && env -u PHOENIX_PAUSER_KEYPAIR -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG \
       MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json node dist/ops-cli.js "$@" )
 }
+# !77 L-3: EXPECTED_PAUSER_PUB (staging.env) pins the pauser pubkey; unset → WARNING only (pre-pin configs keep working).
+pauser_pin_ok(){
+  if [ -z "${EXPECTED_PAUSER_PUB:-}" ]; then log "WARNING EXPECTED_PAUSER_PUB unset in staging.env — pauser key not pinned (!77 L-3)"; return 0; fi
+  [ "$PAUSER_PUB" = "$EXPECTED_PAUSER_PUB" ]
+}
 # Seat-manager authority → pauser for EVERY book in $STATE (idempotent; pre-!73 books included), then the read-only gate.
 # $1 = 1 for a dry run (reads only). Returns non-zero if any book isn't on the pauser afterwards.
 handoff_repair(){
   [ -f "$PAUSER_KEY" ] || { log "[pause] ALERT no pauser key ($PAUSER_KEY) — handoff repair skipped; books can't be paused"; return 1; }
+  # !77 L-3: a mis-pointed PAUSER_KEY must never receive the SM authority — compare with the pinned EXPECTED_PAUSER_PUB first.
+  pauser_pin_ok || { log "[pause] ALERT handoff ABORTED: $PAUSER_KEY is $PAUSER_PUB, not EXPECTED_PAUSER_PUB=${EXPECTED_PAUSER_PUB:-} (staging.env)"; return 1; }
   local dry=${1:-0} i rc=1
   for i in 1 2 3; do
     ( cd "$AUTO" && env -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json \
@@ -209,7 +217,7 @@ if [ "$DRY_RUN" = 1 ]; then
   log "4. START trigger for the 20-min AAPL >= 300 market: $tr; timeout ${START_WAIT_HOURS}h → skip"
   log "5. bootstrap phase 2 (SHORT_PHASE=only): AAPL >= 300 WITH Phoenix book + maker ladder + SM handoff to pauser, expiry = chain now + ${SHORT_MIN}m + ${SHORT_SETUP_SECS}s → handoff repair (all books) → 'SHORT MARKET READY'"
   log "6. trader mints 5 pairs; at expiry: pause-once (book → Paused); expiry+${PULL_SETTLE_AFTER}s: permissionless Pyth pull settle (settler $SETTLER_PUB, PYTH_HERMES_API_KEY $HERMES); expiry+${SETTLE_AFTER}s: admin_settle fallback → redeem"
-  log "6b. admin_settle fallback price (M3): ops-cli admin-price = Hermes price at expiry (|publish_time − expiry| <= ${ADMIN_PRICE_MAX_SKEW_SECS:-600}s); else REFUSE + '[settle] ALERT' + wait ${OPERATOR_PRICE_WAIT_HOURS}h for $ADMIN_PRICE_FILE (market= price_e6= source=). Never the stale shard-0 account price"
+  log "6b. admin_settle fallback price (M3): ops-cli admin-price = Hermes price at expiry (|publish_time − expiry| <= ${ADMIN_PRICE_MAX_SKEW_SECS:-60}s); else REFUSE + '[settle] ALERT' + wait ${OPERATOR_PRICE_WAIT_HOURS}h for $ADMIN_PRICE_FILE (market= price_e6= source=). Never the stale shard-0 account price"
   log "DRY_RUN complete — 0 transactions sent"; exit 0
 fi
 
@@ -247,7 +255,9 @@ b=$(bal); NB=$(nbooks "$b"); log "balance $b → NBOOKS=$NB (reserving ~1.7 SOL 
 summary "bootstrap done (Friday markets + wallets)"
 handoff_repair 0 || true   # every book (incl. pre-!73 Friday books) → pauser; ALERTs logged, pause watcher still starts
 # 2b. pause watcher: every book in $STATE → Paused at its expiry (re-reads the state, so the 20-min book is covered too)
-if [ -f "$PAUSER_KEY" ]; then
+if [ -f "$PAUSER_KEY" ] && ! pauser_pin_ok; then
+  log "[pause] ALERT pause watcher NOT started: $PAUSER_KEY is $PAUSER_PUB, not EXPECTED_PAUSER_PUB=$EXPECTED_PAUSER_PUB (staging.env)"
+elif [ -f "$PAUSER_KEY" ]; then
   ( cd "$AUTO" && env -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet PHOENIX_PAUSER_KEYPAIR=$PAUSER_KEY PAUSER_MUST_DIFFER_FROM=$PAUSER_MUST_DIFFER_FROM nohup node dist/ops-cli.js pause-watch --state "$STATE" >>"$PAUSE_LOG" 2>&1 & echo $! >"$PAUSE_LOG.pid" )
   log "pause watcher started (pid $(cat "$PAUSE_LOG.pid"), pauser $PAUSER_PUB, log $PAUSE_LOG)"
 else log "WARNING no pauser key ($PAUSER_KEY) — Phoenix books will NOT be paused at expiry"; fi
@@ -307,7 +317,7 @@ if [ $SKIP_SHORT = 0 ]; then
     if [ -n "$AP" ]; then
       PX=${AP%%$'\t'*}; PSRC=${AP#*$'\t'}
       log "pull settle did not land by expiry+${SETTLE_AFTER}s — admin_settle fallback price AAPL e6=$PX source: $PSRC"
-      for i in $(seq 1 15); do ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE ADMIN_PRICE_E6=$PX ADMIN_PRICE_SOURCE="$PSRC" node settle-test.cjs settle ) | tee "$SETTLE_OUT"; settled && break; sleep 60; done
+      for i in $(seq 1 15); do ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE ADMIN_PRICE_E6=$PX ADMIN_PRICE_SOURCE="$PSRC" ADMIN_PRICE_MARKET=$SM node settle-test.cjs settle ) | tee "$SETTLE_OUT"; settled && break; sleep 60; done
     else log "[settle] ALERT no admin_settle price within ${OPERATOR_PRICE_WAIT_HOURS}h — 20-min market left unsettled (settle manually)"; fi
   fi
   log "settle path: $(grep -oE 'PULL_SETTLE_OK via=[a-z]+|admin_settle price=[0-9.]+|admin_settle price source: .*' "$SETTLE_OUT" | tail -2 | tr '\n' ' ')"
