@@ -4,6 +4,7 @@ import { transformBook, type Perspective } from "@/lib/market/bookTransform";
 import type { OrderBookSnapshot } from "@/lib/market/types";
 import { formatOutcomePrice } from "@/lib/format";
 import { PHOENIX_STUB_NOTICE } from "@/lib/phoenix/stub";
+import { liveBookFooter } from "@/lib/rpc/pollPolicy";
 import { rowKey } from "@/lib/market/bookSelection";
 import type { KeyboardEvent } from "react";
 
@@ -105,7 +106,7 @@ export function OrderBook({
         className="muted"
         style={{ padding: "0.5rem 0.85rem", fontSize: "0.72rem", borderTop: "1px solid var(--border)" }}
       >
-        {live ? "Live Phoenix V1 book (Yes/USDC) — refreshes every 4s." : PHOENIX_STUB_NOTICE}
+        {live ? liveBookFooter() : PHOENIX_STUB_NOTICE}
       </div>
     </div>
   );

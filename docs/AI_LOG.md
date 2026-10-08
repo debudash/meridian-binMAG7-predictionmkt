@@ -1,3 +1,17 @@
+## 2026-10-08T08:45:00-05:00 — Engineers: paused Phoenix book = cancel/withdraw only (localnet proof + ticket copy) and Reviewer ops/web nits
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `test/phoenix-paused-book` from `origin/main` @ `6d04b00` (after !74/!75 docs) |
+| **Source** | Testers' gap on !73 (no localnet proof that a Paused book refuses new orders but allows cancel + withdraw; no ticket copy for the Phoenix paused error) + Reviewer nits (pull-settle silent skip on a missing settler key, order-book footer 4s vs 6s poll, `pause-status` given the pauser key) |
+| **Mechanism (verified)** | `phoenix-v1`: on a Paused header, `PlaceLimitOrder` (limit / post-only) fails `assert_post_allowed` ("Post only order is not allowed, market status is Paused"), `Swap` (IOC/FOK) fails `assert_cross_allowed` ("FOK and IOC orders are not allowed, market status is Paused"), both as `InvalidAccountData`; cancel and `WithdrawFunds` load `CancelOrWithdrawContext` (`reduce_allowed`: Active/PostOnly/Paused/Closed). `WithdrawFunds` takes no seat account (unlike `DepositFunds`). |
+| **Change** | `apps/automation/test/phoenix-pause.localnet.test.ts`: second opt-in describe (same `PHOENIX_LOCALNET_RPC` gate as the 6 PSM tests). Bootstrap-identical book + pauser handoff, maker/taker seats via PSM `ClaimSeat`, maker rests ask 2 @ 0.60 + bid 2 @ 0.40, taker FOK-buys 1 while Active (control), `runPausePass` pauses, then: FOK buy/sell refused, limit (crossing and resting) + post-only refused, balances/vaults unchanged; maker `CancelMultipleOrdersById` + `WithdrawFunds(all)` (the Portfolio cancel ixs) succeed and return every atom (9 contracts, 10.60 USDC, vaults 0); stand-alone `WithdrawFunds` succeeds. Web: `PHOENIX_MARKET_PAUSED_MESSAGE = "Market paused, cancel or withdraw only"`; `explainPlaceError` maps the Phoenix paused log to reason `market-paused`; `placePhoenixOrder` also reads logs from `.logs` / wallet-adapter `.error.logs`, and for a bare `InvalidAccountData` without logs reads the book header (status 3) via `pausedCopyForFailedPlace`; the ticket shows the copy for preflight failures and for an on-chain failure after confirm (pause landing between simulation and confirmation). Cancel/withdraw paths untouched. Nits: `ops/lib/pull-settle.cjs` `pullSettlePlan` names every missing input and warns `WARNING settler.json (settler key) missing at …`; skip line `pull settle skipped: settler.json (settler key) missing at … — legacy settle / admin_settle fallback`. Order-book footer = `liveBookFooter()` from `POLL_MS.tradeBook` (6s). `run-staging.sh` `ops_cli_ro` (env -u PHOENIX_PAUSER_KEYPAIR -u SETTLER_KEYPAIR) for `pause-status`; README example without the key. No program or IDL change. |
+| **Tests** | Red first. Web: errors 7, client 5, ticket wiring 2, poll footer 2 → web vitest **348** + 14 skipped, `tsc` + lint clean. Automation: `ops-staging-nits.test.ts` 6 → **72 passing + 11 pending** (opt-in localnet); `phoenix-pause.localnet.test.ts` **11/11** on a temporary :8699 validator with the real Phoenix + PSM programs (validator stopped afterwards; :8899 untouched). |
+| **Related** | DLV-099 · DLV-100 · DLV-097 · DLV-085 · !73 |
+
+---
+
 ## 2026-10-08T08:40:00-05:00 — Testers: !74 Reviewer nits (STAGING_TEST_PLAN 1.2d / 7.3b / 7.3c / 7.5 / 7.6, known limits; VISUAL_RUNBOOK 13 / 14 / 16.4) + runbook Tester setup
 
 | Field | Value |

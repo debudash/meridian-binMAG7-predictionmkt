@@ -27,6 +27,11 @@ export const POLL_MS = {
   marketList: 60_000,
 } as const;
 
+/** Trade-page ladder footer; derived from the real poll so the copy can't drift (Reviewer nit: said 4s, polled 6s). */
+export function liveBookFooter(ms: number = POLL_MS.tradeBook): string {
+  return `Live Phoenix V1 book (Yes/USDC) — refreshes every ${ms / 1000}s.`;
+}
+
 export const MAX_BACKOFF_MS = 300_000;
 
 export function is429(err: unknown): boolean {

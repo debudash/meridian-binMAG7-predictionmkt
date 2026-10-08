@@ -36,4 +36,11 @@ describe("TradeTicket wiring", () => {
     expect(trade).toMatch(/onRetryBalances=\{account\.refresh\}/);
     expect(ticket).toMatch(/current\.reason === "balances-error" && onRetryBalances/);
   });
+  it("!73 gap: paused Phoenix book shows the cancel/withdraw-only copy (preflight and on-chain)", () => {
+    expect(ticket).toMatch(/result\.reason === "market-paused"/);
+    expect(ticket).toMatch(/pausedCopyForFailedPlace\(connection, market\.phoenixMarket/);
+  });
+  it("!73 gap: cancel / withdraw paths are untouched by the paused mapping", () => {
+    expect(actions).not.toMatch(/market-paused|PHOENIX_MARKET_PAUSED_MESSAGE|pausedCopyForFailedPlace/);
+  });
 });
