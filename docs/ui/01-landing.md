@@ -22,7 +22,7 @@ Mobile: single column; featured card under hero; closing-soon as horizontal scro
 | Headline | "Trade yes/no outcomes on stock prices." |
 | Subhead | "Each contract pays 1.00 USDC if it's right at settlement. Prices reflect the market's implied odds. On Solana, priced by Pyth." |
 | CTAs | Primary "Browse markets" → `/markets`; secondary "How it works" (anchor). Connected users with positions: secondary becomes "View portfolio". |
-| Featured market card | Question, underlying price (Pyth), `62% implied` label, countdown (`06` §3), [Buy Yes 0.63] [Buy No 0.39] (executable prices, card rules in `08`) → `/markets/[id]?intent=buy-yes|buy-no` |
+| Featured market card | Question, underlying price (Pyth), `62% implied Yes` label, countdown (`06` §3), [Buy Yes 0.63] [Buy No 0.39] (executable prices, card rules in `08`) → `/markets/[id]?intent=buy-yes|buy-no` |
 | How it works | 1 "Pick a market — e.g. 'Will AAPL close ≥ $230 on Oct 16?'" 2 "Buy Yes or No — pay the price, e.g. 0.62 USDC per contract." 3 "At settlement — winning contracts pay 1.00 USDC; losing pay 0." |
 | Rules strip | "One order book per market — No price = 1.00 − Yes price." · "Resolved by Pyth price at a stated time." · "Hold one side per market in this app." |
 | Risk note | "You can lose the full amount you pay for a contract." |
@@ -53,7 +53,7 @@ Plain, numeric, no hype ("win big", "moon", emoji prohibited). Always show "1.00
 
 ## Acceptance criteria
 - [ ] Hero renders via SSR without wallet or RPC.
-- [ ] Featured card shows live executable Buy Yes / Buy No prices (Buy Yes = best Yes ask, Buy No = 1 − best Yes bid) plus a labeled `NN% implied` mid, per `08` (no unlabeled mid; Buy Yes + Buy No = 1.00 + spread), and a live countdown.
+- [ ] Featured card shows live executable Buy Yes / Buy No prices (Buy Yes = best Yes ask, Buy No = 1 − best Yes bid) plus a labeled `NN% implied Yes` mid, per `08` (no unlabeled mid; Buy Yes + Buy No = 1.00 + spread), and a live countdown.
 - [ ] Featured Buy buttons deep-link with `intent` and land on Trade with constraint validation.
 - [ ] Payoff and risk copy present above the fold or in rules strip.
 - [ ] Empty/error states as tabled; LCP < 2.5s on 4G.

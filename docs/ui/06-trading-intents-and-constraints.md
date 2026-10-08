@@ -130,7 +130,7 @@ Tooltip on the info icon: "Meridian's trading screen keeps one side per market s
 | No definition | "**No** pays 1.00 USDC if AAPL is **below $230.00** at 3:00 PM CT, Oct 16 (Pyth)." |
 | Ticket preview (buy) | "Cost 24.80 USDC · Pays 40.00 USDC if Yes · Max profit 15.20 USDC · Max loss 24.80 USDC" |
 | Ticket preview (sell) | "Receive 26.40 USDC now · You give up 40.00 USDC payout if Yes" |
-| Implied probability | "0.62 ≈ 62% implied chance" (label "implied", never "chance of winning") |
+| Implied probability | On screen (short): "62% implied Yes". Tooltip / long form: "0.62 ≈ 62% implied Yes chance". Label "implied", never "chance of winning". Always the Yes-implied mid and always names Yes — also in the No perspective (no "38% implied No", no bare "62% implied"). Placement and fallbacks: `08`. |
 | Settled win | "Your 40 Yes won. Redeem 40.00 USDC." |
 | Settled loss | "Your 25 No did not win. Payout 0.00 USDC." |
 | Fees | "Fees ≈ 0.05 USDC (shown separately; not included in payout)." |
