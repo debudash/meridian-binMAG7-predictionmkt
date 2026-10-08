@@ -96,6 +96,11 @@ Rules:
    | Max profit / Max loss | shown | — |
    | Position after | "Yes 40 → 80" | "Yes 40 → 0" |
    | Network fee | "~0.000005 SOL + priority" | same |
+   **As built (DLV-075):** the block's first line is a plain **"what if" sentence** (`lib/copy/whatIf.ts`), priced at the live best price in the intent's terms for **Market** and the typed price for **Limit**, settle rule ≥ (D-005), before fees:
+   - Buy Yes — "If NVDA closes ≥ $140.00 on Oct 14 you get $10.00 (+$5.60). If not, you lose $4.40."
+   - Buy No — "If NVDA closes **below** $140.00 on Oct 14 you get $10.00 (+$4.30). If not, you lose $5.70."
+   - Sell Yes / Sell No — "You get $4.30 now. If NVDA closes ≥ $140.00 on Oct 14 you give up $10.00 (−$5.70 vs holding). If not, they would have paid $0.00." (No: "below").
+   Under it, a dashed rule and the **distance-to-strike readout**: "NVDA $138.20 · needs +1.3% · Pyth" (below strike: % move up needed from the current price) or "is 0.8% above strike" / "at strike (Yes if ≥)"; the distance is tinted in the side that would win at that price. Price source = the account `StrikeMarket.pyth_price_feed` points at, polled every 5 s: **mock Pyth** on localnet (same account `upsert_mock_pyth`/settle use, labelled "mock Pyth"), Pyth legacy `Price` or receiver `PriceUpdateV2` elsewhere (`lib/pyth/priceAccount.ts`). Undecodable/missing → "—". Market cards show the same readout in compact form (SSR value, no per-card polling).
 7. **Primary CTA** — label echoes the full intent: "Buy 40 Yes @ ≤0.63" / "Sell 40 Yes" / "Connect wallet" / "Deposit USDC" / disabled reason.
 8. **Footnote** — payoff one-liner + link to Rules (zone G).
 
