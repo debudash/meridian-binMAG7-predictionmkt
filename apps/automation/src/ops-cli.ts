@@ -28,12 +28,19 @@
  *   ADMIN_PRICE_MAX_SKEW_SECS (admin-price: max |publish_time − expiry|, default 60 = on-chain; ≤ 300 as a logged override),
  *   PHOENIX_PAUSE_ALERT_REPEAT_SECS (standing ALERT repeat per book / reason, default 3600),
  *   PAUSER_MUST_DIFFER_FROM (comma list of pubkeys the pauser must not equal — keeper / settler / upgrade key; L5).
+ *   node dist/ops-cli.js market-day   [--now <unix>] [--strikes]          DLV-118, no RPC/keys: today's session JSON
+ *                                                                        {dateKey, openTs, closeTs=16:00 ET}; exit 5 after the
+ *                                                                        close / weekend / holiday (never rolls). --strikes adds
+ *                                                                        one ATM strike per STRIKE_SYMBOLS from a fresh reference
+ *                                                                        (Hermes latest, else OPERATOR_STRIKE_PRICES(_FILE)).
  * A missing --state file means "no books yet" (fresh staging), not an error.
  * Without --state, books come from the chain (every StrikeMarket with a Phoenix book; needs the prod IDL).
  */
 import * as fs from "fs";
 import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import { assertPauserDistinct, loadConfig, loadKeypairFromEnv } from "./config";
+import { sameDaySession } from "./marketDay";
+import { planDayForOps } from "./modes/calendar";
 import { createProgram } from "./solana/client";
 import { configPda } from "./solana/pdas";
 import { livePullSettleDeps, publishWindowSecs, settleWithPullOracle } from "./solana/pullSettle";
@@ -106,6 +113,20 @@ function pauserKeypair(opts: { checkSeatManagerAuthority?: boolean } = {}): Keyp
 
 async function main() {
   const cmd = process.argv[2];
+  if (cmd === "market-day") {
+    // DLV-118: no RPC, no keys. Exit 0 = same-day session (JSON on stdout); 5 = refused (after close / weekend / holiday).
+    const nowArg = arg("--now");
+    const nowSec = nowArg ? Number(nowArg) : Math.floor(Date.now() / 1000);
+    if (!Number.isInteger(nowSec)) throw new Error("--now must be unix seconds");
+    let out: { ok: boolean };
+    if (process.argv.includes("--strikes")) {
+      const mc = loadConfig();
+      const c = new Connection(mc.rpcUrl, "confirmed"); // read-only: sponsored Pyth account reads
+      out = await planDayForOps(mc, nowSec, undefined, async (pk) => (await c.getAccountInfo(pk, "confirmed"))?.data ?? null);
+    } else out = sameDaySession(nowSec);
+    console.log(JSON.stringify(out));
+    process.exit(out.ok ? 0 : 5);
+  }
   const cfg = loadConfig();
   const connection = new Connection(cfg.rpcUrl, "confirmed");
   const stateFile = arg("--state");

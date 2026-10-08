@@ -6,8 +6,9 @@
  * env (optional): NBOOKS (Phoenix books to create, default 3), SHORT_MIN (short-expiry minutes, default 20),
  *      DRYRUN_LABEL (free text tag written to state)
  *      DRY_RUN=1          print the plan (PDAs, books, wallet funding, short-market timing) and exit: no RPC, no transactions
- *      SHORT_PHASE        all (default) | skip (Friday markets + wallets only) | only (just the 20-min AAPL ≥ 300 market)
- *      SHORT_BOOK         1 (default) = give the 20-min AAPL ≥ 300 market a Phoenix book + maker ladder (STAGING_TEST_PLAN §1.7b)
+ *      TODAY_PLAN         (required) JSON from `ops-cli market-day --strikes`: today's 16:00 ET close + ATM strikes (DLV-118)
+ *      SHORT_PHASE        all (default) | skip (today's markets + wallets only) | only (just the 20-min AAPL ATM market)
+ *      SHORT_BOOK         1 (default) = give the 20-min AAPL ATM market a Phoenix book + maker ladder (STAGING_TEST_PLAN §1.7b)
  *      SHORT_SETUP_SECS   extra seconds added to the short expiry to cover book + ladder setup (default 180)
  *      WALLET_B_KEY       wallet B keypair (default $KEYS/wallet-b.json) or WALLET_B=<pubkey> (e.g. a Phantom address)
  *      SETTLER_KEY        low-balance permissionless-settle key (default $KEYS/settler.json; Reviewers M3 / !70)
@@ -71,22 +72,24 @@ const PSM = new PublicKey("PSMxQbAoDWDbvd9ezQJgARyq6R9L5kJAasaLDVcZwf1");
 const MARKET_SPACE = 232544; // (512 bids, 512 asks, 1153 seats) — PSM requires seats = bids+asks+1+128
 const LOG_AUTH = phx.getLogAuthority();
 
-// D-019 registry (SCHEMA §3.1): shard-0 Price Feed PDAs (same on devnet) + Pyth Core feed ids
+// D-019 registry (SCHEMA §3.1): shard-0 Price Feed PDAs (same on devnet) + Pyth Core feed ids — all seven MAG7 (SPEC §1)
 const FEEDS = {
   AAPL: ["DJ2FyTgUAkEtXW3U5P9PF19meFTRtW4ZWKKFgACfVbUy", "49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688"],
-  NVDA: ["2w1Tg1XTZbUib7srfRoStJ4v5JXVsK7roQEGMsMaGZFC", "b1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593"],
-  TSLA: ["E8WFH8brgP58arcuW2wwsPHiomYrSvrgWTsRLZLAEZUQ", "16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1"],
   MSFT: ["7VYuuJxz8w2rLA9tJG2KZ9T1fSMcjC7uECoYA6nDaqtK", "d0ca23c1cc005e004ccf1db5bf76aeb6a49218f43dac3d4b275e92de12ded4d1"],
+  GOOGL: ["HShKFQqhYkUiXpVyyLmrAALXwWqHB7ikLmPbrwJzpRNh", "5a48c03e9b9cb337801073ed9d166817473697efff0d138874e0f6a33d6d5aa6"],
+  AMZN: ["GBkjjFxbaFY9TBHpAPypk5JBchpPPve2jskAcd9zuFNd", "b5d0e0fa58a1f8b81498ae670ce93c872d14434b72c364885d4fa1b257cbb07a"],
+  NVDA: ["2w1Tg1XTZbUib7srfRoStJ4v5JXVsK7roQEGMsMaGZFC", "b1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593"],
+  META: ["GsKrMNoa1Mqjpif4SYk2WjdduWZP699hXRdP51yBM6K2", "78a3e3b8e676a8f73c439f5d749737034b139bbbe899ba5775216fba596607fe"],
+  TSLA: ["E8WFH8brgP58arcuW2wwsPHiomYrSvrgWTsRLZLAEZUQ", "16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1"],
 };
-// Expiry for the "regular" staging markets: Fri 2026-10-09 16:00 ET (20:00 UTC)
-const EXPIRY_FRI = Math.floor(Date.UTC(2026, 9, 9, 20, 0, 0) / 1000);
-// Strikes ~ last published Pyth price (Hermes price API is key-gated; Pyth accounts are stale — see RAILWAY_STAGING.md)
-const PLAN = [
-  { symbol: "AAPL", strike: 305, book: true, fair: 0.5 },
-  { symbol: "NVDA", strike: 210, book: true, fair: 0.52 },
-  { symbol: "TSLA", strike: 365, book: true, fair: 0.48 },
-  { symbol: "MSFT", strike: 495, book: true, fair: 0.5 },
-];
+// DLV-118 (SPEC §1/§3.3): markets expire at TODAY's 16:00 ET close with strikes from a fresh reference price.
+// TODAY_PLAN = JSON from `ops-cli market-day --strikes` (run-staging.sh writes it). No fixed next-close date, no AAPL ≥ 300.
+const { bootstrapPlanFromToday } = require("./lib/today-plan.cjs");
+const TODAY_PLAN = process.env.TODAY_PLAN;
+function todayPlan(nowSec) {
+  if (!TODAY_PLAN) throw new Error("TODAY_PLAN required (run-staging.sh: ops-cli market-day --strikes > $TODAY_PLAN)");
+  return bootstrapPlanFromToday(JSON.parse(fs.readFileSync(TODAY_PLAN, "utf8")), { nbooks: NBOOKS, feeds: FEEDS, nowSec });
+}
 
 const kp = (n) => Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(`${KEYS}/${n}.json`, "utf8"))));
 const i64 = (n) => { const b = Buffer.alloc(8); b.writeBigInt64LE(BigInt(n)); return b; };
@@ -217,13 +220,15 @@ function dryRun() {
   if (pz) console.log(`  pauser ${pz.publicKey.toBase58()} (Phoenix seat-manager authority after the handoff; pauses books at expiry): top up to ${PAUSER_SOL} SOL via faucet airdrop` +
     `${PAUSER_PAYER_FALLBACK ? ", payer transfer only if the faucet refuses" : ", NO payer fallback"}; every new/existing book: PSM NameSuccessor(payer → pauser) + ClaimSeatManagerAuthority right after the book is created`);
   else console.log(`  pauser: MISSING (${PAUSER_KEY}) — books would stay on the payer's seat-manager authority and could NOT be paused by automation`);
-  if (SHORT_PHASE !== "only") PLAN.forEach((p, i) => {
-    const book = p.book && i < NBOOKS;
-    console.log(`  market ${p.symbol} ≥ ${p.strike} exp ${ct(EXPIRY_FRI)} → ${smPda(p.symbol, EXPIRY_FRI, p.strike).toBase58()}  book=${book}${book ? ` (Phoenix Yes/mUSDC, maker 3000 pairs, 5-level ladder @ fair ${p.fair})` : ""}`);
+  let tp = null;
+  try { tp = todayPlan(Math.floor(Date.now() / 1000)); } catch (e) { console.log(`  today's markets: NONE — ${e.message}`); }
+  if (tp) console.log(`  session ${tp.dateKey}: expiry = 16:00 ET today = ${ct(tp.closeTs)} (DLV-118; never a next-close date)`);
+  if (tp && SHORT_PHASE !== "only") tp.regular.forEach((p) => {
+    console.log(`  market ${p.symbol} ≥ ${p.strike} (ref ${Number(p.refE6) / 1e6}, ${p.refSource}) exp ${ct(p.expiry)} → ${smPda(p.symbol, p.expiry, p.strike).toBase58()}  book=${p.book}${p.book ? ` (Phoenix Yes/mUSDC, maker 3000 pairs, 5-level ladder @ fair ${p.fair})` : ""}`);
   });
-  if (SHORT_PHASE !== "skip") {
+  if (tp && SHORT_PHASE !== "skip") {
     const now = Math.floor(Date.now() / 1000), exp = now + SHORT_MIN * 60 + SHORT_SETUP_SECS;
-    console.log(`  short market AAPL ≥ 300 book=${SHORT_BOOK}${SHORT_BOOK ? " (Phoenix Yes/mUSDC, maker 3000 pairs, 5-level ladder @ fair 0.5)" : ""}: ` +
+    console.log(`  short market ${tp.short.symbol} ≥ ${tp.short.strike} (ATM) book=${SHORT_BOOK}${SHORT_BOOK ? " (Phoenix Yes/mUSDC, maker 3000 pairs, 5-level ladder @ fair 0.5)" : ""}: ` +
       `expiry = chain time at START + ${SHORT_MIN} min + ${SHORT_SETUP_SECS}s setup (if started now: ${ct(exp)}; admin_settle ≥ ${ct(exp + 300)}, pipeline settles ≈ ${ct(exp + 330)})`);
   }
   if (fs.existsSync(STATE)) console.log(`  note: existing state ${STATE} will be resumed (idempotent)`);
@@ -356,13 +361,17 @@ async function main() {
   save();
 
   // 3. Strike markets (+ short-expiry settle-test market)
-  //    SHORT_PHASE=skip → Friday markets only; =only → just the 20-min market (run-staging.sh starts it on Debu's START signal).
-  const plan = SHORT_PHASE === "only" ? [] : PLAN.map((p, i) => ({ ...p, expiry: EXPIRY_FRI, book: p.book && i < NBOOKS }));
+  //    DLV-118: today's markets (expiry 16:00 ET today, ATM strikes from TODAY_PLAN). SHORT_PHASE=skip → today's markets only;
+  //    =only → just the 20-min market (run-staging.sh starts it on Debu's START signal).
+  const nowChain = await conn.getBlockTime(await conn.getSlot());
+  const tp = todayPlan(nowChain);
+  state.todayPlan = { dateKey: tp.dateKey, closeTs: tp.closeTs }; save();
+  const plan = SHORT_PHASE === "only" ? [] : tp.regular.map((p) => ({ ...p }));
   if (SHORT_PHASE !== "skip") {
     if (!state.shortPlan) {
       // Expiry is fixed at creation (it is a PDA seed): chain time now + SHORT_MIN + setup buffer for the book + ladder.
       const s = await conn.getSlot(); const bt = await conn.getBlockTime(s);
-      state.shortPlan = { symbol: "AAPL", strike: 300, expiry: bt + SHORT_MIN * 60 + SHORT_SETUP_SECS, book: SHORT_BOOK, fair: 0.5, short: true, startedChainTs: bt };
+      state.shortPlan = { symbol: tp.short.symbol, strike: tp.short.strike, expiry: bt + SHORT_MIN * 60 + SHORT_SETUP_SECS, book: SHORT_BOOK, fair: 0.5, short: true, startedChainTs: bt };
       save();
     }
     plan.push(state.shortPlan);

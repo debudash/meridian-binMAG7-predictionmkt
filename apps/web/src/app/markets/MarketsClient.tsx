@@ -9,6 +9,7 @@ import type { MarketView } from "@/lib/market/types";
 import { getCountdown } from "@/lib/market/countdown";
 import { useChainClock } from "@/components/providers/AppProviders";
 import { expiryChipLabel, expiryKey } from "@/lib/market/fixtures";
+import { sameDayView } from "@/lib/market/sameDay";
 import { formatOutcomePrice } from "@/lib/format";
 import { noPriceFromYes } from "@/lib/market/bookTransform";
 import { impliedText, impliedTooltip, marketPriceDisplay } from "@/lib/market/priceDisplay";
@@ -27,6 +28,7 @@ export function MarketsClient({
   initialView,
   initialUnderlyings,
   initialExpiry,
+  initialDays,
   dataSource = "fixtures",
   fixtureBanner,
 }: {
@@ -37,6 +39,8 @@ export function MarketsClient({
   initialView?: string;
   initialUnderlyings?: string;
   initialExpiry?: string;
+  /** DLV-118: "all" = also list markets that don't expire at today's 16:00 ET close */
+  initialDays?: string;
   dataSource?: "indexer-http" | "rpc-gpa" | "fixtures" | "unavailable";
   fixtureBanner?: string;
 }) {
@@ -61,6 +65,8 @@ export function MarketsClient({
       : [],
   );
   const [expiry, setExpiry] = useState<string>(initialExpiry ?? "");
+  // DLV-118 (SPEC §1 / §3.3): default list = today's 0DTE markets (expiry 16:00 ET today); others behind a toggle.
+  const [showOther, setShowOther] = useState<boolean>(initialDays === "all");
   const lastViewed = useLastViewedMarket();
   // One batched balance read for every listed market (null when disconnected).
   const { positions: livePositions, lock: balancesLock } = useWalletPositions(markets);
@@ -88,6 +94,7 @@ export function MarketsClient({
     view?: string;
     u?: string[];
     expiry?: string;
+    days?: boolean;
   }) {
     const params = new URLSearchParams();
     const s = next.status ?? status;
@@ -102,6 +109,7 @@ export function MarketsClient({
     if (v && v !== "cards") params.set("view", v);
     if (u.length) params.set("u", u.join(","));
     if (ex) params.set("expiry", ex);
+    if (next.days ?? showOther) params.set("days", "all");
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }
@@ -114,8 +122,14 @@ export function MarketsClient({
     syncUrl({ u: next });
   }
 
+  // Not on the Settled tab (history spans days) and not when an explicit Expiry chip is picked.
+  const sameDay = useMemo(
+    () => (status === "settled" || expiry ? null : sameDayView(markets, nowSec, { showOther })),
+    [markets, nowSec, showOther, status, expiry],
+  );
+
   const filtered = useMemo(() => {
-    let list = [...markets];
+    let list = sameDay ? [...sameDay.visible] : [...markets];
     list = list.filter((m) => {
       const cd = getCountdown(m, nowSec);
       switch (status) {
@@ -158,7 +172,7 @@ export function MarketsClient({
       list.sort((a, b) => a.tradingCloseTs - b.tradingCloseTs);
     }
     return list;
-  }, [markets, status, q, sort, nowSec, underlyings, expiry]);
+  }, [markets, sameDay, status, q, sort, nowSec, underlyings, expiry]);
 
   const settledCount = useMemo(
     () =>
@@ -333,6 +347,30 @@ export function MarketsClient({
         ))}
       </div>
 
+      {sameDay && (sameDay.mode !== "today" || sameDay.hiddenOther > 0) && (
+        <div className="muted" data-testid="same-day-notice" style={{ fontSize: "0.85rem", margin: "0 0 0.75rem" }}>
+          {sameDay.mode === "today" &&
+            `Today's 0DTE markets (expire at today's 4:00 PM ET close). ${sameDay.hiddenOther} market${sameDay.hiddenOther === 1 ? "" : "s"} with other expiries hidden. `}
+          {sameDay.mode === "all" && "Showing other expiries too — marked “Not today's close”. "}
+          {sameDay.mode === "none-today" &&
+            "No market expires at today's 4:00 PM ET close — showing other expiries (marked “Not today's close”)."}
+          {sameDay.mode !== "none-today" && (
+            <button
+              type="button"
+              className="filter-chip"
+              data-testid="same-day-toggle"
+              aria-pressed={showOther}
+              onClick={() => {
+                setShowOther(!showOther);
+                syncUrl({ days: !showOther });
+              }}
+            >
+              {showOther ? "Only today's close" : "Show other expiries"}
+            </button>
+          )}
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <div className="card">
           <p style={{ margin: 0 }}>
@@ -365,15 +403,27 @@ export function MarketsClient({
             gap: "1rem",
           }}
         >
-          {filtered.map((m) => (
-            <MarketCard
-              key={m.marketId}
-              market={m}
-              lastViewed={m.marketId === lastViewed}
-              livePosition={livePositions?.get(m.marketId)}
-              balancesLock={balancesLock}
-            />
-          ))}
+          {filtered.map((m) =>
+            sameDay && sameDay.mode !== "today" && sameDay.otherIds.has(m.marketId) ? (
+              <div key={m.marketId} data-testid="not-today-close">
+                <span className="muted" style={{ fontSize: "0.75rem" }}>Not today&apos;s close</span>
+                <MarketCard
+                  market={m}
+                  lastViewed={m.marketId === lastViewed}
+                  livePosition={livePositions?.get(m.marketId)}
+                  balancesLock={balancesLock}
+                />
+              </div>
+            ) : (
+              <MarketCard
+                key={m.marketId}
+                market={m}
+                lastViewed={m.marketId === lastViewed}
+                livePosition={livePositions?.get(m.marketId)}
+                balancesLock={balancesLock}
+              />
+            ),
+          )}
         </div>
       ) : view === "table" ? (
         <div className="card" style={{ padding: 0, overflowX: "auto" }}>

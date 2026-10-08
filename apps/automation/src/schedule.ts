@@ -44,7 +44,7 @@ export function getEtParts(now: Date = new Date(), timeZone: string = ET_TZ): Et
   };
 }
 
-/** True when ET local time is in the morning create window [createHour, createHour+1). */
+/** @deprecated DLV-118 — the calendar worker creates at the 9:30 ET open via marketDay.sameDaySession({ requireOpen }). */
 export function isCreateWindow(now: Date, createHourEt: number = 8): boolean {
   const p = getEtParts(now);
   return p.hour === createHourEt;
@@ -70,6 +70,7 @@ export function assertSettleAllowedCalendar(now: Date, settleHourEt: number = 16
 }
 
 /**
+ * @deprecated DLV-118 — use marketDay.sameDaySession / etWallClockToUnix (rejects after the close, skips holidays).
  * Compute today's 16:00:00 ET as unix seconds (approx via iterative offset).
  * Used as default expiry_ts for morning-created markets.
  */

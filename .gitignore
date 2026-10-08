@@ -21,3 +21,5 @@ keys/*
 ops/staging.env
 ops/START_20M*
 ops/ADMIN_PRICE_20M*
+ops/STRIKE_PRICES_TODAY*
+ops/CLOSE_PRICES*

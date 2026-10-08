@@ -72,3 +72,37 @@ export async function fetchUpdateAt(opts: {
     },
   };
 }
+
+/**
+ * DLV-118: latest parsed price for a feed (strike reference at the 9:30 ET open). Same auth + 401/403 handling as
+ * fetchUpdateAt; equities are currently 403 "not entitled" (DLV-106), so callers fall back to operator prices.
+ */
+export async function fetchLatestPrice(opts: {
+  baseUrl?: string;
+  apiKey: string | undefined;
+  feedIdHex: string;
+  fetchImpl?: FetchLike;
+}): Promise<PullPrice> {
+  if (!opts.apiKey) throw new HermesApiKeyError("PYTH_HERMES_API_KEY is not set");
+  const f: FetchLike = opts.fetchImpl ?? ((globalThis as any).fetch as FetchLike);
+  const id = opts.feedIdHex.startsWith("0x") ? opts.feedIdHex : `0x${opts.feedIdHex}`;
+  const url = `${(opts.baseUrl ?? DEFAULT_HERMES_URL).replace(/\/+$/, "")}/v2/updates/price/latest?ids[]=${id}&parsed=true`;
+  const res = await f(url, { headers: { Authorization: `Bearer ${opts.apiKey}`, Accept: "application/json" } });
+  if (res.status === 401 || res.status === 403) {
+    const body = (await res.text().catch(() => "")).slice(0, 200);
+    throw new HermesApiKeyError(/not entitled/i.test(body) ? `Hermes key is valid but not entitled to this feed (HTTP ${res.status})` : `Hermes rejected the API key (HTTP ${res.status})`);
+  }
+  if (!res.ok) throw new Error(`Hermes HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const body = await res.json();
+  const want = opts.feedIdHex.replace(/^0x/, "").toLowerCase();
+  const p = (body?.parsed ?? []).find((x: any) => String(x.id).replace(/^0x/, "").toLowerCase() === want);
+  if (!p) throw new Error(`Hermes returned no latest price for feed ${want}`);
+  return {
+    feedIdHex: want,
+    price: BigInt(p.price.price),
+    conf: BigInt(p.price.conf),
+    expo: Number(p.price.expo),
+    publishTime: Number(p.price.publish_time),
+    prevPublishTime: Number(p.metadata?.prev_publish_time ?? NaN),
+  };
+}
