@@ -1,3 +1,17 @@
+## 2026-10-08T01:05:00-05:00 — Engineers: pause Phoenix books at expiry (pauser + PSM handoff), ops/ scripts in git, Hermes pull settle
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `feat/phoenix-pause-ops` from `origin/main` @ `578af22` (!72) |
+| **Source** | `/workspace/meridian-review-fixes-dd46769.md` ("Open risk: Phoenix books stay live after expiry", staging condition 7) + DLV-085 |
+| **Mechanism (verified)** | Read `phoenix-seat-manager-v1` 31ad32a and `phoenix-v1`: staging books' Phoenix authority is the Seat Manager PDA (`[market]` under PSMxQb…), so a status change must go through PSM `ChangeMarketStatus` (8), checked against `SeatManager.authority` (initially the `ClaimMarketAuthority` payer = upgrade key `2DTwL4…`). PSM `NameSuccessor` (6, signed by the current SM authority) + `ClaimSeatManagerAuthority` (7, signed by the successor) move it per book. The review's mechanism is right. One correction found on localnet: ix 8 needs the seat-manager PDA **writable** (Phoenix's ChangeMarketStatus marks its authority writable; read-only fails with "writable privilege escalated") although the PSM IDL lists it read-only. `Paused` (3): Phoenix `reduce_allowed` only, so cancel + withdraw work, no posts/crosses; `Paused → Active` is valid for recovery. |
+| **Change** | `apps/automation/src/phoenix/seatManager.ts` (PDAs, PSM 6/7/8 builders, header/SM decoders) and `pauseAtExpiry.ts` (`planPauses`, `nextPauseDelayMs`, `runPausePass`, dataSlice reads of 16/96 bytes per book, missed-pause/handoff alerts). Worker: `PHOENIX_PAUSER_KEYPAIR` (`resolvePauser` refuses the authority and the settler; required on mainnet-beta; unset → warning), pause pass each tick + exact-time follow-up timer (`followUpDelayMs`). `ops-cli.ts`: `pause-status`, `pause-once`, `pause-watch`, `handoff`, `pull-settle`. Calendar: the pre-16:00 idle log is now `waiting for 16:00 ET gate (now HH:MM ET)` instead of an `Error:` line. `ops/`: the box-only `run-staging.sh`, `devnet-bootstrap.cjs`, `settle-test.cjs`, `/tmp` pyth-read helper and the staging e2e are committed with every key path, RPC, program id and secret from env (`staging.env.example`, README). Bootstrap funds the pauser (faucet first) and hands each book to it right after the book exists; the pipeline runs a background `pause-watch`, pauses the 20-min book at expiry, settles through Pyth pull (settler + `PYTH_HERMES_API_KEY`, Bearer header only) and keeps `admin_settle` as the fallback. Env docs: DEPLOY, RAILWAY_STAGING, `automation.staging.env.example`. No program or IDL change. |
+| **Tests** | TDD (red first): `phoenix-pause.test.ts` 18 (builders incl. the writable SM, decoders, planning, timer, pass, config, ops `psm.cjs` parity, state source), `calendar-gate-log.test.ts` 1. Opt-in `phoenix-pause.localnet.test.ts` 6/6 against the real Phoenix + PSM programs on a temporary :8699 validator (bootstrap-identical book; pauser refused before handoff; handoff; old authority refused after; `runPausePass` pauses, second pass no-op; resume). automation **66 passing + 6 pending** (72 with the validator), typecheck + `build:railway` clean. `DRY_RUN=1 ops/run-staging.sh` exit 0. |
+| **Related** | DLV-097 · DLV-098 · DLV-085 · DLV-094 · review dd46769 · D-025 · M3 |
+
+---
+
 ## 2026-10-08T00:50:00-05:00 — Engineers: web Lows from review dd46769 (Portfolio settled-book polling, card M5 lock)
 
 | Field | Value |

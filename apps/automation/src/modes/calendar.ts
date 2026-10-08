@@ -7,7 +7,7 @@ import { Keypair, PublicKey } from "@solana/web3.js";
 import { Program } from "@coral-xyz/anchor";
 import { AutomationConfig } from "../config";
 import {
-  assertSettleAllowedCalendar,
+  canSettleCalendar,
   expiryTsForEtClose,
   getEtParts,
   isCreateWindow,
@@ -161,10 +161,10 @@ export async function runSettlePass(opts: {
 }): Promise<void> {
   const settler = opts.settler ?? { keypair: opts.authority, program: opts.program };
   const now = opts.now ?? new Date();
-  try {
-    assertSettleAllowedCalendar(now, opts.cfg.settleHourEt);
-  } catch (e) {
-    log(String(e));
+  if (!canSettleCalendar(now, opts.cfg.settleHourEt)) {
+    // Expected idle state every tick before the close: informational, not an error.
+    const p = getEtParts(now);
+    log(`waiting for ${opts.cfg.settleHourEt}:00 ET gate (now ${p.hour}:${String(p.minute).padStart(2, "0")} ET)`);
     return;
   }
 
