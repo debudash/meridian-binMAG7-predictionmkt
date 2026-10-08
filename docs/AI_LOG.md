@@ -1,3 +1,17 @@
+## 2026-10-08T09:30:00-05:00 — Engineers: M1 design note — a Meridian PDA as the Phoenix Seat Manager authority (docs only)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `docs/m1-pause-pda-authority` from `origin/main` @ `6d0a2a0` |
+| **Source** | `/workspace/meridian-review-mr72-73.md` M1 (mainnet gate): the hot pauser is the full PSM authority (unpause, 6/9/11, 9 → Phoenix 101 escape). Debu: design note only, no program change. |
+| **Decision** | Proposed: a per-StrikeMarket PDA `[b"book_pauser", strike_market]` becomes the PSM authority. Permissionless `pause_book` is valid only when `now ≥ expiry_ts`, always CPIs PSM 8 with the constant `Paused` (idempotent no-op if already Paused/Closed), and is bound to `strike_market.phoenix_market`. Authority-gated `claim_book_pauser` (PSM 7 with PDA seeds) is used only to accept a handoff named by PSM 6. No instruction can sign PSM 6/9/11, eviction or fee changes, so Railway holds no book authority. Covers migration (hot pauser → 6 + claim), open Reviewer calls (strict expiry vs constant lead; per-market vs global PDA) and a test plan. |
+| **Change** | New `docs/design/phoenix-pause-pda-authority.md`; TRACKER Todo DLV-105. |
+| **Tests** | Docs only. Automation suite re-run unchanged (93 passing + 11 pending). |
+| **Related** | DLV-105 · DLV-097 · DLV-102 · DLV-104 · review mr72-73 M1 |
+
+---
+
 ## 2026-10-08T09:10:00-05:00 — Engineers: staging gates from review mr72-73 (M3 admin_settle price never stale; handoff repair for every book; pause lead 5 s)
 
 | Field | Value |

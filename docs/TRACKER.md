@@ -103,6 +103,7 @@ _Last refreshed: 2026-10-08 08:45 CT (main `6d04b00` + !76 paused-book proof / t
 
 ## Todo
 
+- [ ] Program (mainnet gate): **Meridian PDA as Phoenix Seat Manager authority** DLV-105 (review mr72-73 M1). Design in [`design/phoenix-pause-pda-authority.md`](design/phoenix-pause-pda-authority.md): per-market `book_pauser` PDA, permissionless `pause_book` (after expiry only, Paused only, CPI PSM 8), `claim_book_pauser` for migration; removes `PHOENIX_PAUSER_KEYPAIR` from Railway. Program change + LiteSVM/localnet tests not started
 - [ ] Ops (before mainnet): Phoenix post-settle `Paused → Closed` + seat eviction flow, and an external alert sink for `[pause] ALERT` lines (today: Railway logs). Pyth equity feeds may not publish outside US market hours, so an off-hours 20-min market falls back to `admin_settle` (review dd46769)
 - [ ] Reviewer Lows deferred (`meridian-review-mr52-61`): **L1–L3** need program changes, which would alter the deployed binary. **L4** is a prod IDL change. **L5** is orphan-account cleanup logic. **L6** is IPv6 probing in the dev-wallet exposure check. **L7** is informational. **L9** is a lockfile / Node pin. None of these are one-liners; pick them up with the next program or ops pass.
 - [ ] Web: History misses **maker fills** done by other traders against your resting orders (they appear only via the later cancel/withdraw row and the seat balance). Needs Phoenix event-log parsing by market or an indexer (follow-up to DLV-088)
