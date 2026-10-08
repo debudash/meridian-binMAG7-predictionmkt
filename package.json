@@ -9,6 +9,8 @@
     "test:lifecycle": "mocha -r ts-node/register 'tests/{mint,settle,redeem,invariants,pause}.ts' --timeout 120000 --exit",
     "build:localnet": "anchor build -- --features localnet-test",
     "build:prod": "anchor build && node scripts/emit-prod-idl.js && bash scripts/assert-prod-no-fixtures.sh",
+    "build:prod-so": "cargo build-sbf --manifest-path programs/meridian/Cargo.toml --sbf-out-dir target/prod",
+    "test:prod-settle": "mocha -r ts-node/register 'tests/prod/**/*.ts' --timeout 60000 --exit",
     "build:prod-idl": "node scripts/emit-prod-idl.js && bash scripts/assert-idl-sync.sh",
     "assert:prod-fixtures": "bash scripts/assert-prod-no-fixtures.sh",
     "deploy:build": "anchor build",
@@ -34,6 +36,7 @@
     "solana-bankrun": "^0.3.0"
   },
   "devDependencies": {
+    "@solana/kit": "^8.0.0",
     "@types/bn.js": "^5.1.6",
     "@types/chai": "^4.3.20",
     "@types/mocha": "^10.0.10",
