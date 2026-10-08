@@ -97,6 +97,82 @@ No Phoenix matching engine in Meridian; Sell No = client bid + `merge_pair` (!33
 
 ---
 
+## Hardening pass 2026-10-07 (CT)
+
+Run 21:05–22:45 CT by Grok Bot (executor) for Debu. Local green was the gate (no CI). Main moved during the pass: started at `74a35e4`, ended at `1915bb7`. Real-Phoenix E2E ran on an isolated validator (`:8799`, fresh `--reset`) so Debu's `:8899` + `:3000` setup stayed intact. Logs are on the box under `/workspace/hardening-20261007/` (not committed).
+
+### Results per area
+
+| Area | Result | Notes |
+| --- | --- | --- |
+| Anchor localnet-test (P0/P1/P2, SIM, MP merge_pair, SC SimClock, PHX, INV, X) | **PASS 87/87** | Run on main before !57. Counts: A 5, M 11, MP 8, PHX 6, R 9, S 15, SC 3 + SC-IDL, SIM 9, V 8, X 7, INV 3, B 1. !57 brought its own `tests/prod/settle_pull_oracle.ts` suite; it was not re-run here because the box was loaded. |
+| Prod Anchor build + `assert-prod-no-fixtures` | **PASS** | No `sim_*` / `upsert_mock_pyth` / `test_drain_vault` in the prod `.so` or IDL |
+| Automation | **PASS 37/37** + tsc | On `1915bb7` (was 17/17 before !57) |
+| Web unit | **PASS 161 + 10 skipped** | Skipped tests are the opt-in E2E. tsc, `next lint`, and `next build` are green on `1915bb7` |
+| Real-Phoenix E2E (`LOCALNET_E2E=1`, `localnet.hardening.e2e.test.ts`) | **PASS 10/10** | 25 invariant checks after every step: vault == outstanding pairs × $1, and Yes == No supply until settle. Details below |
+| UI smoke (headless Chrome, dev wallet, `:3000`) | **PASS** with findings | 18 routes × desktop 1280×800 / mobile 390×844 = 36 combos: all 200, 0 horizontal overflow, 386 controls clicked, 0 failed clicks, selected states visually distinct. !49 payoff line + distance readout and !50 settle proof + "Recently settled (2)" are correct for both an above-strike and a below-strike settle |
+| Hydration | **FIXED** | Trade page #425/#422 (!52, DLV-079) and countdown #425/#418 (!60, DLV-086). Prod build shows 0 page errors at browser clock +2m05s / −1h on `/`, `/markets`, and the trade page |
+| Security: dev wallet | **FIXED** + 1 residual | A prod build with localnet env served the key (!56, DLV-080). Residual: Host + XFF spoof against `next dev` on `0.0.0.0` (DLV-081) |
+| Security: secrets | **PASS** | Repo clean, apart from the historical revoked keypair that is already documented. Client `.next/static` has no keys, tokens, local paths, or fixture instructions. Server chunks contain only Next's own build paths |
+| Prod build excludes fixtures | **PARTIAL** | Program and IDL are clean. The web bundle still ships `lib/demo/portfolio`: Portfolio, History, the Header redeem dot, and intent availability use demo data on every cluster (DLV-088). Fixture markets are localnet-only since !59 (DLV-084) |
+
+### Real-Phoenix E2E cases (10/10)
+
+1. Market Buy Yes / Sell Yes / Buy No (mint + ask in one tx) / Sell No (bid + merge_pair in one tx): wallet deltas are exact.
+2. A resting limit Buy Yes is partially filled by a second wallet (4/10), and the remainder cancels.
+3. A crossing limit Sell Yes fills as taker and lands in the wallet.
+4. Opposite-side block: the UI gate blocks Buy No while the wallet holds Yes. The program does not block it (by design).
+5. Slippage: a market Buy Yes with worst price below the ask gets no fill and moves no funds.
+6. Slippage: a market Sell No that can't fill reverts the whole tx.
+7. DLV-070: a market Buy No that can't fully fill reverts the mint too (fill-or-kill, D-024, !54).
+8. Lifecycle above: SimClock warp, then settle at strike-touch (≥, D-005) → Yes wins. Winner redeems $1 per contract; loser gets 0.
+9. Lifecycle below: settle one cent under the strike → No wins. Winner redeems; loser gets 0.
+10. Pause blocks a new Buy No (mint, 6000 Paused) but not Phoenix-only trades. `admin_settle` works after expiry.
+
+To reproduce, use `scripts/e2e/create-lifecycle-markets.ts` plus the local bootstrap/seed scripts on a spare validator port, then run `LOCALNET_E2E=1 npx vitest run src/lib/phoenix/localnet.hardening.e2e.test.ts`.
+
+### Bugs found → fixed (merged)
+
+| MR | Fix | DLV |
+| --- | --- | --- |
+| !52 | Trade page and landing inline `<style>` (React SSR escapes `>`) → globals.css. A guard test bans `<style>{…}` | DLV-079 |
+| !53 | Docs renumber (collided with !51) | — |
+| !54 | Market IOC is fill-or-kill (`minBaseUnitsToFill = size`), so there is no Buy No under-fill and no silent 0-fill. Plain-language error toasts. Adds the real-Phoenix hardening E2E | DLV-070, D-024 |
+| !55 | The E2E no longer pulls `apps/automation` into web tsc / `next build` | — |
+| !56 | The dev wallet can never turn on when `NODE_ENV=production`, and the forwarded client must be loopback | DLV-080 |
+| !60 | Countdowns hydrate with the server render time (`serverNowSec` → `ChainClockProvider` until mounted) | DLV-086 |
+
+### Open risks / new items
+
+- **DLV-081 (localnet only):** dev-wallet route trusts Host + XFF. Bind `next dev -H 127.0.0.1`.
+- **DLV-087:** resting limit fills credit the Phoenix seat (`baseLotsFree`), not the wallet. The UI has no cancel/withdraw, Portfolio doesn't show seat balances, and availability allowed Buy No while 4 Yes sat in the seat.
+- **DLV-088:** demo portfolio, history, Header redeem dot, and intent availability use `lib/demo/portfolio` on every cluster. A real devnet wallet sees fake positions and a fake redeem dot.
+- **DLV-089 (minor):** favicon 404 on every page. `/markets/<unknown>` renders "Market not found" with HTTP 200 (streamed). The settle proof says "Settle tx not found in RPC history" on localnet.
+- **DLV-090 (observability):** RPC read errors in `listFromLive` / `getMarket` are swallowed without a log. Under load (box load ~15–18), two localnet prod builds silently served fixture markets until a later request. Off-localnet this now shows "Markets unavailable" (!59), but the cause is still invisible in server logs.
+- **DLV-085 (owned by the parallel stream):** Hermes API key is needed for permissionless settle off-localnet. `admin_settle` is the fallback.
+
+### Review of !43–!50 (self-review; SendToAgent unavailable)
+
+- **Test gaps:** there are no component/jsdom tests, so UI behaviour is covered only by the smoke script plus pure-function tests. The real-Phoenix E2E is opt-in and depends on local-only bootstrap/seed scripts. Nothing in CI exercises the dev-wallet route in a prod build. Only !56's unit tests cover it.
+- **!43 Phoenix order path:** correct against real V1 books. Before !54, market IOC could under-fill.
+- **!44 dev wallet:** gating relied on env + loopback only. Fixed in !56; DLV-081 residual.
+- **!45–!47 selection / layout / states:** no functional issues. Selected states are distinct on desktop and mobile.
+- **!48 exposure-aware Buy buttons:** uses wallet balances only, so it misses seat balances (DLV-087) and the demo data (DLV-088).
+- **!49 payoff line / distance:** numbers are correct (10 @ 0.45 → +$5.50 / −$4.50).
+- **!50 settle proof / Recently settled:** correct for above and below settles. Missing tx history is labelled honestly.
+- **Architecture:** the committed prod IDL lists the optional `sim_clock` account (harmless on prod). Anchor TS auto-resolves the SimClock PDA, so on any chain where SimClock is enabled, every mint/settle uses sim time. This is intended for localnet; make sure SimClock is never initialised on devnet.
+
+### Go / no-go
+
+- **Devnet + Railway staging (internal demo): GO.** Conditions:
+  - deploy the prod `.so` (DLV-077, blocked on devnet SOL);
+  - settle via `admin_settle`, or automation with `PYTH_HERMES_API_KEY` (DLV-085);
+  - testers are told Portfolio/History are demo data (DLV-088);
+  - limit orders that rest and fill need a manual seat withdraw (DLV-087).
+- **Public / mainnet: NO-GO** until DLV-088 and DLV-087 are done, the pull-oracle settle is proven on devnet end-to-end, and an external security review is complete.
+
+---
+
 ## Flake evidence (X-03 / SIM-08 → !34)
 
 | Event | Tip | Result | Notes |
@@ -162,3 +238,4 @@ Expect: **74 passing / 0 failing**. Labs CI runners may be absent — Debu don't
 | --- | --- | --- |
 | 2026-10-07 | Meridian Testers | Initial DLV-039 artifact from tip `92d414e` / suite green `65c1ddf` (!34) |
 | 2026-10-07 | Meridian Orchestrator / Reviewers | Demo table: Phoenix on-book → Done (!38 / DLV-064); residual Phoenix.so create; post-!38 PHX census TBD; tip note `bcf5d23` |
+| 2026-10-07 | Grok Bot (hardening executor) | Hardening pass section (21:05–22:45 CT): per-area results, E2E 10/10, fixes !52–!56 + !60, DLV-086–090, go/no-go |
