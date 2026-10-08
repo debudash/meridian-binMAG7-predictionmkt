@@ -68,7 +68,8 @@ Required highlights:
 | `NEXT_PUBLIC_USDC_MINT` / `COLLATERAL_MINT` | Devnet USDC |
 | `PYTH_PRICE_FEEDS` | Devnet Pyth accounts (automation) |
 | `PHOENIX_MARKETS` / `NEXT_PUBLIC_PHOENIX_*` | Devnet Phoenix market wiring |
-| `AUTOMATION_KEYPAIR` | **Railway secret only** |
+| `AUTOMATION_KEYPAIR` | **Railway secret only** (config authority) |
+| `SETTLER_KEYPAIR` | **Railway secret only** — M3 low-balance settle key (must differ from the authority; unset → authority fallback + warning on devnet) |
 | `NEXT_PUBLIC_INDEXER_URL` | Optional; empty → RPC GPA → fixtures |
 
 ## 3. IDL bake (automation)
