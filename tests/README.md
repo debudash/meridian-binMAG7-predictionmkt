@@ -99,4 +99,4 @@ yarn build:prod
 ### DLV-064 on-book
 
 - `tests/phoenix_onbook_e2e.ts` — PHX-01…06
-- `docs/phoenix-onbook-sim.md`
+- [`docs/TEST_RESULTS.md`](../docs/TEST_RESULTS.md) §3 (PHX cases)

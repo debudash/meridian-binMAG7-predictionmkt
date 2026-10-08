@@ -1,5 +1,5 @@
 /**
- * Phoenix enablement gates — DEPLOY.md §4 / SPEC §3.4.
+ * Phoenix enablement gates — DEPLOY.md §5.2 / SPEC §3.4.
  * Dev/fixture fallback when unset or explicitly disabled.
  */
 

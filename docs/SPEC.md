@@ -8,7 +8,7 @@
 | **Date** | 2026-10-06 (America/Chicago) |
 | **Forge** | https://labs.gauntletai.com/debudash/peak6-meridian (GitLab-only; D-001 / D-014) |
 
-**Canonical companions:** [`DECISIONS.md`](DECISIONS.md) · [`SCHEMA.md`](SCHEMA.md) · [`TRACKER.md`](TRACKER.md) · [`TEST_MATRIX.md`](TEST_MATRIX.md) · [`DEPLOY.md`](DEPLOY.md) · [`ui/`](ui/) · [`ui/wireframes/`](ui/wireframes/) · [`sim-clock.md`](sim-clock.md)
+**Canonical companions:** [`DECISIONS.md`](DECISIONS.md) · [`SCHEMA.md`](SCHEMA.md) · [`internal/TRACKER.md`](internal/TRACKER.md) · [`TEST_MATRIX.md`](TEST_MATRIX.md) · [`DEPLOY.md`](DEPLOY.md) · [`ui/`](ui/) · [`ui/wireframes/`](ui/wireframes/) · [`sim-clock.md`](sim-clock.md)
 
 ---
 
@@ -88,7 +88,7 @@ End-to-end: **create → mint → Phoenix trade → settle → redeem** for a sa
 - Staleness ≤ **150 slots**; conf ≤ **500 bps** (D-005).
 - Outcome: settle price **≥** strike ⇒ **Yes** wins; else No (default; see open items for `>` revisit).
 - Settlement outcome **immutable** once written; `admin_settle` only after configured delay.
-- Production settle path parses real Pyth Price accounts; rejects Meridian mock magic.
+- Production settle reads the Pyth pull-oracle `PriceUpdateV2` account (receiver-owned, Full verification, market feed id, first price at/after expiry) and rejects the localnet mock layout. *(Amended 2026-10-08: the earlier wording "parses real Pyth Price accounts" is superseded by D-025.)*
 
 ### 3.6 D-017 Anytime sim (hard acceptance)
 
@@ -158,7 +158,7 @@ Debu requires **UI wireframes in this SPEC freeze MR** (!20 / branch `docs/d012-
 These may resolve after SPEC lock without rewriting V1 scope:
 
 1. Exact **MAG7 Pyth feed ids** — **pinned** (D-019 / DLV-041; SCHEMA §3.1).
-2. Phoenix **Buy/Sell No** on-book sim E2E — **landed DLV-064** (book-sim + PHX-*; client place/merge !28/!33). Residual: full Phoenix.so market create on localnet (`docs/phoenix-onbook-sim.md`).
+2. Phoenix **Buy/Sell No** on-book sim E2E — **landed DLV-064** (book-sim + PHX-*; client place/merge !28/!33). Real Phoenix V1 books now also run on localnet (web E2E, `scripts/localnet/today-markets.cjs`); see [`TEST_RESULTS.md`](TEST_RESULTS.md).
 3. Indexer / history data URL (if any).
 4. Optional **UI sim** affordance.
 5. **SimClock PDA** eng impl (`init`/`set`/`warp`) per [`sim-clock.md`](sim-clock.md) — docs landed; **not** required by SIM-01…09.
@@ -187,7 +187,7 @@ Full ladder: [`DEPLOY.md`](DEPLOY.md).
 1. **MR !20** landed `docs/SPEC.md` + **UI wireframes** under [`ui/wireframes/`](ui/wireframes/) (same MR / branch — Debu: no separate wireframe MR).
 2. Meridian UI wireframe assets (Landing / Markets / Trade / Portfolio / History) are on this MR; **Debu approved all wireframes**.
 3. **Debu lock** — Debu authorized SPEC lock to Grok Bot (2026-10-06 CT) **without full review**. Status = **Locked**.
-4. After lock: material scope/stack changes require a new row (or amendment) in [`DECISIONS.md`](DECISIONS.md) and an [`AI_LOG.md`](AI_LOG.md) entry.
-5. TRACKER / TASKS may continue to move work items; they do not silently expand V1 acceptance without Debu awareness.
+4. After lock: material scope/stack changes require a new row (or amendment) in [`DECISIONS.md`](DECISIONS.md) and an [`internal/AI_LOG.md`](internal/AI_LOG.md) entry.
+5. TRACKER / TASKS (TASKS retired 2026-10-08) may continue to move work items; they do not silently expand V1 acceptance without Debu awareness.
 
 **Status:** **Locked** (Debu-authorized, no full review required). Wireframes approved all and included on MR !20.
