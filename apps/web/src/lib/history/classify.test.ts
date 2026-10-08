@@ -10,7 +10,7 @@ import { buildHistoryIndex, classifyTransaction, settlementRows, type HistoryRow
 import type { MarketView } from "@/lib/market/types";
 
 const OWNER = "G5dtmt73NNcDramXQUr6ckfNP9umAWwjpRwsMh7jUTLY";
-const MERIDIAN = "9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6";
+const MERIDIAN = "3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj";
 const PHOENIX = "PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY";
 const USDC = "CivjforuEL9GrMsFzJLhYkfS87ZE3NoKRzpVFn35ynE4";
 const market = {

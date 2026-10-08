@@ -3,7 +3,7 @@
  *
  * Case IDs: MP-01…MP-08.
  *
- * Program id tip: 9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6.
+ * Program id tip: 3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj.
  * Do **not** change Rust in this suite MR — Engineers implement only to green (D-016).
  * Do **not** invent a Phoenix matcher. Meridian tests only `merge_pair`;
  * client Sell No = Phoenix bid Yes then merge_pair (on-book / book-sim — DLV-064; not a Meridian matcher).

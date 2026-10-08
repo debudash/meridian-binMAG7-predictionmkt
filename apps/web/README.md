@@ -119,7 +119,7 @@ Env vars: see [`.env.example`](./.env.example) and [`.env.railway.staging.exampl
 
 ## Program id
 
-Default: `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6` (overridable via `NEXT_PUBLIC_MERIDIAN_PROGRAM_ID`).
+Default: `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` (overridable via `NEXT_PUBLIC_MERIDIAN_PROGRAM_ID`).
 
 ## Railway
 

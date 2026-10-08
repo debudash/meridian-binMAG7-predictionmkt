@@ -9,7 +9,7 @@ pub mod utils;
 
 use instructions::*;
 
-declare_id!("9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6");
+declare_id!("3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj");
 
 #[program]
 pub mod meridian {

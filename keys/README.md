@@ -5,8 +5,17 @@
 ## Current program id (pubkey only)
 
 ```
+3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj
+```
+
+## Retired (lost — DLV-124, 2026-10-08)
+
+```
 9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6
 ```
+
+Its keypair existed only on the old build box, which is gone. It was never deployed to devnet or mainnet. The current id
+replaced it; the new keypair is kept outside the repo with an offline backup held by Debu.
 
 ## Revoked (compromised — was committed to git)
 

@@ -14,7 +14,7 @@ import { MAG7 } from "./marketDay";
 export type AutomationMode = "calendar" | "sim";
 export type SolanaCluster = "localnet" | "devnet" | "mainnet-beta";
 
-export const DEFAULT_PROGRAM_ID = "9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6";
+export const DEFAULT_PROGRAM_ID = "3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj";
 export const ET_TZ = "America/New_York";
 
 /** Fixture / localnet-only instruction names that must never appear on prod IDL path. */

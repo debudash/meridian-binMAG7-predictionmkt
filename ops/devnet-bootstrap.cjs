@@ -12,6 +12,7 @@
  *                         this bootstrap does not (wallets / mUSDC / settler / pauser / Config / 20-min market only).
  *                         1 = also create today's markets + books (only when the worker is NOT creating). Read from the
  *                         env, else from $STAGING_ENV_FILE / ./staging.env at run time (a running watcher honours it).
+ *      ADMIN_SETTLE_DELAY_SECS  admin_settle delay set at initialize_config (default 300; 60..3600). Staging: 60 (DLV-123).
  *      SHORT_PHASE        all (default) | skip (today's markets + wallets only) | only (just the 20-min AAPL ATM market)
  *      SHORT_BOOK         1 (default) = give the 20-min AAPL ATM market a Phoenix book + maker ladder (STAGING_TEST_PLAN §1.7b)
  *      SHORT_SETUP_SECS   extra seconds added to the short expiry to cover book + ladder setup (default 180)
@@ -57,6 +58,10 @@ const NBOOKS = Number(process.env.NBOOKS ?? 3);
 const SHORT_MIN = Number(process.env.SHORT_MIN ?? 20);
 const DRY_RUN = process.env.DRY_RUN === "1";
 const SHORT_PHASE = process.env.SHORT_PHASE || "all"; // all | skip | only
+// DLV-123: admin_settle delay written at initialize_config. 300 s by default; staging uses 60 s (the program's production
+// minimum, MIN_ADMIN_SETTLE_DELAY_SECS_PROD) so the operator-price fallback can settle by 16:05 ET (Peak6 PRD).
+const ADMIN_SETTLE_DELAY_SECS = Number(process.env.ADMIN_SETTLE_DELAY_SECS ?? 300);
+if (!Number.isInteger(ADMIN_SETTLE_DELAY_SECS) || ADMIN_SETTLE_DELAY_SECS < 60 || ADMIN_SETTLE_DELAY_SECS > 3600) throw new Error(`ADMIN_SETTLE_DELAY_SECS must be 60..3600 (got ${process.env.ADMIN_SETTLE_DELAY_SECS})`);
 if (!["all", "skip", "only"].includes(SHORT_PHASE)) throw new Error(`bad SHORT_PHASE ${SHORT_PHASE}`);
 const SHORT_BOOK = process.env.SHORT_BOOK !== "0";
 const SHORT_SETUP_SECS = Number(process.env.SHORT_SETUP_SECS ?? 180);
@@ -87,6 +92,12 @@ const FEEDS = {
   META: ["GsKrMNoa1Mqjpif4SYk2WjdduWZP699hXRdP51yBM6K2", "78a3e3b8e676a8f73c439f5d749737034b139bbbe899ba5775216fba596607fe"],
   TSLA: ["E8WFH8brgP58arcuW2wwsPHiomYrSvrgWTsRLZLAEZUQ", "16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1"],
 };
+// SCHEMA §3.1.1: on devnet the sponsored shard-1 accounts are the fresh ones (shard-0 is stale). PYTH_REF_SHARD=1 uses them
+// as each market's reference/display feed (the web's "needs +x%" readout). Settle never trusts the address (D-025).
+const SHARD1 = { AAPL: "D9uk39pqZMcnmtPP9WeC8cREUpKZmyXLga9mSQ79SphW", MSFT: "EKhrgXYwqsjgxF71Gxznui1zdoeqgxJzzPzfefEmm5un",
+  GOOGL: "7aUtbtC3o3GVwRWvaDp5fxKjBq53QL3UrVmDzDgeNo8M", AMZN: "4eT5d4SJ7GjD8HMpMysSNoPV7RBVTBGzoSEkynmPLMPS",
+  NVDA: "5VETJ8h3p4JrESYrzhjTDAWPEjDjfcnduqe9CjxgqBNd", META: "6NJCSCAWy1yB1jEGhPbsMTrT4WH13o8BGD5wgPbBtdY9", TSLA: "FQB8c4zB8Emrp9W8bmyk6GanCLq4aRytHYPDAnaEpq9z" };
+if (process.env.PYTH_REF_SHARD === "1") for (const k of Object.keys(FEEDS)) FEEDS[k][0] = SHARD1[k];
 // DLV-118 (SPEC §1/§3.3): markets expire at TODAY's 16:00 ET close with strikes ATM on the previous trading day's close (D-026).
 // TODAY_PLAN = JSON from `ops-cli market-day --strikes` (run-staging.sh writes it). No fixed next-close date, no AAPL ≥ 300.
 const { bootstrapPlanFromToday, shortExpiryFor, sameDayDuplicates } = require("./lib/today-plan.cjs");
@@ -368,11 +379,11 @@ async function main() {
   const [configPda] = PublicKey.findProgramAddressSync([Buffer.from("config")], PROGRAM_ID);
   state.configPda = configPda.toBase58();
   if (!(await conn.getAccountInfo(configPda))) {
-    const params = { mintFeeBps: 0, redeemFeeBps: 0, settleMaxStalenessSlots: new anchor.BN(150), settleMaxConfRatioBps: 200, adminSettleDelaySecs: new anchor.BN(300) };
+    const params = { mintFeeBps: 0, redeemFeeBps: 0, settleMaxStalenessSlots: new anchor.BN(150), settleMaxConfRatioBps: 200, adminSettleDelaySecs: new anchor.BN(ADMIN_SETTLE_DELAY_SECS) };
     const ix = await pk.methods.initializeConfig(params).accounts({ authority: keeper.publicKey, config: configPda, collateralMint: usdc, treasury, systemProgram: SystemProgram.programId }).instruction();
     await send([ix], [keeper], "initialize_config");
   }
-  state.configParams = { mintFeeBps: 0, redeemFeeBps: 0, settleMaxStalenessSlots: 150, settleMaxConfRatioBps: 200, adminSettleDelaySecs: 300 };
+  state.configParams = { mintFeeBps: 0, redeemFeeBps: 0, settleMaxStalenessSlots: 150, settleMaxConfRatioBps: 200, adminSettleDelaySecs: ADMIN_SETTLE_DELAY_SECS };
   save();
 
   // 3. Strike markets (+ short-expiry settle-test market)

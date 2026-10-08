@@ -43,4 +43,4 @@ Audience: reviewers before a demo or a deploy-ladder step. Findings and their fi
 - [ ] Demo script uses localnet/sim or clearly labeled staging — no accidental mainnet funds.
 - [ ] No regulatory/compliance claims in UI copy or docs.
 
-Known history: a program keypair was once committed to git; it was revoked and the program id rotated (`GwTvo…` → `9Rb7nx…`, [`keys/README.md`](../keys/README.md)). Old git history still contains it. A second rotation is pending because the `9Rb7nx…` keypair was lost with the old build box (DLV-124).
+Known history: a program keypair was once committed to git; it was revoked and the program id rotated (`GwTvo…` → `9Rb7nx…`, then `9Rb7nx…` → `3X3E…` on 2026-10-08 after that keypair was lost, DLV-124; [`keys/README.md`](../keys/README.md)). Old git history still contains it. A second rotation is pending because the `9Rb7nx…` keypair was lost with the old build box (DLV-124).
