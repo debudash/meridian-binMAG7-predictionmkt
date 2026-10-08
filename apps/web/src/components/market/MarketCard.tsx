@@ -9,6 +9,7 @@ import type { MarketView } from "@/lib/market/types";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { PositionSnapshot } from "@/lib/intents/types";
 import { MarketBuyLinks, useMarketTradeState } from "./MarketBuyLinks";
+import { DistanceReadout } from "@/components/trade/DistanceReadout";
 
 export function MarketCard({
   market,
@@ -81,12 +82,15 @@ export function MarketCard({
           {impliedLabel(yes)}
         </div>
       )}
-      {market.underlyingPrice != null && (
-        <div className="muted" style={{ fontSize: "0.8rem" }}>
-          Underlying ${market.underlyingPrice.toFixed(2)} · dist{" "}
-          {(market.underlyingPrice - market.strike).toFixed(2)}
-        </div>
-      )}
+      <DistanceReadout
+        compact
+        market={market}
+        underlying={
+          market.underlyingPrice != null
+            ? { price: market.underlyingPrice, source: "indexer" }
+            : null
+        }
+      />
       <div className="muted" style={{ fontSize: "0.75rem" }}>
         24h vol {market.volume24hUsdc?.toLocaleString() ?? "—"} USDC · OI{" "}
         {market.openInterest?.toLocaleString() ?? "—"}

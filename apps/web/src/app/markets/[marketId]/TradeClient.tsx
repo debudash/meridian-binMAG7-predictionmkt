@@ -28,6 +28,7 @@ import {
 import { yesDefinition, noDefinition, oneLineExplainer } from "@/lib/copy/payoff";
 import { useIntentAvailability } from "@/hooks/useIntentAvailability";
 import { useLivePosition } from "@/hooks/useLivePosition";
+import { useUnderlyingPrice } from "@/hooks/useUnderlyingPrice";
 import { useChainClock } from "@/components/providers/AppProviders";
 import { DEFAULT_PROGRAM_ID } from "@/lib/solana/config";
 import { listDemoOpenOrdersAcrossMarkets, buildDemoHistory } from "@/lib/demo/portfolio";
@@ -118,6 +119,7 @@ export function TradeClient({
   const no = noPriceFromYes(yes, market.tickSize);
 
   const livePosition = useLivePosition(market);
+  const underlying = useUnderlyingPrice(market);
   const { availability, position, openOrders, lifecycle } = useIntentAvailability(
     market.marketId,
     livePosition
@@ -202,12 +204,10 @@ export function TradeClient({
           <h1 style={{ margin: 0, fontSize: "1.15rem", lineHeight: 1.3 }}>{market.question}</h1>
           <div className="muted tabular" style={{ fontSize: "0.8rem", marginTop: 4 }}>
             {market.underlyingSymbol}{" "}
-            {market.underlyingPrice != null
-              ? `$${market.underlyingPrice.toFixed(2)}`
-              : "—"}{" "}
-            · Pyth
-            {market.underlyingPublishTs != null &&
-              ` · ${Math.max(0, nowSec - market.underlyingPublishTs)}s ago`}
+            {underlying != null ? `$${underlying.price.toFixed(2)}` : "—"}{" "}
+            · {underlying?.source === "mock" ? "mock Pyth" : "Pyth"}
+            {underlying?.publishTime != null &&
+              ` · ${Math.max(0, nowSec - underlying.publishTime)}s ago`}
             {" · "}24h {market.volume24hUsdc?.toLocaleString() ?? "—"} · OI{" "}
             {market.openInterest?.toLocaleString() ?? "—"}
           </div>
@@ -424,6 +424,7 @@ export function TradeClient({
             liveBook={liveBook}
             usdcBalance={livePosition?.usdc}
             onTicketChange={setTicketState}
+            underlying={underlying}
           />
         </aside>
       </div>
