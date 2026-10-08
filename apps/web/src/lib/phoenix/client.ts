@@ -34,6 +34,7 @@ import {
 import { explainPlaceError } from "./errors";
 import { buildClaimSeatInstructions } from "./seat";
 import { contractsToRawAmounts, DEFAULT_OUTCOME_DECIMALS } from "./size";
+import { logChainReadError } from "@/lib/log/chainRead";
 import type {
   ComposePlanSummary,
   PhoenixPlaceOrderRequest,
@@ -346,7 +347,8 @@ export async function fetchPhoenixBook(
       })),
       updatedAt: Date.now(),
     };
-  } catch {
+  } catch (e) {
+    logChainReadError("phoenix.book", e, { phoenixMarket });
     return null;
   }
 }
