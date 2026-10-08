@@ -33,6 +33,7 @@ import {
 } from "./compose";
 import { explainPlaceError } from "./errors";
 import { buildClaimSeatInstructions } from "./seat";
+import { seatSweepIxs, type ManageMarketState } from "./manage";
 import { contractsToRawAmounts, DEFAULT_OUTCOME_DECIMALS } from "./size";
 import { logChainReadError } from "@/lib/log/chainRead";
 import type {
@@ -110,9 +111,14 @@ async function buildPhoenixPlaceIx(
   plan: ComposePlanSummary,
   limitYesPrice: number,
   sizeInBaseUnits: number,
-): Promise<{ ix: TransactionInstruction; setup: TransactionInstruction[] }> {
+): Promise<{ ix: TransactionInstruction; setup: TransactionInstruction[]; sweep: TransactionInstruction[] }> {
   const { PhoenixSdk, client } = await loadPhoenixClient(connection, [market]);
   const key = market.toBase58();
+  // Free Yes/USDC in this wallet's seat (resting fills) → wallet first, so the order can use it.
+  const marketState = client.marketStates.get(key);
+  const sweep = marketState
+    ? seatSweepIxs(marketState as unknown as Parameters<typeof seatSweepIxs>[0] & ManageMarketState, trader)
+    : [];
 
   const side =
     plan.phoenixSide === "bid" ? PhoenixSdk.Side.Bid : PhoenixSdk.Side.Ask;
@@ -156,7 +162,7 @@ async function buildPhoenixPlaceIx(
   const setup =
     (await buildClaimSeatInstructions(connection, market, trader)).instructions ??
     [];
-  return { ix, setup };
+  return { ix, setup, sweep };
 }
 
 /**
@@ -206,7 +212,7 @@ export async function placePhoenixOrder(
 
   try {
     const market = new PublicKey(req.phoenixMarket);
-    const { ix: placeIx, setup } = await buildPhoenixPlaceIx(
+    const { ix: placeIx, setup, sweep } = await buildPhoenixPlaceIx(
       ctx.connection,
       market,
       ctx.publicKey,
@@ -228,6 +234,8 @@ export async function placePhoenixOrder(
     ) {
       ixs.push(...meridianAtaIxs(ctx.publicKey, ctx.mintAccounts));
     }
+    // Seat sweep after ATAs exist (setup / meridianAtaIxs create Yes + USDC ATAs) — DLV-087.
+    ixs.push(...sweep);
 
     if (plan.needsMint) {
       if (!ctx.program || !ctx.mintAccounts) {

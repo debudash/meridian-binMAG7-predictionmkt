@@ -1,6 +1,9 @@
 /**
  * Shared intent-availability hook — docs/ui/07.
  * Wraps pure getIntentAvailability + position / orders / pending state.
+ * Inputs: live on-chain (wallet + Phoenix seat + resting orders) when given; demo only for
+ * fixture markets in localnet fixture mode (DLV-088); "loading" locks intents while a connected
+ * wallet's first read is pending.
  */
 "use client";
 
@@ -10,6 +13,7 @@ import {
   getIntentAvailability,
   getExposure,
 } from "@/lib/intents/getIntentAvailability";
+import { balancesLoadingAvailability, resolveAvailabilityInputs } from "@/lib/intents/resolveInputs";
 import type {
   IntentAvailabilityMap,
   MarketLifecycleStatus,
@@ -19,19 +23,17 @@ import type {
 } from "@/lib/intents/types";
 import { getCountdown } from "@/lib/market/countdown";
 import { getMarketById } from "@/lib/market/fixtures";
-import {
-  getDemoOpenOrders,
-  getDemoPosition,
-} from "@/lib/demo/portfolio";
+import { getCluster } from "@/lib/solana/config";
 import { useChainClock } from "@/components/providers/AppProviders";
 
 export interface UseIntentAvailabilityOptions {
-  /** Override fixture/demo position (e.g. live balances later). */
+  /** Live on-chain position (wallet + seat). */
   position?: PositionSnapshot;
+  /** Live resting orders (resting buys count toward the opposite-side block). */
   openOrders?: OpenOrdersSnapshot;
   pendingTxs?: PendingTxSnapshot;
-  /** When false, treat as flat (disconnected). Default: use demo when connected. */
-  useDemoWhenConnected?: boolean;
+  /** Connected wallet's first live read hasn't landed yet → lock intents. */
+  balancesLoading?: boolean;
   lotSize?: number;
   lifecycle?: MarketLifecycleStatus;
 }
@@ -43,6 +45,7 @@ export interface UseIntentAvailabilityResult {
   pendingTxs: PendingTxSnapshot;
   lifecycle: MarketLifecycleStatus;
   exposure: ReturnType<typeof getExposure>;
+  source: "live" | "demo" | "flat";
 }
 
 export function useIntentAvailability(
@@ -54,19 +57,18 @@ export function useIntentAvailability(
   const market = getMarketById(marketId, nowSec);
   const cd = market ? getCountdown(market, nowSec) : null;
 
-  const useDemo = opts.useDemoWhenConnected !== false && connected;
-
-  const position = useMemo<PositionSnapshot>(() => {
-    if (opts.position) return opts.position;
-    return useDemo ? getDemoPosition(marketId) : { yesQty: 0, noQty: 0 };
-  }, [opts.position, useDemo, marketId]);
-
-  const openOrders = useMemo<OpenOrdersSnapshot>(() => {
-    if (opts.openOrders) return opts.openOrders;
-    return useDemo
-      ? getDemoOpenOrders(marketId)
-      : { openBuyYesQty: 0, openBuyNoQty: 0 };
-  }, [opts.openOrders, useDemo, marketId]);
+  const resolved = useMemo(
+    () =>
+      resolveAvailabilityInputs({
+        connected,
+        marketId,
+        cluster: getCluster(),
+        live: opts.position ? { position: opts.position, openOrders: opts.openOrders } : null,
+        liveLoading: opts.balancesLoading ?? false,
+      }),
+    [connected, marketId, opts.position, opts.openOrders, opts.balancesLoading],
+  );
+  const { position, openOrders } = resolved;
 
   const pendingTxs = useMemo<PendingTxSnapshot>(
     () => opts.pendingTxs ?? { pendingTradeCount: 0 },
@@ -77,14 +79,12 @@ export function useIntentAvailability(
     opts.lifecycle ?? cd?.state ?? "open";
   const lotSize = opts.lotSize ?? market?.lotSize ?? 1;
 
-  const availability = useMemo(
-    () =>
-      getIntentAvailability(position, openOrders, pendingTxs, {
-        lifecycle,
-        lotSize,
-      }),
-    [position, openOrders, pendingTxs, lifecycle, lotSize],
-  );
+  const availability = useMemo(() => {
+    const a = getIntentAvailability(position, openOrders, pendingTxs, { lifecycle, lotSize });
+    // Closed markets keep their own copy; otherwise don't guess "flat" while balances load.
+    if (resolved.loading && a["buy-yes"].reason !== "market-closed") return balancesLoadingAvailability();
+    return a;
+  }, [position, openOrders, pendingTxs, lifecycle, lotSize, resolved.loading]);
 
   const exposure = useMemo(
     () => getExposure(position, openOrders, lotSize),
@@ -98,5 +98,6 @@ export function useIntentAvailability(
     pendingTxs,
     lifecycle,
     exposure,
+    source: resolved.source,
   };
 }

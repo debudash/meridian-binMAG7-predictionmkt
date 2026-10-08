@@ -2,7 +2,8 @@
 
 /**
  * Portfolio redeem flow — calls program `redeem` when market accounts are known.
- * Fixture markets without on-chain pubkeys show a clear stub message.
+ * Rows come from real wallet balances on settled markets (DLV-088); demo rows (localnet
+ * fixture mode only) have no on-chain accounts and show a clear message instead.
  */
 import { useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
@@ -12,26 +13,19 @@ import { PublicKey } from "@solana/web3.js";
 import { getMeridianProgram } from "@/lib/solana/program";
 import { buildRedeemIx } from "@/lib/solana/instructions";
 import { getUsdcMint, explorerTx } from "@/lib/solana/config";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTxStatus } from "@/components/providers/AppProviders";
+import { WALLET_ACCOUNT_KEY } from "@/hooks/useWalletAccount";
+import type { RedeemableRow } from "@/lib/portfolio/account";
 
-export interface RedeemableRow {
-  marketId: string;
-  label: string;
-  side: "yes" | "no";
-  size: number;
-  payoutUsdc: number;
-  /** On-chain accounts — required to submit redeem */
-  strikeMarket?: string;
-  collateralVault?: string;
-  winningMint?: string;
-  treasury?: string;
-}
+export type { RedeemableRow };
 
 export function RedeemButton({ row }: { row: RedeemableRow }) {
   const { connection } = useConnection();
   const wallet = useWallet();
   const { setVisible } = useWalletModal();
   const { push } = useTxStatus();
+  const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
 
   async function onRedeem() {
@@ -85,6 +79,8 @@ export function RedeemButton({ row }: { row: RedeemableRow }) {
       push("error", `Redeem failed: ${msg}`);
     } finally {
       setBusy(false);
+      void queryClient.invalidateQueries({ queryKey: [WALLET_ACCOUNT_KEY] });
+      void queryClient.invalidateQueries({ queryKey: ["wallet-history"] });
     }
   }
 

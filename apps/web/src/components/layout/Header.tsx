@@ -19,8 +19,9 @@ const WalletMultiButton = dynamic(
   },
 );
 import { getCluster } from "@/lib/solana/config";
-import { getDemoPortfolioSummary } from "@/lib/demo/portfolio";
 import { isNavActive } from "@/lib/ui/selection";
+import { usePortfolio } from "@/hooks/usePortfolio";
+import { useChainClock } from "@/components/providers/AppProviders";
 
 const NAV = [
   { href: "/markets", label: "Markets" },
@@ -32,7 +33,10 @@ export function Header() {
   const pathname = usePathname();
   const cluster = getCluster();
   const { connected } = useWallet();
-  const redeemable = connected ? getDemoPortfolioSummary().redeemableUsdc : 0;
+  const { nowSec } = useChainClock();
+  // Real winning-side balances on settled markets (demo only in localnet fixture mode) — DLV-088.
+  const { portfolio } = usePortfolio(nowSec, 30_000);
+  const redeemable = connected ? portfolio?.totals.redeemableUsdc ?? 0 : 0;
   const showRedeemDot = redeemable > 0;
 
   return (
@@ -80,7 +84,11 @@ export function Header() {
                 >
                   {item.label}
                   {item.href === "/portfolio" && showRedeemDot && (
-                    <span className="nav-dot" title="Redeemable positions" aria-label="Redeemable" />
+                    <span
+                      className="nav-dot"
+                      title={`Redeemable: ${redeemable.toFixed(2)} USDC`}
+                      aria-label="Redeemable"
+                    />
                   )}
                 </Link>
               );

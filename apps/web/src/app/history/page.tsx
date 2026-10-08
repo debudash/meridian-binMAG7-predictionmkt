@@ -5,8 +5,17 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { buildDemoHistory, type DemoFill } from "@/lib/demo/portfolio";
 import { useChainClock } from "@/components/providers/AppProviders";
+import { useMarketList } from "@/hooks/useMarketList";
+import { useWalletHistory } from "@/hooks/useWalletHistory";
+import { demoAccountAllowed } from "@/lib/portfolio/demoMode";
+import {
+  HIST_TYPE_FILTERS,
+  demoHistoryRows,
+  filterHistory,
+  historyCsv,
+  type HistTypeFilter,
+} from "@/lib/history/view";
 import { truncateAddress } from "@/lib/format";
 import { explorerTx } from "@/lib/solana/config";
 import { onTablistKeyDown, selectableRowProps, tabProps } from "@/components/ui/a11y";
@@ -17,7 +26,7 @@ function txUrl(sig: string): string {
   return explorerTx(sig);
 }
 
-type HistType = "all" | "fills" | "settlements" | "redemptions" | "cancels";
+type HistType = HistTypeFilter;
 type SideFilter = "all" | "yes" | "no";
 
 function HistoryInner() {
@@ -29,9 +38,7 @@ function HistoryInner() {
   const searchParams = useSearchParams();
 
   const [type, setType] = useState<HistType>(
-    (["all", "fills", "settlements", "redemptions", "cancels"].includes(
-      searchParams?.get("type") ?? "",
-    )
+    ((HIST_TYPE_FILTERS as readonly string[]).includes(searchParams?.get("type") ?? "")
       ? searchParams!.get("type")
       : "all") as HistType,
   );
@@ -61,75 +68,23 @@ function HistoryInner() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
 
-  const rows = useMemo(() => {
-    let list = buildDemoHistory(nowSec);
-    if (type !== "all") {
-      const map: Record<Exclude<HistType, "all">, DemoFill["type"]> = {
-        fills: "fill",
-        settlements: "settlement",
-        redemptions: "redemption",
-        cancels: "cancel",
-      };
-      list = list.filter((r) => r.type === map[type]);
-    }
-    if (side !== "all") list = list.filter((r) => r.side === side);
-    if (marketQ.trim()) {
-      const n = marketQ.trim().toLowerCase();
-      list = list.filter(
-        (r) =>
-          r.marketLabel.toLowerCase().includes(n) ||
-          r.marketId.toLowerCase().includes(n),
-      );
-    }
-    if (from) {
-      const fromTs = Date.parse(from) / 1000;
-      if (Number.isFinite(fromTs)) list = list.filter((r) => r.ts >= fromTs);
-    }
-    if (to) {
-      const toTs = Date.parse(to) / 1000 + 86400;
-      if (Number.isFinite(toTs)) list = list.filter((r) => r.ts <= toTs);
-    }
-    return list.sort((a, b) => b.ts - a.ts);
-  }, [nowSec, type, side, marketQ, from, to]);
+  const list = useMarketList();
+  const demo = list.data ? demoAccountAllowed({ usedFixtures: list.data.usedFixtures }) : false;
+  const hist = useWalletHistory(demo ? undefined : list.data?.markets, connected);
+  const source = useMemo(
+    () => (demo ? demoHistoryRows(nowSec) : hist.data?.rows ?? []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [demo, demo ? nowSec : 0, hist.data],
+  );
+  const rows = useMemo(
+    () => filterHistory(source, { type, side, market: marketQ, from, to }),
+    [source, type, side, marketQ, from, to],
+  );
+  const loading = connected && (list.isLoading || (!demo && hist.isLoading));
+  const loadError = list.data?.error ?? (hist.error ? String((hist.error as Error).message ?? hist.error) : null);
 
   function exportCsv() {
-    const headers = [
-      "time_utc",
-      "time_local",
-      "type",
-      "market",
-      "intent_or_outcome",
-      "price",
-      "size",
-      "amount_usdc",
-      "fee_usdc",
-      "realized_pnl_usdc",
-      "side",
-      "sig",
-    ];
-    const lines = rows.map((r) => {
-      const utc = new Date(r.ts * 1000).toISOString();
-      const local = new Date(r.ts * 1000).toLocaleString("en-US", {
-        timeZone: "America/Chicago",
-      });
-      return [
-        utc,
-        local,
-        r.type,
-        r.marketLabel,
-        r.intentOrOutcome,
-        r.price ?? "",
-        r.size,
-        r.amountUsdc ?? "",
-        r.feeUsdc ?? "",
-        r.realizedPnlUsdc ?? "",
-        r.side,
-        r.sig,
-      ]
-        .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-        .join(",");
-    });
-    const blob = new Blob([[headers.join(","), ...lines].join("\n")], {
+    const blob = new Blob([historyCsv(rows)], {
       type: "text/csv;charset=utf-8",
     });
     const url = URL.createObjectURL(blob);
@@ -181,9 +136,11 @@ function HistoryInner() {
           [
             ["all", "All"],
             ["fills", "Fills"],
+            ["orders", "Orders"],
+            ["cancels", "Cancels"],
+            ["transfers", "Withdraw / mint / merge"],
             ["settlements", "Settlements"],
             ["redemptions", "Redemptions"],
-            ["cancels", "Cancels"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -283,9 +240,18 @@ function HistoryInner() {
         </label>
       </div>
 
-      {rows.length === 0 ? (
+      {loadError && (
+        <div className="banner banner-danger" role="alert" style={{ marginBottom: "0.75rem" }}>
+          Couldn&apos;t load your on-chain activity: {loadError}. Retrying.
+        </div>
+      )}
+      {loading && rows.length === 0 ? (
+        <div className="card muted">Reading your transactions…</div>
+      ) : rows.length === 0 ? (
         <div className="card">
-          <p style={{ marginTop: 0 }}>No activity matches these filters.</p>
+          <p style={{ marginTop: 0 }}>
+            {source.length === 0 ? "No Meridian activity for this wallet yet." : "No activity matches these filters."}
+          </p>
           <button
             type="button"
             className="btn"
@@ -300,9 +266,6 @@ function HistoryInner() {
           >
             Clear filters
           </button>
-          <p className="muted" style={{ fontSize: "0.85rem" }}>
-            Fixture history when no indexer. Intent labels for Phoenix fills are TODO(schema).
-          </p>
           <Link href="/markets">Browse markets</Link>
         </div>
       ) : (
@@ -316,9 +279,8 @@ function HistoryInner() {
                 <th>Intent / Outcome</th>
                 <th>Price</th>
                 <th>Size</th>
-                <th>Amount</th>
-                <th>Fee</th>
-                <th>Realized P&L</th>
+                <th>USDC</th>
+                <th>Yes / No</th>
                 <th>Tx</th>
               </tr>
             </thead>
@@ -340,47 +302,49 @@ function HistoryInner() {
                       timeZoneName: "short",
                     })}
                   </td>
-                  <td>
-                    {r.type}
-                    {r.makerOrTaker ? ` (${r.makerOrTaker})` : ""}
-                  </td>
+                  <td>{r.type}</td>
                   <td>
                     <Link href={`/markets/${r.marketId}`}>{r.marketLabel}</Link>
                   </td>
-                  <td>{r.intentOrOutcome}</td>
+                  <td>{r.intent}</td>
+                  <td className="tabular">{r.price != null ? r.price.toFixed(2) : "—"}</td>
+                  <td className="tabular">{r.size ?? "—"}</td>
+                  <td className="tabular">{signedOrDash(r.usdcDelta, 2)}</td>
                   <td className="tabular">
-                    {r.price != null ? r.price.toFixed(2) : "—"}
-                  </td>
-                  <td className="tabular">{r.size}</td>
-                  <td className="tabular">
-                    {r.amountUsdc != null
-                      ? `${r.amountUsdc >= 0 ? "+" : ""}${r.amountUsdc.toFixed(2)}`
+                    {r.yesDelta || r.noDelta
+                      ? [r.yesDelta ? `${signedOrDash(r.yesDelta, 0)} Y` : "", r.noDelta ? `${signedOrDash(r.noDelta, 0)} N` : ""]
+                          .filter(Boolean)
+                          .join(" · ")
                       : "—"}
                   </td>
                   <td className="tabular">
-                    {r.feeUsdc != null ? r.feeUsdc.toFixed(2) : "—"}
-                  </td>
-                  <td className="tabular">
-                    {r.realizedPnlUsdc != null
-                      ? `${r.realizedPnlUsdc >= 0 ? "+" : ""}${r.realizedPnlUsdc.toFixed(2)}`
-                      : "—"}
-                  </td>
-                  <td className="tabular">
-                    <a href={txUrl(r.sig)} target="_blank" rel="noreferrer">
-                      {truncateAddress(r.sig, 4, 4)}
-                    </a>
+                    {r.sig ? (
+                      <a href={txUrl(r.sig)} target="_blank" rel="noreferrer">
+                        {truncateAddress(r.sig, 4, 4)}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="muted" style={{ fontSize: "0.75rem", padding: "0.65rem 0.85rem" }}>
-            Fixture data (no indexer). CSV uses ISO-8601 UTC + America/Chicago local column.
+            {demo
+              ? "Localnet fixture mode — demo history, not on-chain."
+              : `From this wallet's last ${hist.data?.scanned ?? 0} transactions${hist.data?.truncated ? " (older activity not shown)" : ""}. Fills of your resting orders appear when you cancel or withdraw.`}{" "}
+            CSV: ISO-8601 UTC + America/Chicago.
           </p>
         </div>
       )}
     </div>
   );
+}
+
+function signedOrDash(n: number, dp: number): string {
+  if (!n) return "—";
+  return `${n > 0 ? "+" : ""}${n.toFixed(dp)}`;
 }
 
 export default function HistoryPage() {
