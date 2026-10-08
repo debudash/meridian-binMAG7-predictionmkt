@@ -1,3 +1,16 @@
+## 2026-10-08T00:50:00-05:00 — Engineers: web Lows from review dd46769 (Portfolio settled-book polling, card M5 lock)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `fix/web-lows-poll-cardlock` from `origin/main` @ `4d9e561` |
+| **Source** | `/workspace/meridian-review-fixes-dd46769.md`, !67 "Remaining (Low)" 1 and 2 |
+| **Change** | (1) Portfolio no longer re-reads every settled Phoenix book every 30 s. `nextSettledPhoenixDone` marks a settled market once this wallet's seat there reads empty (no seat, all four balances 0, no resting orders); `accountRefsFor(..., { settledPhoenixDone })` then drops that book from the poll (ATAs still read for redeem). A settled market with withdrawable leftovers or resting orders stays polled until the wallet withdraws/cancels. An empty seat on a settled book can't refill without a new order from this wallet, so nothing is missed. `usePortfolio` keeps the set per wallet; `useWalletAccount` gains opt-in `keepPrevious` (Portfolio only, owner-guarded) so the shrinking key doesn't flash a loading state. (2) Market cards, table and ladder Buy links apply the M5 lock: `useWalletPositions` now returns `{ positions, lock }` (`walletPositionsLock`: pending → `loading`, failed with no data → `error`), and `cardAvailabilityOptions` feeds it into `useIntentAvailability`, so a failed read shows "Couldn't read your balances. Retrying…" instead of enabled-as-flat. |
+| **Tests** | TDD: `pollPolicy.test.ts` +4 and new `cardLock.test.ts` (8) written red first. web vitest **332 passed / 14 skipped** (was 320/14), `tsc --noEmit` clean, `next lint` clean. |
+| **Related** | !67 · M4 · M5 · review dd46769 Lows 1–2 |
+
+---
+
 ## 2026-10-07T23:40:00-05:00 — Engineers: TRACKER sync after Reviewer fixes (!67, !69, !70)
 
 | Field | Value |

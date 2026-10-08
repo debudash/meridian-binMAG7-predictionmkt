@@ -3,7 +3,7 @@
  * back off when public devnet RPC answers 429.
  */
 import { describe, expect, it } from "vitest";
-import { accountRefsFor, backoffInterval, is429, POLL_MS } from "./pollPolicy";
+import { accountRefsFor, backoffInterval, is429, nextSettledPhoenixDone, POLL_MS } from "./pollPolicy";
 
 const m = (id: string, status: "open" | "settling" | "settled-yes" | "settled-no" | "void") => ({
   marketId: id,
@@ -55,5 +55,44 @@ describe("429 backoff", () => {
     expect(backoffInterval(10_000, new Error("429"), 1)).toBe(20_000);
     expect(backoffInterval(10_000, new Error("429"), 2)).toBe(40_000);
     expect(backoffInterval(10_000, new Error("429"), 20)).toBe(300_000);
+  });
+});
+
+describe("Portfolio: stop re-reading settled Phoenix books once the wallet's seat there is empty (Low, review dd46769)", () => {
+  const empty = { phoenixMarket: "P", seat: { yesFree: 0, yesLocked: 0, usdcFree: 0, usdcLocked: 0 }, orders: [] };
+  const leftovers = { ...empty, seat: { ...empty.seat, usdcFree: 1.5 } };
+  const resting = { ...empty, orders: [{ orderSequenceNumber: "1", side: "bid", price: 0.4, size: 1 }] };
+  const state = (marketId: string, phoenix: unknown) => ({ marketId, wallet: { yes: 0, no: 0 }, phoenix });
+
+  it("portfolio scope skips Phoenix for settled markets listed in settledPhoenixDone, keeps open/settling ones", () => {
+    const refs = accountRefsFor(markets, { scope: "portfolio", settledPhoenixDone: new Set(["b", "e", "a"]) });
+    expect(refs).toHaveLength(5); // ATAs still read for every market (redeem)
+    expect(refs.filter((r) => r.phoenixMarket).map((r) => r.marketId)).toEqual(["a", "c", "e"]);
+  });
+
+  it("marks settled markets whose seat read came back empty (or no seat); keeps polling leftovers and resting orders", () => {
+    const acct = new Map([
+      ["a", state("a", empty)], // open: never marked
+      ["b", state("b", empty)], // settled, empty seat → done
+      ["c", state("c", leftovers)], // settled, withdrawable USDC → keep reading
+      ["e", state("e", null)], // settling: never marked
+    ]);
+    const settledWithOrders = [...markets, m("f", "settled-no"), m("g", "settled-yes")];
+    acct.set("f", state("f", resting));
+    acct.set("g", state("g", null)); // no seat at all → done
+    const next = nextSettledPhoenixDone(new Set(), settledWithOrders, acct as never);
+    expect([...next].sort()).toEqual(["b", "g"]);
+  });
+
+  it("returns the same Set instance when nothing changes (no extra re-render / query-key churn)", () => {
+    const prev = new Set(["b"]);
+    const acct = new Map([["b", state("b", null)], ["c", state("c", leftovers)]]);
+    expect(nextSettledPhoenixDone(prev, markets, acct as never)).toBe(prev);
+  });
+
+  it("never marks a settled market the read didn't cover (no entry yet, e.g. list refreshed before the next read)", () => {
+    const acct = new Map([["b", state("b", leftovers)]]);
+    const next = nextSettledPhoenixDone(new Set(), markets, acct as never);
+    expect([...next]).toEqual([]); // 'c' absent from the read → still polled
   });
 });

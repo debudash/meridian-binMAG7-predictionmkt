@@ -7,6 +7,7 @@
  * Own-tx actions invalidate the shared caches, so the UI still refreshes immediately after a trade.
  */
 import type { AccountMarketRef } from "@/lib/portfolio/readAccount";
+import type { MarketAccountState } from "@/lib/portfolio/account";
 import type { MarketView } from "@/lib/market/types";
 
 export const POLL_MS = {
@@ -53,22 +54,24 @@ export type AccountScope = "default" | "portfolio" | "redeemable";
 /**
  * Which markets (and which Phoenix books) an account read covers.
  *  - default: every market's ATAs; Phoenix only for open markets
- *  - portfolio: also settled/settling markets' Phoenix seats (withdraw leftovers); not void
+ *  - portfolio: also settled/settling markets' Phoenix seats (withdraw leftovers); not void.
+ *    Settled markets in `settledPhoenixDone` (seat already read empty) are skipped, so the poll
+ *    stops growing with every settled book (Low, review dd46769).
  *  - redeemable: settled markets' ATAs only, no Phoenix (Header redeem dot)
  */
 export function accountRefsFor(
   markets: readonly MarketRefInput[],
-  opts: { scope?: AccountScope } = {},
+  opts: { scope?: AccountScope; settledPhoenixDone?: ReadonlySet<string> } = {},
 ): AccountMarketRef[] {
   const scope = opts.scope ?? "default";
-  const settled = (s: MarketRefInput["status"]) => s === "settled-yes" || s === "settled-no";
+  const done = opts.settledPhoenixDone;
   const list = scope === "redeemable" ? markets.filter((m) => settled(m.status)) : markets;
   return list.map((m) => {
     const phoenix =
       scope === "redeemable"
         ? false
         : scope === "portfolio"
-          ? m.status !== "void"
+          ? m.status !== "void" && !(settled(m.status) && done?.has(m.marketId))
           : m.status === "open";
     return {
       marketId: m.marketId,
@@ -77,4 +80,38 @@ export function accountRefsFor(
       phoenixMarket: phoenix ? m.phoenixMarket : undefined,
     };
   });
+}
+
+function settled(s: MarketRefInput["status"]): boolean {
+  return s === "settled-yes" || s === "settled-no";
+}
+
+function seatEmpty(state: MarketAccountState): boolean {
+  const p = state.phoenix;
+  if (!p) return true;
+  const { yesFree, yesLocked, usdcFree, usdcLocked } = p.seat;
+  return yesFree === 0 && yesLocked === 0 && usdcFree === 0 && usdcLocked === 0 && p.orders.length === 0;
+}
+
+/**
+ * Portfolio: settled markets whose Phoenix seat for this wallet came back empty (no seat, no
+ * withdrawable/locked balances, no resting orders). A settled book can't put funds back into an
+ * empty seat without a new order from this wallet, so polling it again is wasted RPC. Leftovers or
+ * resting orders keep the market in the poll until the wallet withdraws/cancels. Only markets the
+ * read actually covered are marked. Returns `prev` unchanged (same instance) when nothing is new.
+ */
+export function nextSettledPhoenixDone(
+  prev: ReadonlySet<string>,
+  markets: readonly MarketRefInput[],
+  account: ReadonlyMap<string, MarketAccountState>,
+): ReadonlySet<string> {
+  let next: Set<string> | null = null;
+  for (const m of markets) {
+    if (!settled(m.status) || !m.phoenixMarket || prev.has(m.marketId)) continue;
+    const state = account.get(m.marketId);
+    if (!state || !seatEmpty(state)) continue;
+    next ??= new Set(prev);
+    next.add(m.marketId);
+  }
+  return next ?? prev;
 }
