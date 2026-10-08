@@ -1,7 +1,8 @@
 /**
  * Short-expiry settle verification. node settle-test.cjs <mint|settle|redeem|status>
- * env: RPC, STATE, KEYS, WEB_NODE_MODULES, MERIDIAN_IDL (all required), ADMIN_PRICE_E6 (admin_settle fallback price;
- *      must be consistent with outcome — Policy A)
+ * env: RPC, STATE, KEYS, WEB_NODE_MODULES, MERIDIAN_IDL (all required), ADMIN_PRICE_E6 + ADMIN_PRICE_SOURCE (admin_settle
+ *      fallback price and where it came from — Reviewers mr72-73 M3: `ops-cli admin-price` gives the Hermes price at
+ *      expiry or a market-bound operator price; a bare ADMIN_PRICE_E6 without a source is REFUSED. Policy A applies)
  *      PYTH_HERMES_API_KEY [+ PYTH_HERMES_URL] (DLV-085): `settle` first runs the permissionless Pyth PULL settle through
  *      the automation ops-cli ($AUTOMATION_DIST/ops-cli.js pull-settle: Hermes price at expiry → Pyth receiver post →
  *      settle, signed + paid by the settler). The key stays in the child's env (Authorization: Bearer); never printed,
@@ -14,6 +15,7 @@ const need = (k) => { const v = process.env[k]; if (!v) throw new Error(`${k} re
 const W = need("WEB_NODE_MODULES").replace(/\/?$/, "/");
 const { spawnSync } = require("child_process");
 const { pullSettlePlan } = require("./lib/pull-settle.cjs");
+const { adminPriceGuard } = require("./lib/admin-price.cjs");
 const web3 = require(W + "@solana/web3.js"); const spl = require(W + "@solana/spl-token"); const anchor = require(W + "@coral-xyz/anchor");
 const { PublicKey, Keypair, Connection, Transaction, ComputeBudgetProgram } = web3;
 const RPC = need("RPC"), STATE = need("STATE"), KEYS = need("KEYS");
@@ -75,7 +77,10 @@ async function send(ixs, signers, label) {
     const ix = await pk.methods.settle().accounts({ settler: settler.publicKey, config, strikeMarket: sm, pythPriceFeed: acc.pythPriceFeed, simClock: null }).instruction();
     if (mid.status === 0) state.settleTest.pythSettleSig = await send([ix], [settler], `permissionless settle (sponsored Pyth account; settler ${settler.publicKey.toBase58()})`);
     const fresh = await pk.account.strikeMarket.fetch(sm);
-    if (fresh.status === 0 && process.env.ADMIN_PRICE_E6) {
+    const guard = process.env.ADMIN_PRICE_E6 ? adminPriceGuard({ priceE6: process.env.ADMIN_PRICE_E6, source: process.env.ADMIN_PRICE_SOURCE }) : null;
+    if (fresh.status === 0 && guard && !guard.ok) console.log(`  [settle] ALERT admin_settle REFUSED: ${guard.reason}`);
+    if (fresh.status === 0 && guard && guard.ok) {
+      console.log(`  ${guard.line}`); state.settleTest.adminPriceSource = process.env.ADMIN_PRICE_SOURCE;
       const price = BigInt(process.env.ADMIN_PRICE_E6); const yes = price >= BigInt(m.strikeE6);
       const ix2 = await pk.methods.adminSettle(new anchor.BN(price.toString()), yes).accounts({ authority: keeper.publicKey, config, strikeMarket: sm, simClock: null }).instruction();
       state.settleTest.adminSettleSig = await send([ix2], [keeper], `admin_settle price=${Number(price) / 1e6} outcomeYes=${yes}`);

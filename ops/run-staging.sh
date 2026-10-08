@@ -24,6 +24,17 @@
 #   "SHORT MARKET READY". At expiry the book is PAUSED (cancel + withdraw only). From expiry + PULL_SETTLE_AFTER (90 s)
 #   the settler tries the permissionless Pyth pull settle (needs PYTH_HERMES_API_KEY); if that hasn't settled by
 #   expiry + SETTLE_AFTER (330 s = admin_settle_delay_secs 300 + 30) the keeper admin_settles, then the trader redeems.
+# ── ADMIN_SETTLE FALLBACK PRICE (Reviewers mr72-73 M3) ───────────────────────────────────────────────────────────────
+#   Never the stale pyth-read.py account price. `ops-cli admin-price` returns the Hermes price AT EXPIRY (publish_time
+#   within ADMIN_PRICE_MAX_SKEW_SECS=600 of expiry, market feed, sane confidence). If Hermes can't give one (off-hours,
+#   no key, outage) the script REFUSES, logs "[settle] ALERT", and waits (OPERATOR_PRICE_WAIT_HOURS=24) for the operator
+#   to write $ADMIN_PRICE_FILE (default $OPS_DIR/ADMIN_PRICE_20M) with three lines:
+#       market=<20-min strike market>   price_e6=<integer micro-USD>   source=<where the price came from>
+#   The file is validated by the same ops-cli check (bound to the market, source required), logged, and consumed.
+# ── SEAT-MANAGER HANDOFF REPAIR ─────────────────────────────────────────────────────────────────────────────────────
+#   After each bootstrap phase every book in $STATE (incl. Friday books created before !73) goes through the
+#   idempotent `ops-cli handoff` (upgrade key → pauser, PSM 6 + 7), then `pause-status --expect-pauser` (no key) must
+#   show the pauser as SM authority for every book, else "[pause] ALERT".
 # ── DRY RUN ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 #   DRY_RUN=1 bash run-staging.sh  (or --dry-run): prints the plan and exits 0. No SOL wait, no build, no deploy, zero
 #   transactions (only a read-only getBalance).
@@ -40,7 +51,7 @@ export PATH=$HOME/.local/share/solana/install/active_release/bin:$HOME/.cargo/bi
 export GITLAB_HOST=${GITLAB_HOST:-labs.gauntletai.com} CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-4}   # shared box: -j4
 K=$KEYS_DIR; PROG=$MERIDIAN_PROGRAM_ID
 SO=$BUILD/target/deploy/meridian.so
-AUTO=$BUILD/apps/automation                          # ops-cli (pause / handoff / pull settle) built from origin/main
+AUTO=${AUTO:-$BUILD/apps/automation}                 # ops-cli (pause / handoff / pull settle / admin-price) built from origin/main
 UPGRADE_KEY=${UPGRADE_KEY:-$K/upgrade-authority.json}; PROGRAM_KEYPAIR=${PROGRAM_KEYPAIR:-$K/program.json}
 DEPLOYED_DUMP=${DEPLOYED_DUMP:-/tmp/stg-deployed-meridian.so}
 REQUIRE_PULL_ORACLE=${REQUIRE_PULL_ORACLE:-1}
@@ -53,6 +64,7 @@ PULL_SETTLE_AFTER=${PULL_SETTLE_AFTER:-90}
 START_FILE=${START_FILE:-$OPS_DIR/START_20M}; START_WAIT_HOURS=${START_WAIT_HOURS:-24}
 WALLET_B_KEY=${WALLET_B_KEY:-$K/wallet-b.json}; SETTLER_KEY=${SETTLER_KEY:-$K/settler.json}; PAUSER_KEY=${PAUSER_KEY:-$K/pauser.json}
 PAUSE_LOG=${PAUSE_LOG:-${STATE%.json}-pause.log}
+ADMIN_PRICE_FILE=${ADMIN_PRICE_FILE:-$OPS_DIR/ADMIN_PRICE_20M}; OPERATOR_PRICE_WAIT_HOURS=${OPERATOR_PRICE_WAIT_HOURS:-24}
 for a in "$@"; do case $a in --start-20m-now) START_20M=now;; --dry-run) DRY_RUN=1;; esac; done
 START_20M=${START_20M:-wait}; DRY_RUN=${DRY_RUN:-0}
 WALLET_B_PUB=${WALLET_B:-$(solana-keygen pubkey "$WALLET_B_KEY" 2>/dev/null || echo "MISSING($WALLET_B_KEY)")}
@@ -72,6 +84,41 @@ ops_cli(){   # automation ops-cli with the pauser / settler keys passed as file 
 ops_cli_ro(){   # read-only ops-cli status reads: no pauser / settler key at all, not even inherited
   ( cd "$AUTO" && env -u PHOENIX_PAUSER_KEYPAIR -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG \
       MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json node dist/ops-cli.js "$@" )
+}
+# Seat-manager authority → pauser for EVERY book in $STATE (idempotent; pre-!73 books included), then the read-only gate.
+# $1 = 1 for a dry run (reads only). Returns non-zero if any book isn't on the pauser afterwards.
+handoff_repair(){
+  [ -f "$PAUSER_KEY" ] || { log "[pause] ALERT no pauser key ($PAUSER_KEY) — handoff repair skipped; books can't be paused"; return 1; }
+  local dry=${1:-0} i rc=1
+  for i in 1 2 3; do
+    ( cd "$AUTO" && env -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json \
+        PHOENIX_PAUSER_KEYPAIR=$PAUSER_KEY SEAT_MANAGER_AUTHORITY_KEYPAIR=$UPGRADE_KEY DRY_RUN=$dry node dist/ops-cli.js handoff --state "$STATE" ) 2>&1 | while read -r l; do log "$l"; done
+    ops_cli_ro pause-status --state "$STATE" --expect-pauser "$PAUSER_PUB" 2>&1 | while read -r l; do log "$l"; done
+    rc=$?; { [ "$rc" = 0 ] || [ "$dry" = 1 ]; } && break
+    log "[pause] ALERT handoff repair attempt $i: not every book has the pauser as SM authority — retrying in 30 s"; sleep 30
+  done
+  [ "$rc" = 0 ] || log "[pause] ALERT handoff repair: some book is NOT on the pauser $PAUSER_PUB (see the status lines above)"
+  return $rc
+}
+# M3: admin_settle fallback price for strike market $1 — Hermes at expiry, else a market-bound operator price with its
+# source. Prints "price_e6<TAB>source" on success; non-zero (and nothing on stdout) when refused. Never stale.
+admin_price(){
+  local out
+  out=$(ops_cli_ro admin-price --market "$1" 2>&1); echo "$out" | while read -r l; do log "  $l"; done >&2
+  echo "$out" | grep -q '^ADMIN_PRICE_OK ' || return 1
+  echo "$out" | sed -nE 's/^ADMIN_PRICE_OK price_e6=([0-9]+) source=(.*)$/\1\t\2/p'
+}
+read_operator_price(){   # $ADMIN_PRICE_FILE → export lines for OPERATOR_PRICE_{MARKET,E6,SOURCE} (parsed + quoted, never sourced raw)
+  python3 - "$ADMIN_PRICE_FILE" <<'PY'
+import sys, shlex
+kv = {}
+for line in open(sys.argv[1]):
+    line = line.strip()
+    if "=" in line and not line.startswith("#"):
+        k, v = line.split("=", 1); kv[k.strip().lower()] = v.strip()
+for k, env in (("market", "OPERATOR_PRICE_MARKET"), ("price_e6", "OPERATOR_PRICE_E6"), ("source", "OPERATOR_PRICE_SOURCE")):
+    print(f"export {env}={shlex.quote(kv.get(k, ''))}")
+PY
 }
 build_latest_main(){
   [ -e "$BUILD/.git" ] || git -C "$REPO" worktree add --detach "$BUILD" origin/main >/dev/null 2>&1 || { log "build: worktree add failed"; return 1; }
@@ -135,12 +182,17 @@ if [ "$DRY_RUN" = 1 ]; then
   log "1c. $(pin_web_cluster plan)"
   log "2. bootstrap phase 1 (SHORT_PHASE=skip): Friday markets with NBOOKS=$NB books at balance $b; NBOOKS=$(nbooks "$MIN_SOL") at MIN_SOL=$MIN_SOL"
   ( cd "$OPS_DIR" && DRY_RUN=1 SHORT_PHASE=all NBOOKS=$NB RPC=$RPC STATE=$STATE DEBU_WALLET=$DEBU node devnet-bootstrap.cjs ) || { log "dry run: bootstrap plan FAILED"; exit 9; }
+  if [ -f "$AUTO/dist/ops-cli.js" ] && grep -q expect-pauser "$AUTO/dist/ops-cli.js"; then
+    log "2a. handoff repair over every book in $STATE (DRY_RUN reads only; upgrade key → pauser $PAUSER_PUB) + read-only status gate (--expect-pauser):"
+    handoff_repair 1 || log "2a. (dry run) gate reports books not yet on the pauser — a real run hands them off"
+  else log "2a. handoff repair (ops-cli handoff --state, then the read-only status gate --expect-pauser $PAUSER_PUB) — runs after the build ($AUTO/dist predates it)"; fi
   log "2b. pause watcher: ops-cli pause-watch --state $STATE (pauser $PAUSER_PUB) → PSM ChangeMarketStatus(Paused) at each book's expiry, log $PAUSE_LOG"
   log "3. e2e Buy Yes / Buy No (trader) on the Friday books, NEXT_PUBLIC_SOLANA_CLUSTER=$WEB_CLUSTER (WEB_SRC=${WEB_SRC:-unset → skipped})"
   if [ "$START_20M" = now ]; then tr="START_20M=now (would start immediately)"; elif [ -e "$START_FILE" ]; then tr="$START_FILE PRESENT (would start immediately)"; else tr="waiting — touch $START_FILE to start"; fi
   log "4. START trigger for the 20-min AAPL >= 300 market: $tr; timeout ${START_WAIT_HOURS}h → skip"
-  log "5. bootstrap phase 2 (SHORT_PHASE=only): AAPL >= 300 WITH Phoenix book + maker ladder + SM handoff to pauser, expiry = chain now + ${SHORT_MIN}m + ${SHORT_SETUP_SECS}s → 'SHORT MARKET READY'"
+  log "5. bootstrap phase 2 (SHORT_PHASE=only): AAPL >= 300 WITH Phoenix book + maker ladder + SM handoff to pauser, expiry = chain now + ${SHORT_MIN}m + ${SHORT_SETUP_SECS}s → handoff repair (all books) → 'SHORT MARKET READY'"
   log "6. trader mints 5 pairs; at expiry: pause-once (book → Paused); expiry+${PULL_SETTLE_AFTER}s: permissionless Pyth pull settle (settler $SETTLER_PUB, PYTH_HERMES_API_KEY $HERMES); expiry+${SETTLE_AFTER}s: admin_settle fallback → redeem"
+  log "6b. admin_settle fallback price (M3): ops-cli admin-price = Hermes price at expiry (|publish_time − expiry| <= ${ADMIN_PRICE_MAX_SKEW_SECS:-600}s); else REFUSE + '[settle] ALERT' + wait ${OPERATOR_PRICE_WAIT_HOURS}h for $ADMIN_PRICE_FILE (market= price_e6= source=). Never the stale shard-0 account price"
   log "DRY_RUN complete — 0 transactions sent"; exit 0
 fi
 
@@ -175,6 +227,7 @@ pin_web_cluster apply | while read -r l; do log "$l"; done
 b=$(bal); NB=$(nbooks "$b"); log "balance $b → NBOOKS=$NB (reserving ~1.7 SOL for the 20-min AAPL >= 300 book + 0.5 wallet-B fallback)"
 ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE NBOOKS=$NB SHORT_PHASE=skip DEBU_WALLET=$DEBU node devnet-bootstrap.cjs ) || { log "bootstrap failed"; exit 5; }
 summary "bootstrap done (Friday markets + wallets)"
+handoff_repair 0 || true   # every book (incl. pre-!73 Friday books) → pauser; ALERTs logged, pause watcher still starts
 # 2b. pause watcher: every book in $STATE → Paused at its expiry (re-reads the state, so the 20-min book is covered too)
 if [ -f "$PAUSER_KEY" ]; then
   ( cd "$AUTO" && SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet PHOENIX_PAUSER_KEYPAIR=$PAUSER_KEY nohup node dist/ops-cli.js pause-watch --state "$STATE" >>"$PAUSE_LOG" 2>&1 & echo $! >"$PAUSE_LOG.pid" )
@@ -204,6 +257,7 @@ if [ $SKIP_SHORT = 0 ]; then
   ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE NBOOKS=$NB SHORT_PHASE=only DEBU_WALLET=$DEBU node devnet-bootstrap.cjs ) || { log "20-min market bootstrap failed"; exit 6; }
   exp=$(python3 -c "import json;print([m for m in json.load(open('$STATE'))['markets'] if m.get('short')][0]['expiryTs'])")
   SM=$(python3 -c "import json;print([m for m in json.load(open('$STATE'))['markets'] if m.get('short')][0]['market'])")
+  handoff_repair 0 || true   # the new 20-min book and every older book → pauser
   log "SHORT MARKET READY: AAPL >= 300 — trade until $(ct "$exp") (~$(( (exp - $(date +%s)) / 60 )) min left; UI closes 5 s early; book PAUSED at expiry); pull settle from $(ct $((exp+PULL_SETTLE_AFTER))), admin_settle fallback ~$(ct $((exp+SETTLE_AFTER)))"
   summary "20-min market live"
   # 6. short market: trader mints 5 pairs before expiry
@@ -213,16 +267,32 @@ if [ $SKIP_SHORT = 0 ]; then
   [ -f "$PAUSER_KEY" ] && { ops_cli pause-once --state "$STATE"; ops_cli_ro pause-status --state "$STATE" | grep -F '[20-min]'; }
   # 7. settle: permissionless Pyth pull settle (settler + Hermes key) first, admin_settle at the last published Pyth price as fallback
   while [ "$(date +%s)" -lt $(( exp + PULL_SETTLE_AFTER )) ]; do sleep 10; done
-  settled(){ grep -q "final status=[23]" /tmp/stg-settle.out 2>/dev/null; }
-  rm -f /tmp/stg-settle.out
+  SETTLE_OUT=$(mktemp -t stg-settle.XXXXXX)
+  settled(){ grep -q "final status=[23]" "$SETTLE_OUT" 2>/dev/null; }
   while [ "$(date +%s)" -lt $(( exp + SETTLE_AFTER )) ]; do
-    ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE node settle-test.cjs settle ) | tee /tmp/stg-settle.out; settled && break; sleep 30; done
+    ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE node settle-test.cjs settle ) | tee "$SETTLE_OUT"; settled && break; sleep 30; done
   if ! settled; then
-    PX=$(python3 "$OPS_DIR/pyth-read.py" "${PYTH_PRICE_RPC:-https://api.mainnet-beta.solana.com}" | tail -1 | python3 -c 'import sys,json;print(int(round(json.load(sys.stdin)["AAPL"]*1e6)))')
-    log "pull settle did not land by expiry+${SETTLE_AFTER}s — admin_settle fallback price AAPL e6=$PX (last published mainnet Pyth)"
-    for i in $(seq 1 15); do ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE ADMIN_PRICE_E6=$PX node settle-test.cjs settle ) | tee /tmp/stg-settle.out; settled && break; sleep 60; done
+    # M3: never the stale pyth-read.py price. Hermes at expiry, else REFUSE and wait for a sourced operator price.
+    AP=$(admin_price "$SM")
+    if [ -z "$AP" ]; then
+      log "[settle] ALERT admin_settle fallback REFUSED (no Hermes price at expiry). Write $ADMIN_PRICE_FILE with lines market=$SM price_e6=<integer micro-USD> source=<where from> — waiting up to ${OPERATOR_PRICE_WAIT_HOURS}h"
+      odl=$(( $(date +%s) + OPERATOR_PRICE_WAIT_HOURS*3600 ))
+      while [ -z "$AP" ] && [ "$(date +%s)" -lt $odl ]; do
+        if [ -f "$ADMIN_PRICE_FILE" ]; then
+          AP=$(eval "$(read_operator_price)"; admin_price "$SM")
+          mv -f "$ADMIN_PRICE_FILE" "$ADMIN_PRICE_FILE.consumed-$(date +%Y%m%d-%H%M%S)"
+          [ -z "$AP" ] && log "[settle] ALERT operator price in $ADMIN_PRICE_FILE REFUSED (see reason above) — write a corrected file"
+        fi
+        [ -z "$AP" ] && sleep 15
+      done
+    fi
+    if [ -n "$AP" ]; then
+      PX=${AP%%$'\t'*}; PSRC=${AP#*$'\t'}
+      log "pull settle did not land by expiry+${SETTLE_AFTER}s — admin_settle fallback price AAPL e6=$PX source: $PSRC"
+      for i in $(seq 1 15); do ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE ADMIN_PRICE_E6=$PX ADMIN_PRICE_SOURCE="$PSRC" node settle-test.cjs settle ) | tee "$SETTLE_OUT"; settled && break; sleep 60; done
+    else log "[settle] ALERT no admin_settle price within ${OPERATOR_PRICE_WAIT_HOURS}h — 20-min market left unsettled (settle manually)"; fi
   fi
-  log "settle path: $(grep -oE 'PULL_SETTLE_OK via=[a-z]+|admin_settle price=[0-9.]+' /tmp/stg-settle.out | tail -1)"
+  log "settle path: $(grep -oE 'PULL_SETTLE_OK via=[a-z]+|admin_settle price=[0-9.]+|admin_settle price source: .*' "$SETTLE_OUT" | tail -2 | tr '\n' ' ')"
   ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE node settle-test.cjs redeem )
 fi
 # 8. staging web lists real markets (no fixtures)
