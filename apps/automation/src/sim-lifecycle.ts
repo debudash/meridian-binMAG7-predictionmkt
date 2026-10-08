@@ -7,7 +7,7 @@
  * Requires SOLANA_CLUSTER=localnet, MODE=sim, localnet IDL (meridian.json).
  * Never deploy this entry on Railway. Never set ANCHOR_FEATURES=localnet-test on Railway.
  */
-import { loadConfig, loadKeypair } from "./config";
+import { loadConfig, loadKeypair, resolveSettler } from "./config";
 import { createProgram } from "./solana/client";
 import { runSimLifecycle, SIM_MODULE_MARKER } from "./modes/sim";
 
@@ -39,7 +39,10 @@ async function main() {
 
   const authority = loadKeypair(cfg);
   const { program } = createProgram(cfg, authority);
-  await runSimLifecycle({ cfg, program, authority });
+  // M3: settle via SETTLER_KEYPAIR when set (own provider → own fee payer); else the authority.
+  const settler = resolveSettler(cfg, authority);
+  const settlerProgram = settler.separate ? createProgram(cfg, settler.keypair).program : program;
+  await runSimLifecycle({ cfg, program, authority, settler: { keypair: settler.keypair, program: settlerProgram } });
 }
 
 main().catch((e) => {
