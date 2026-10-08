@@ -61,8 +61,10 @@ describe.skipIf(!RUN)("localnet hardening E2E (real Phoenix)", () => {
     const phx = await import("@/lib/phoenix/client");
     const prog = await import("@/lib/solana/program");
     const avail = await import("@/lib/intents/getIntentAvailability");
-    // automation's settle (same accounts the sim worker sends)
-    const auto = await import("../../../../automation/src/solana/instructions");
+    // automation's settle (same accounts the sim worker sends). Non-literal path on purpose:
+    // web `tsc`/`next build` must not resolve apps/automation (its deps aren't installed there).
+    const AUTO = "../../../../automation/src/solana/instructions";
+    const auto: { settleMarket: unknown } = await import(/* @vite-ignore */ AUTO);
     lib = {
       fetchMarketViaRpc: rpc.fetchMarketViaRpc,
       placePhoenixOrder: phx.placePhoenixOrder,
