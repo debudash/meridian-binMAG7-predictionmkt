@@ -1,13 +1,18 @@
 # Meridian toolchain image: everything needed to build the program, run every suite,
 # run a local validator and run the ops/ staging scripts. Versions match .gitlab-ci.yml.
-FROM node:22-bookworm
+# Ubuntu 24.04 because the prebuilt Anchor 0.31.1 binary needs glibc >= 2.39.
+FROM ubuntu:24.04
 
 ARG RUST_VERSION=1.85.0
 ARG SOLANA_VERSION=2.1.0
 ARG ANCHOR_VERSION=0.31.1
+ARG NODE_MAJOR=22
 
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      build-essential pkg-config libssl-dev libudev-dev clang curl git jq python3 bzip2 ca-certificates \
+      build-essential pkg-config libssl-dev libudev-dev clang curl git jq python3 bzip2 ca-certificates gnupg socat \
+    && curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 ENV RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo
@@ -24,8 +29,5 @@ RUN cargo install --git https://github.com/coral-xyz/anchor --tag v${ANCHOR_VERS
     && avm install ${ANCHOR_VERSION} && avm use ${ANCHOR_VERSION} && anchor --version
 
 RUN corepack enable && yarn --version
-
-# socat: loopback relay for the local web instance (docker/localnet/start.sh)
-RUN apt-get update && apt-get install -y --no-install-recommends socat && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /repo
