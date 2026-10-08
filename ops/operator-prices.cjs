@@ -11,9 +11,11 @@
  *   node ops/operator-prices.cjs close --source "Nasdaq official closing price" AAPL=... (all 7)
  *
  * Flags: --dry-run (validate + show what would be set, no Railway call) · --date YYYY-MM-DD (the market day: strike =
- *        today before 08:00 ET, else the next session; close = today ET) ·
+ *        today before 08:00 ET, else the next session; `--date <today>` after 08:00 is accepted until 16:00 ET with a
+ *        LATE warning on stderr; close = today ET) ·
  *        --no-restart (set only; the worker reads env at START, so it only takes effect on the next redeploy) ·
  *        --clear <strike|close> (empty the variable).
+ * CREATE_DEADLINE_ET (default 08:00) is read from the local shell, not from Railway — it must match Railway's value.
  * Needs RAILWAY_PROJECT_TOKEN (meridian-staging) in the environment; RAILWAY_API_TOKEN is removed for the call.
  * Prints variable names, the date, the source and the parsed prices — never a token, never other variables.
  * The variable is set with --skip-deploys, then `railway redeploy --service automation` restarts the worker so it reads
@@ -25,7 +27,7 @@ const op = require("./lib/operator-prices.cjs");
 
 function usage(msg) {
   if (msg) console.error(`error: ${msg}`);
-  console.error("usage: operator-prices.cjs <strike|close> --source \"<where from, e.g. Nasdaq official close 2026-10-07>\" AAPL=… MSFT=… GOOGL=… AMZN=… NVDA=… META=… TSLA=… [--dry-run] [--date YYYY-MM-DD] [--no-restart]\n       operator-prices.cjs --clear <strike|close> [--no-restart]");
+  console.error("usage: operator-prices.cjs <strike|close> --source \"<where from, e.g. Nasdaq official close 2026-10-07>\" AAPL=… MSFT=… GOOGL=… AMZN=… NVDA=… META=… TSLA=… [--dry-run] [--date YYYY-MM-DD] [--no-restart]\n       operator-prices.cjs --clear <strike|close> [--no-restart]\n       (CREATE_DEADLINE_ET is read from the local shell and must match Railway's; default 08:00)");
   process.exit(2);
 }
 
@@ -71,7 +73,7 @@ try {
 const j = JSON.parse(r.json);
 console.log(`${r.varName} for ${r.dateKey}${j.closeDateKey ? ` (prior close ${j.closeDateKey})` : ""} — source: ${j.source}`);
 for (const [s, v] of Object.entries(j.pricesE6)) console.log(`  ${s.padEnd(5)} ${(Number(v) / 1e6).toFixed(6)}`);
-for (const w of r.warnings) console.log(`WARNING ${w}`);
+for (const w of r.warnings) console.error(`WARNING ${w}`);
 if (dry) { console.log("[dry-run] valid — nothing set"); process.exit(0); }
 railwaySet(r.varName, r.json, restart);
 console.log(`set ${r.varName} on meridian-staging/automation${restart ? " — automation redeploy started (the worker reads it on start; ~1–2 min)" : " (no restart — the worker reads it only after the next redeploy)"}`);

@@ -117,7 +117,7 @@ describe("DLV-118 marketDay — same-day 16:00 ET close", () => {
       const r = decideStrikeReference({
         symbol: "AAPL", dateKey: "2026-10-08", prevClose, feedIdHex: "aa".repeat(32), maxSkewSecs: 300, maxConfBps: 500,
         hermes: { parsed: { feedIdHex: "aa".repeat(32), price: 22731000000n, conf: 1000000n, expo: -8, publishTime: close + 5, prevPublishTime: close - 1 } },
-        operator: { dateKey: "2026-10-08", source: "x", pricesE6: { AAPL: "1" } },
+        operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "x", pricesE6: { AAPL: "1" } },
       });
       expect(r).to.deep.include({ ok: true, priceE6: 227_310_000n });
       if (r.ok) expect(r.source).to.match(/^hermes prior close 2026-10-07/);
@@ -127,7 +127,7 @@ describe("DLV-118 marketDay — same-day 16:00 ET close", () => {
       const r = decideStrikeReference({
         symbol: "AAPL", dateKey: "2026-10-08", prevClose, feedIdHex: "aa".repeat(32), maxSkewSecs: 300, maxConfBps: 500,
         hermes: { error: "HTTP 403 not entitled" },
-        operator: { dateKey: "2026-10-08", source: "Nasdaq official close 2026-10-07", pricesE6: { AAPL: "227310000" } },
+        operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "Nasdaq official close 2026-10-07", pricesE6: { AAPL: "227310000" } },
       });
       expect(r).to.deep.include({ ok: true, priceE6: 227_310_000n });
       if (r.ok) expect(r.source).to.equal("operator: Nasdaq official close 2026-10-07");
@@ -137,9 +137,9 @@ describe("DLV-118 marketDay — same-day 16:00 ET close", () => {
       const base = { symbol: "AAPL", dateKey: "2026-10-08", prevClose, feedIdHex: "aa".repeat(32), maxSkewSecs: 300, maxConfBps: 500 };
       const late = { parsed: { feedIdHex: "aa".repeat(32), price: 1n, conf: 0n, expo: -8, publishTime: close + 3600, prevPublishTime: 0 } };
       expect(decideStrikeReference({ ...base, hermes: late }).ok).to.equal(false);
-      expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: { dateKey: "2026-10-07", source: "s", pricesE6: { AAPL: "1" } } }).ok).to.equal(false);
-      expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: { dateKey: "2026-10-08", source: " ", pricesE6: { AAPL: "1" } } }).ok).to.equal(false);
-      expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: { dateKey: "2026-10-08", source: "s", pricesE6: { MSFT: "1" } } }).ok).to.equal(false);
+      expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: { dateKey: "2026-10-07", closeDateKey: "2026-10-06", source: "s", pricesE6: { AAPL: "1" } } }).ok).to.equal(false);
+      expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: " ", pricesE6: { AAPL: "1" } } }).ok).to.equal(false);
+      expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "s", pricesE6: { MSFT: "1" } } }).ok).to.equal(false);
       expect(decideStrikeReference({ ...base, hermes: { error: "403" } }).ok).to.equal(false);
     });
   });
@@ -151,13 +151,13 @@ describe("D-026 strike reference: sponsored on-chain Pyth account (e.g. devnet s
   const px = (publishTime: number) => ({ feedIdHex: "aa".repeat(32), price: 22731000000n, conf: 1000000n, expo: -8, publishTime, prevPublishTime: 0 });
   it("Hermes 403 + on-chain account posted at the prior close → on-chain price (before any operator price)", () => {
     const r = decideStrikeReference({ ...base, hermes: { error: "403" }, onchain: { parsed: px(close + 90), account: "D9uk39pqZMcnmtPP9WeC8cREUpKZmyXLga9mSQ79SphW" },
-      operator: { dateKey: "2026-10-08", source: "op", pricesE6: { AAPL: "1" } } });
+      operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "op", pricesE6: { AAPL: "1" } } });
     expect(r).to.deep.include({ ok: true, priceE6: 227_310_000n });
     if (r.ok) expect(r.source).to.match(/^pyth account D9uk/);
   });
   it("on-chain account not at the prior close (e.g. this morning's heartbeat) → operator price", () => {
     const r = decideStrikeReference({ ...base, hermes: { error: "403" }, onchain: { parsed: px(close + 15 * 3600), account: "D9uk" },
-      operator: { dateKey: "2026-10-08", source: "op", pricesE6: { AAPL: "227000000" } } });
+      operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "op", pricesE6: { AAPL: "227000000" } } });
     expect(r).to.deep.include({ ok: true, priceE6: 227_000_000n, source: "operator: op" });
   });
 });

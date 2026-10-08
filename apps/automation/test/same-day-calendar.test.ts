@@ -15,6 +15,7 @@ import { loadConfig } from "../src/config";
 import { createCalendarState, planSameDayStrikes, runMorningCreate, runSettlePass, loadOperatorDayPrices } from "../src/modes/calendar";
 import { encodeEquitySymbol } from "../src/strikes";
 import { PYTH_RECEIVER_PROGRAM_ID } from "../src/pyth/pullOracle";
+import { prevTradingDay } from "../src/marketDay";
 
 const utc = (y: number, mo: number, d: number, h: number, mi = 0) => new Date(Date.UTC(y, mo - 1, d, h, mi));
 const CLOSE_1008 = 1791489600; // 2026-10-08 16:00 EDT
@@ -40,7 +41,7 @@ function devnetCfg(extra: Record<string, string> = {}) {
 }
 
 const operator = (dateKey: string) =>
-  JSON.stringify({ dateKey, source: "Nasdaq official close 2026-10-07", pricesE6: { AAPL: "227310000", MSFT: "414200000" } });
+  JSON.stringify({ dateKey, closeDateKey: prevTradingDay(dateKey), source: "Nasdaq official close 2026-10-07", pricesE6: { AAPL: "227310000", MSFT: "414200000" } });
 
 describe("DLV-118 calendar create: same-day 16:00 ET expiry", () => {
   it("default symbols are the SPEC §1 MAG7 list", () => {
@@ -207,7 +208,7 @@ describe("DLV-118 calendar settle: operator-sourced close price while Hermes lac
 describe("DLV-118 ops plan (ops-cli market-day --strikes → devnet-bootstrap TODAY_PLAN)", () => {
   it("one ATM strike per symbol, expiry = today's close; symbols without a fresh price are listed as refused", async () => {
     const { planDayForOps } = await import("../src/modes/calendar");
-    const cfg = devnetCfg({ OPERATOR_STRIKE_PRICES: JSON.stringify({ dateKey: "2026-10-08", source: "op", pricesE6: { AAPL: "227310000" } }) });
+    const cfg = devnetCfg({ OPERATOR_STRIKE_PRICES: JSON.stringify({ dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "op", pricesE6: { AAPL: "227310000" } }) });
     const r = await planDayForOps(cfg, Math.floor(utc(2026, 10, 8, 13, 0).getTime() / 1000));
     expect(r.ok).to.equal(true);
     if (!r.ok) return;

@@ -32,7 +32,7 @@ function devnetCfg(extra: Record<string, string> = {}, symbols = ["AAPL", "MSFT"
   } as any);
 }
 const op = (dateKey: string, extra: Record<string, unknown> = {}) =>
-  JSON.stringify({ dateKey, source: "Nasdaq official close 2026-10-07", pricesE6: { AAPL: "227310000", MSFT: "414200000" }, ...extra });
+  JSON.stringify({ dateKey, closeDateKey: "2026-10-07", source: "Nasdaq official close 2026-10-07", pricesE6: { AAPL: "227310000", MSFT: "414200000" }, ...extra });
 const px = (publishTime: number, o: Partial<PullPrice> = {}): PullPrice =>
   ({ feedIdHex: FEED_HEX, price: 22731000000n, conf: 1000000n, expo: -8, publishTime, prevPublishTime: publishTime - 1, ...o });
 
@@ -185,10 +185,19 @@ describe("D-026 strike reference = previous trading day's close", () => {
     expect(fresh.ok).to.equal(false);
   });
 
-  it("operator prior closes: dateKey = the market day; optional closeDateKey must be the previous trading day", () => {
-    const o = (x: Record<string, unknown>) => ({ dateKey: "2026-10-08", source: "Nasdaq official close 2026-10-07", pricesE6: { AAPL: "227310000" }, ...x }) as any;
+  it("operator prior closes: dateKey = the market day; closeDateKey is REQUIRED and must be the previous trading day (review L3)", () => {
+    const o = (x: Record<string, unknown>) => ({ dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "Nasdaq official close 2026-10-07", pricesE6: { AAPL: "227310000" }, ...x }) as any;
     expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: o({}) })).to.deep.include({ ok: true, priceE6: 227_310_000n, source: "operator: Nasdaq official close 2026-10-07" });
-    expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: o({ closeDateKey: "2026-10-07" }) }).ok).to.equal(true);
+    for (const [why, bad, re] of [
+      ["missing", { closeDateKey: undefined }, /closeDateKey/],
+      ["empty", { closeDateKey: "" }, /closeDateKey/],
+      ["null", { closeDateKey: null }, /closeDateKey/],
+      ["number", { closeDateKey: 20261007 }, /closeDateKey/],
+    ] as const) {
+      const r = decideStrikeReference({ ...base, hermes: { error: "403" }, operator: o(bad) });
+      expect(r.ok, why).to.equal(false);
+      expect(!r.ok && r.reason, why).to.match(re);
+    }
     const wrong = decideStrikeReference({ ...base, hermes: { error: "403" }, operator: o({ closeDateKey: "2026-10-06" }) });
     expect(wrong.ok).to.equal(false);
     expect(!wrong.ok && wrong.reason).to.match(/closeDateKey|2026-10-06/);
@@ -274,5 +283,135 @@ describe("D-026 ops/operator-prices.cjs strike = prior closes, set from the prio
   it("the next session is an early close / holiday → refused (no 0DTE markets that day)", () => {
     expect(() => v("2026-11-26T14:00:00Z")).to.throw(/early/); // Thanksgiving → next session 11-27 is an early close
     expect(() => v("2026-11-25T14:00:00Z", { dateKey: "2026-11-26" })).to.throw(/holiday|2026-11-26/);
+  });
+});
+
+describe("D-026 review fixes (M1 restart ALERT, N3 rate limit, L3 closeDateKey, M2 late operator strikes, N2 DST)", () => {
+  const BN = require("bn.js");
+  const { encodeEquitySymbol } = require("../src/strikes");
+  const onChain = (sym: string, strikeE6: string) => ({
+    publicKey: Keypair.generate().publicKey,
+    account: { status: 0, expiryTs: new BN(CLOSE_1008), equitySymbol: Array.from(encodeEquitySymbol(sym)), strikePriceE6: new BN(strikeE6) },
+  });
+  async function pass(now: Date, o: { state?: ReturnType<typeof createCalendarState>; extra?: Record<string, string>; existing?: any[]; mutate?: (c: any) => void } = {}) {
+    const state = o.state ?? createCalendarState();
+    const cfg = devnetCfg(o.extra ?? { OPERATOR_STRIKE_PRICES: op("2026-10-08") });
+    o.mutate?.(cfg);
+    const created: string[] = [];
+    const r = await captureLogs(() => runMorningCreate({
+      cfg, program: {} as any, authority: Keypair.generate(), state, now,
+      listOpen: async () => o.existing ?? [], hermesAt: async () => { throw new Error("HTTP 403 not entitled"); },
+      create: async (s) => (created.push(`${s.symbol}:${s.strikePriceE6.toString()}`), { market: Keypair.generate().publicKey, signature: "x" }),
+    }));
+    const deadline = r.logs.filter((l) => /ALERT create deadline 08:00 ET missed for 2026-10-08/.test(l));
+    return { created, logs: r.logs, state, deadline };
+  }
+  const at10 = utc(2026, 10, 8, 14, 0); // 10:00 ET
+
+  it("M1: restart at 10:00 ET with every market of the day already on-chain → no deadline ALERT, nothing created", async () => {
+    const r = await pass(at10, { existing: [onChain("AAPL", "225000000"), onChain("MSFT", "415000000")] });
+    expect(r.created).to.deep.equal([]);
+    expect(r.deadline, r.logs.join("\n")).to.have.length(0);
+    expect(r.state.lastCreateDateKey).to.equal("2026-10-08");
+  });
+
+  it("M1: restart at 10:00 ET with one symbol missing → deadline ALERT (even when the late create succeeds)", async () => {
+    const created = await pass(at10, { existing: [onChain("AAPL", "225000000")] });
+    expect(created.created).to.deep.equal(["MSFT:415000000"]);
+    expect(created.deadline).to.have.length(1);
+    const noPrice = await pass(at10, { existing: [onChain("AAPL", "225000000")], extra: {} });
+    expect(noPrice.created).to.deep.equal([]);
+    expect(noPrice.deadline).to.have.length(1);
+  });
+
+  it("M1/L4: a symbol with fewer than the planned markets counts as incomplete", async () => {
+    const r = await pass(at10, { extra: { OPERATOR_STRIKE_PRICES: op("2026-10-08"), STRIKE_OFFSETS_E6: "-5000000,0,5000000" },
+      existing: [onChain("AAPL", "225000000"), onChain("MSFT", "410000000"), onChain("MSFT", "415000000"), onChain("MSFT", "420000000")] });
+    expect(r.created).to.deep.equal([]);
+    expect(r.deadline, r.logs.join("\n")).to.have.length(1);
+    expect(r.deadline[0]).to.match(/AAPL/);
+  });
+
+  it("M1: a symbol skipped for a missing PYTH_FEED_IDS entry is incomplete — ALERT after 08:00 even if 07:00 marked the day done", async () => {
+    const state = createCalendarState();
+    const drop = (c: any) => { delete c.pythFeedIds.MSFT; };
+    const seven = await pass(utc(2026, 10, 8, 11, 0), { state, mutate: drop });
+    expect(seven.created).to.deep.equal(["AAPL:225000000"]);
+    expect(seven.deadline).to.have.length(0);
+    const eight = await pass(utc(2026, 10, 8, 12, 5), { state, mutate: drop });
+    expect(eight.deadline, eight.logs.join("\n")).to.have.length(1);
+    expect(eight.deadline[0]).to.match(/MSFT/);
+    expect((await pass(utc(2026, 10, 8, 12, 6), { state, mutate: drop })).deadline).to.have.length(0);
+  });
+
+  it("M1: a missing PYTH_PRICE_FEEDS entry is incomplete too", async () => {
+    const r = await pass(at10, { existing: [onChain("AAPL", "225000000")], mutate: (c) => { delete c.pythPriceFeeds.MSFT; } });
+    expect(r.deadline).to.have.length(1);
+  });
+
+  it("N3: 'ALERT no prior-close strike reference' once per symbol per ET day; later ticks log a plain retry line", async () => {
+    const state = createCalendarState();
+    const a = await pass(utc(2026, 10, 8, 11, 0), { state, extra: {} });
+    const b = await pass(utc(2026, 10, 8, 11, 1), { state, extra: {} });
+    const alerts = (l: string[]) => l.filter((x) => /ALERT no prior-close strike reference/.test(x));
+    expect(alerts(a.logs)).to.have.length(2);
+    expect(alerts(b.logs)).to.have.length(0);
+    expect(b.logs.filter((x) => /no prior-close strike reference for AAPL/.test(x))).to.have.length(1);
+    const c = await pass(utc(2026, 10, 9, 11, 0), { state, extra: {} });
+    expect(alerts(c.logs)).to.have.length(2);
+  });
+
+  it("L3: an operator strike file without a valid closeDateKey is refused with an ALERT naming it", async () => {
+    const bad = JSON.stringify({ dateKey: "2026-10-08", source: "s", pricesE6: { AAPL: "227310000", MSFT: "414200000" } });
+    const r = await pass(utc(2026, 10, 8, 11, 0), { extra: { OPERATOR_STRIKE_PRICES: bad } });
+    expect(r.created).to.deep.equal([]);
+    expect(r.logs.some((l) => /ALERT/.test(l) && /closeDateKey/.test(l)), r.logs.join("\n")).to.equal(true);
+  });
+
+  it("N2: priorSessionClose across DST and the New Year holiday", () => {
+    expect(priorSessionClose("2026-11-02")).to.deep.include({ dateKey: "2026-10-30", closeTs: sec(utc(2026, 10, 30, 20)) });
+    expect(priorSessionClose("2027-03-15")).to.deep.include({ dateKey: "2027-03-12", closeTs: sec(utc(2027, 3, 12, 21)) });
+    expect(priorSessionClose("2027-01-04")).to.deep.include({ dateKey: "2026-12-31", closeTs: sec(utc(2026, 12, 31, 21)) });
+  });
+
+  describe("M2: operator-prices strike --date <today> after the deadline", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const opl = require(path.join(REPO, "ops/lib/operator-prices.cjs"));
+    const ALL = ["AAPL=227.31", "MSFT=414.2", "GOOGL=162", "AMZN=186.05", "NVDA=138.5", "META=572.1", "TSLA=248.75"];
+    const v = (iso: string, o: Record<string, unknown> = {}) =>
+      opl.validateOperatorPrices({ kind: "strike", source: "Nasdaq official close 2026-10-08", prices: opl.parsePriceArgs(ALL), nowSec: Math.floor(Date.parse(iso) / 1000), ...o });
+
+    it("explicit --date today between 08:00 and 16:00 ET → accepted for today with a LATE warning", () => {
+      const r = v("2026-10-09T15:00:00Z", { dateKey: "2026-10-09" }); // 11:00 ET Fri
+      expect(JSON.parse(r.json)).to.deep.include({ dateKey: "2026-10-09", closeDateKey: "2026-10-08" });
+      expect(r.warnings.join(" ")).to.match(/LATE: after the 08:00 ET deadline/);
+    });
+
+    it("without --date the default is unchanged (after 08:00 → next session, refused until the prior close)", () => {
+      expect(() => v("2026-10-09T15:00:00Z")).to.throw(/08:00/);
+    });
+
+    it("--date today at/after the 16:00 ET close is refused; before 08:00 there is no LATE warning", () => {
+      expect(() => v("2026-10-09T20:00:00Z", { dateKey: "2026-10-09" })).to.throw(/2026-10-09/);
+      expect(v("2026-10-09T11:30:00Z", { dateKey: "2026-10-09" }).warnings).to.deep.equal([]);
+    });
+
+    it("the CLI prints warnings on stderr and documents that CREATE_DEADLINE_ET is read from the local shell", () => {
+      const src = require("fs").readFileSync(path.join(REPO, "ops/operator-prices.cjs"), "utf8");
+      expect(src).to.match(/console\.error\(`WARNING \$\{w\}`\)/);
+      expect(src).to.match(/CREATE_DEADLINE_ET[^\n]*local shell/);
+    });
+  });
+
+  it("L2/N1: Railway env examples use CREATE_FROM_ET / CREATE_DEADLINE_ET and have no inline comments", () => {
+    const fs = require("fs");
+    for (const f of ["apps/automation/.env.railway.staging.example", "deploy/railway/automation.staging.env.example"]) {
+      const lines: string[] = fs.readFileSync(path.join(REPO, f), "utf8").split("\n");
+      expect(lines.some((l) => /^CREATE_HOUR_ET=/.test(l)), f).to.equal(false);
+      expect(lines.includes("CREATE_FROM_ET=07:00"), f).to.equal(true);
+      expect(lines.includes("CREATE_DEADLINE_ET=08:00"), f).to.equal(true);
+      const inline = lines.filter((l) => /^[A-Z_]+=.*\s#/.test(l));
+      expect(inline, f).to.deep.equal([]);
+    }
   });
 });

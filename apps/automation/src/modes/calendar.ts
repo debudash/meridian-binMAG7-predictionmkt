@@ -57,6 +57,13 @@ export interface CalendarState {
   lastDailyAlertKey?: string | null;
   /** D-026: ET day the "create deadline missed" ALERT was last logged (once per day). */
   lastDeadlineAlertKey?: string | null;
+  /**
+   * D-026 review M1: gaps that do not block marking the day done (symbol skipped for config, fewer markets than planned),
+   * so a later "already ran" tick past the deadline still ALERTs. Retried gaps (no price, failed create) keep the day open.
+   */
+  dayGaps?: { dateKey: string; gaps: string[] };
+  /** D-026 review N3: symbol → ET day its "no prior-close strike reference" ALERT was last logged (once per day). */
+  refAlertDay?: Record<string, string>;
 }
 
 /** D-026 seam: Hermes price AT a unix time (first update with publish_time >= `publishTime`). */
@@ -95,8 +102,8 @@ export function loadOperatorDayPrices(cfg: AutomationConfig, kind: "strike" | "c
     }
     const pricesE6: Record<string, string> = {};
     for (const [k, v] of Object.entries(j.pricesE6)) pricesE6[k.toUpperCase()] = String(v);
-    const closeDateKey = typeof j.closeDateKey === "string" ? j.closeDateKey : undefined;
-    return { dateKey: j.dateKey, ...(closeDateKey ? { closeDateKey } : {}), source: String(j.source ?? ""), pricesE6 };
+    // Review L3: the raw closeDateKey is kept (any type) so decideStrikeReference refuses a wrong one with a reason.
+    return { dateKey: j.dateKey, ...("closeDateKey" in j ? { closeDateKey: j.closeDateKey } : {}), source: String(j.source ?? ""), pricesE6 };
   } catch (e) {
     log(`ALERT operator ${kind} prices are not valid JSON: ${String(e).slice(0, 120)}`);
     return null;
@@ -234,8 +241,11 @@ export function planSameDayStrikes(
 /**
  * D-026 (supersedes DLV-118's 09:30-open create): create each trading day's markets in [CREATE_FROM_ET (07:00), 16:00) ET
  * (weekends / NYSE holidays skipped), expiry = that day's 16:00 ET close, strikes ATM on the previous trading day's
- * close. If the day is not done by CREATE_DEADLINE_ET (08:00) — failures, no price, or a late start — ALERT once that
- * day; ticks keep retrying until the close. Never after the close (no next-day roll).
+ * close. Never after the close (no next-day roll).
+ * Deadline (review M1): decided AFTER the on-chain scan and the create pass, so a restart past 08:00 with every market
+ * on-chain is silent. Past CREATE_DEADLINE_ET (08:00) it ALERTs once that day when the day is incomplete: no price, a
+ * failed create, a symbol skipped for a missing PYTH_FEED_IDS / PYTH_PRICE_FEEDS entry, fewer markets than planned, or
+ * markets that only got created now (late start). No price / failed create keep retrying every tick until the close.
  * DLV-119 (Reviewers !91):
  *   - early-close days and calendar gaps are refused with an ALERT (M-1);
  *   - the open-market scan must succeed, else nothing is created this tick (ALERT, retry) — no blind create (L-1);
@@ -273,16 +283,18 @@ export async function runMorningCreate(opts: {
     return [];
   }
   const { dateKey, closeTs } = session.plan;
+  // D-026 (Peak6 PRD "market creation by 8:00 AM ET"): past the deadline with the day incomplete → page ops once that day.
+  const dl = opts.cfg.createDeadlineEt;
+  const deadlineAlert = (gaps: string[]) => {
+    if (!gaps.length || nowSec < etWallClockToUnix(dateKey, dl.hour, dl.minute) || opts.state.lastDeadlineAlertKey === dateKey) return;
+    const hhmm = `${String(dl.hour).padStart(2, "0")}:${String(dl.minute).padStart(2, "0")}`;
+    log(`ALERT create deadline ${hhmm} ET missed for ${dateKey} — incomplete: ${gaps.join("; ")} (no price / failed creates retry every tick until 16:00 ET)`);
+    opts.state.lastDeadlineAlertKey = dateKey;
+  };
   if (opts.state.lastCreateDateKey === dateKey) {
     log(`skip create — already ran for ${dateKey}`);
+    deadlineAlert(opts.state.dayGaps?.dateKey === dateKey ? opts.state.dayGaps.gaps : []);
     return [];
-  }
-  // D-026 (Peak6 PRD "market creation by 8:00 AM ET"): not done by the deadline → page ops once that day, keep retrying.
-  const dl = opts.cfg.createDeadlineEt;
-  if (nowSec >= etWallClockToUnix(dateKey, dl.hour, dl.minute) && opts.state.lastDeadlineAlertKey !== dateKey) {
-    const hhmm = `${String(dl.hour).padStart(2, "0")}:${String(dl.minute).padStart(2, "0")}`;
-    log(`ALERT create deadline ${hhmm} ET missed for ${dateKey} — the day's markets are not all created yet (see the ALERTs above / below); still retrying every tick until 16:00 ET`);
-    opts.state.lastDeadlineAlertKey = dateKey;
   }
   if (!opts.cfg.collateralMint) {
     throw new Error("COLLATERAL_MINT required for create_strike_market");
@@ -321,14 +333,19 @@ export async function runMorningCreate(opts: {
   const step = (ref: bigint) => opts.cfg.strikeStepE6 ?? defaultStrikeStepE6(ref);
   const toCreate: StrikeSpec[] = [];
   let missingPrice = 0;
+  // Review M1: why the day is incomplete. `persistent` = not retried (config / partial set); `retried` = this pass only.
+  const persistent: string[] = [];
+  const retried: string[] = [];
   for (const symbol of opts.cfg.symbols) {
     // D-025: off-localnet a market with a zero feed id can never permissionless-settle.
     if (opts.cfg.cluster !== "localnet" && !opts.cfg.pythFeedIds[symbol]) {
       log(`skip ${symbol} — missing PYTH_FEED_IDS entry (required off-localnet, D-025)`);
+      persistent.push(`${symbol} missing PYTH_FEED_IDS`);
       continue;
     }
     if (!opts.cfg.pythPriceFeeds[symbol]) {
       log(`skip ${symbol} — missing PYTH_PRICE_FEEDS entry`);
+      persistent.push(`${symbol} missing PYTH_PRICE_FEEDS`);
       continue;
     }
     let strikes = dayPlan.strikes[symbol];
@@ -337,12 +354,19 @@ export async function runMorningCreate(opts: {
         // Created before this process knew the plan (restart / other creator): never add a second set.
         const n = haveCount[symbol];
         log(`${n < opts.cfg.strikeOffsetsE6.length ? "ALERT " : ""}skip ${symbol} — already has ${n} market(s) expiring ${dateKey} 16:00 ET${n < opts.cfg.strikeOffsetsE6.length ? ` (fewer than the ${opts.cfg.strikeOffsetsE6.length} planned; not completing without the original plan)` : ""}`);
+        if (n < opts.cfg.strikeOffsetsE6.length) persistent.push(`${symbol} has ${n}/${opts.cfg.strikeOffsetsE6.length} markets`);
         continue;
       }
       const d = await strikeReferenceFor(opts.cfg, symbol, dateKey, operator, opts.hermesAt, readAccount);
       if (!d.ok) {
         missingPrice++;
-        log(`ALERT no prior-close strike reference for ${symbol} on ${dateKey} — not created: ${d.reason}`);
+        retried.push(`${symbol} no prior-close price`);
+        // Review N3: ALERT once per symbol per ET day; later ticks log a plain retry line.
+        const seen = (opts.state.refAlertDay ??= {});
+        if (seen[symbol] !== dateKey) {
+          log(`ALERT no prior-close strike reference for ${symbol} on ${dateKey} — not created: ${d.reason}`);
+          seen[symbol] = dateKey;
+        } else log(`no prior-close strike reference for ${symbol} on ${dateKey} — retrying next tick: ${d.reason}`);
         continue;
       }
       log(`strike reference ${symbol} ${d.priceE6} (${d.source})`);
@@ -375,14 +399,20 @@ export async function runMorningCreate(opts: {
       const tracked: TrackedMarket = { market, symbol: strike.symbol, pythPriceFeed: feed, expiryTs: closeTs, settleAttempts: 0, createdDateKey: dateKey };
       opts.state.tracked.push(tracked);
       created.push(tracked);
+      retried.push(`${strike.symbol}@${strike.strikePriceE6.toString()} created only now`);
     } catch (e) {
       failed++;
+      retried.push(`${strike.symbol}@${strike.strikePriceE6.toString()} create failed`);
       log(`ALERT create failed for ${strike.symbol}@${strike.strikePriceE6.toString()} (day stays open; retry next tick, L-3): ${String(e).split("\n")[0].slice(0, 200)}`);
     }
   }
 
   // Missing price or failed create → leave the day open so the next tick retries (idempotent: existing strikes skip).
-  if (missingPrice === 0 && failed === 0) opts.state.lastCreateDateKey = dateKey;
+  if (missingPrice === 0 && failed === 0) {
+    opts.state.lastCreateDateKey = dateKey;
+    opts.state.dayGaps = { dateKey, gaps: persistent };
+  }
+  deadlineAlert([...persistent, ...retried]);
   return created;
 }
 

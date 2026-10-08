@@ -7,7 +7,7 @@ import { expect } from "chai";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { loadConfig } from "../src/config";
 import {
-  isTradingDay, sameDaySession, nextTradingDay, calendarHorizonAlert, decideStrikeReference, NYSE_HOLIDAYS, NYSE_EARLY_CLOSES,
+  isTradingDay, sameDaySession, nextTradingDay, prevTradingDay, calendarHorizonAlert, decideStrikeReference, NYSE_HOLIDAYS, NYSE_EARLY_CLOSES,
 } from "../src/marketDay";
 import { createCalendarState, runMorningCreate, planDayForOps, planSameDayStrikes, strikeReferenceFor } from "../src/modes/calendar";
 import { PYTH_RECEIVER_PROGRAM_ID } from "../src/pyth/pullOracle";
@@ -31,7 +31,7 @@ function devnetCfg(extra: Record<string, string> = {}, symbols = ["AAPL", "MSFT"
   } as any);
 }
 const op = (dateKey: string, prices: Record<string, string> = { AAPL: "227310000", MSFT: "414200000" }) =>
-  JSON.stringify({ dateKey, source: "Nasdaq last sale 09:31 ET", pricesE6: prices });
+  JSON.stringify({ dateKey, closeDateKey: prevTradingDay(dateKey), source: "Nasdaq official close", pricesE6: prices });
 
 function captureLogs<T>(fn: () => Promise<T>): Promise<{ out: T; logs: string[] }> {
   const logs: string[] = [];
@@ -112,10 +112,10 @@ describe("DLV-119 nits: 2028 calendar, horizon ALERT, STRIKE_STEP_E6, operator s
     const nowSec = sec(utc(2026, 10, 8, 13, 31));
     const stale = { feedIdHex: FEED_HEX, price: 22700000000n, conf: 1000000n, expo: -8, publishTime: nowSec - 86400, prevPublishTime: nowSec - 86401 };
     const base = { symbol: "AAPL", dateKey: "2026-10-08", prevClose: { dateKey: "2026-10-07", closeTs: CLOSE_1008 - 86400 }, feedIdHex: FEED_HEX, maxSkewSecs: 300, maxConfBps: 500, hermes: { error: "403" } as const, onchain: { parsed: stale, account: "Acct" } };
-    const bad = decideStrikeReference({ ...base, operator: { dateKey: "2026-10-08", source: "op", pricesE6: { AAPL: "400000000" } } });
+    const bad = decideStrikeReference({ ...base, operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "op", pricesE6: { AAPL: "400000000" } } });
     expect(bad.ok).to.equal(false);
     expect(!bad.ok && bad.reason).to.match(/band|±20%/);
-    const good = decideStrikeReference({ ...base, operator: { dateKey: "2026-10-08", source: "op", pricesE6: { AAPL: "230000000" } } });
+    const good = decideStrikeReference({ ...base, operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "op", pricesE6: { AAPL: "230000000" } } });
     expect(good).to.include({ ok: true, priceE6: 230000000n });
   });
 });

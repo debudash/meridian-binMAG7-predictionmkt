@@ -265,12 +265,13 @@ function toE6(price: bigint, expo: number): bigint {
 
 /**
  * Operator-sourced prices for one ET market day (OPERATOR_STRIKE_PRICES(_FILE) / OPERATOR_CLOSE_PRICES(_FILE) JSON).
- * Strike kind (D-026): `dateKey` = the MARKET day, prices = the previous trading day's official closes; the optional
- * `closeDateKey` names that previous day and, when present, must equal prevTradingDay(dateKey).
+ * Strike kind (D-026): `dateKey` = the MARKET day, prices = the previous trading day's official closes; `closeDateKey`
+ * names that previous day and is REQUIRED for strikes (a YYYY-MM-DD string equal to prevTradingDay(dateKey); review L3).
+ * Kept as the raw JSON value so a wrong type is refused with a reason, not silently dropped. Unused for closes.
  */
 export interface OperatorDayPrices {
   dateKey: string;
-  closeDateKey?: string;
+  closeDateKey?: unknown;
   source: string;
   pricesE6: Record<string, string>;
 }
@@ -283,7 +284,7 @@ export type StrikeReferenceDecision = { ok: true; priceE6: bigint; source: strin
  *   1. Hermes price AT the prior close (/v2/updates/price/{closeTs}: first update with publish_time >= closeTs), accepted
  *      iff feed matches, closeTs <= publish_time <= closeTs + maxSkewSecs, price > 0, conf <= maxConfBps;
  *   2. else the sponsored on-chain PriceUpdateV2, same window (usually not posted at the close — fine);
- *   3. else an operator prior close for THIS market day (dateKey must match; closeDateKey, if set, must be the prior day)
+ *   3. else an operator prior close for THIS market day (dateKey must match; closeDateKey must be the prior day)
  *      with a non-empty source, within ±operatorBandBps of the last known Pyth price;
  *   4. else REFUSE — the caller skips that symbol and ALERTs. Never a static/hardcoded fallback.
  * Hermes is currently 403 for equity feeds (DLV-106), so (3) is the working path today.
@@ -340,7 +341,11 @@ export function decideStrikeReference(opts: {
   const op = opts.operator;
   if (!op) return { ok: false, reason: `${why}; no operator prior closes — set OPERATOR_STRIKE_PRICES(_FILE) {dateKey:"${opts.dateKey}", closeDateKey:"${prevKey}", …}` };
   if (op.dateKey !== opts.dateKey) return { ok: false, reason: `${why}; operator strike prices are for market day ${op.dateKey}, not ${opts.dateKey}` };
-  if (op.closeDateKey !== undefined && op.closeDateKey !== prevKey) {
+  if (typeof op.closeDateKey !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(op.closeDateKey)) {
+    const got = op.closeDateKey === undefined ? "none" : JSON.stringify(op.closeDateKey);
+    return { ok: false, reason: `${why}; operator strike prices need closeDateKey = "${prevKey}" (the previous trading day, YYYY-MM-DD string; got ${got})` };
+  }
+  if (op.closeDateKey !== prevKey) {
     return { ok: false, reason: `${why}; operator closeDateKey ${op.closeDateKey} is not the previous trading day ${prevKey} of ${opts.dateKey}` };
   }
   if (!op.source || !op.source.trim()) return { ok: false, reason: `${why}; operator strike prices need a source` };

@@ -68,7 +68,7 @@ Covers ET settle gates, strike encoding, and prod-entry ↔ sim-module isolation
   close (`/v2/updates/price/{close}`, publish_time ≤ `PRIOR_CLOSE_MAX_SKEW_SECS` (300) after it; needs an entitled
   `PYTH_HERMES_API_KEY`, equities return 403 today, DLV-106) → sponsored `PYTH_PRICE_FEEDS` account if Pyth-receiver-owned,
   Full-verified and posted in that same window → **operator prior closes** (`OPERATOR_STRIKE_PRICES(_FILE)`, JSON
-  `{dateKey: <market day>, closeDateKey?: <previous trading day>, source, pricesE6}`) → else skip + `ALERT` and retry next tick.
+  `{dateKey: <market day>, closeDateKey: <previous trading day> (required), source, pricesE6}`) → else skip + `ALERT` and retry next tick.
   ATM = reference rounded to `STRIKE_STEP_E6` (default $5 ≥ $100, else $1) + `STRIKE_OFFSETS_E6`. No hardcoded prior close.
 - **Settle at the close:** permissionless pull settle first; when Hermes can't (403), `admin_settle` after the on-chain delay at
   the **operator close price** (`OPERATOR_CLOSE_PRICES(_FILE)`, bound to the market's ET day + symbol, source required;

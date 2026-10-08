@@ -39,6 +39,8 @@ function parsePriceArgs(pairs) {
  *                  strike reference when Hermes / the on-chain feed have no price at that close. Allowed any time from
  *                  that prior close until the market day's CREATE_DEADLINE_ET (default 08:00 ET) — e.g. the evening
  *                  before. The market day = today if it is a session and before the deadline, else the next session.
+ *                  Review M2: an explicit dateKey = today is also accepted after the deadline until today's 16:00 ET
+ *                  close (the worker keeps retrying until then), with a "LATE: after the 08:00 ET deadline" warning.
  *     | "close"  (set at/after the 16:00 ET close; used by admin_settle when pull settle can't) — market day = today.
  * dateKey (optional) must equal that market day; it must be a full NYSE trading day (no weekend / holiday / early
  * close / unknown year). Throws with every problem listed; returns { varName, json, dateKey, warnings }.
@@ -60,6 +62,10 @@ function validateOperatorPrices({ kind, source, prices, nowSec, dateKey, symbols
       const t = cal.tradingDay(today);
       const todayIsSession = t.ok || t.code === "early_close";
       market = todayIsSession && nowSec < cal.etWallToUnix(today, dlH, dlM) ? today : cal.nextSessionDay(today);
+      if (market !== today && dateKey === today && t.ok && nowSec < cal.closeTsFor(today)) {
+        market = today;
+        warnings.push(`LATE: after the ${hhmm(dlH, dlM)} ET deadline — today's (${today}) markets missed the deadline; the worker uses these prices for the missing markets until the 16:00 ET close`);
+      }
     }
   } catch (e) {
     errs.push(String(e.message || e));
