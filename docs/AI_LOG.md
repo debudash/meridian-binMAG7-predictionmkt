@@ -1,3 +1,17 @@
+## 2026-10-08T09:30:00-05:00 — Engineers: per-book resilient Phoenix quotes on market cards + both-sides position badge
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `fix/per-book-quotes-both-sides-badge` from `origin/main` @ `81e79db` |
+| **Source** | Track A local smoke @ `6d04b00` (Grok Bot relay): every market card showed Yes — / No — because the settled NVDA ≥ 135 markets point at Phoenix book `6QWeT6Fp…`, which does not exist on :8899; `Client.createWithoutConfig` threw "Unable to get account data" for the whole batch (`[chain-read] rpc.phoenix.markets failed {"count":10}`). A wallet holding both sides only saw `You: Yes 10`. |
+| **Decision** | Read books directly instead of through the SDK client: one `getMultipleAccountsInfo([...books, Clock])` per ≤ 99 books (100-key RPC cap), decode each with `MarketState.load` + `getUiLadder(1, clock.slot, clock.unixTimestamp)` (same clock-aware ladder the client used) inside its own try/catch. A missing / undecodable book is logged against its own address and leaves only that card unset; a settled card keeps its settlement mid. Chunk-level RPC failure or a missing Clock blanks only that chunk. Badge: `You: Yes N` / `You: No N` per docs/ui/02-markets.md; both sides → `You: Yes N · No M` with the amber chip used for "Both sides held". |
+| **Change** | New `apps/web/src/lib/indexer/phoenixQuotes.ts` (`attachPhoenixQuotes`, `decodeClockSysvar`); `rpc.ts` uses it; new `lib/market/positionBadge.ts`; `MarketCard.tsx` renders it (`data-testid="position-badge"`). |
+| **Tests** | Red first: `phoenixQuotes.test.ts` (8: one missing + one bad + two good books → only the bad ones blank, one batched read, per-book logs, settled mid kept, clock passed, RPC failure, non-pubkey skip, chunking) and `positionBadge.test.ts` (7). Web vitest **363 passing + 14 skipped**, `tsc` + lint clean. Read-only live check against :8899: 8 open books quoted, the two settled NVDA ≥ 135 cards keep 1 / 0 with one `rpc.phoenix.market` log line. |
+| **Related** | DLV-107 · DLV-108 · DLV-090 · Track A |
+
+---
+
 ## 2026-10-08T09:30:00-05:00 — Engineers: M1 design note — a Meridian PDA as the Phoenix Seat Manager authority (docs only)
 
 | Field | Value |

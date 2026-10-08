@@ -11,6 +11,7 @@ import type { LiveExposure } from "@/hooks/useWalletPositions";
 import type { BalancesLock } from "@/lib/intents/cardLock";
 import { MarketBuyLinks, useMarketTradeState } from "./MarketBuyLinks";
 import { DistanceReadout } from "@/components/trade/DistanceReadout";
+import { positionBadge } from "@/lib/market/positionBadge";
 
 export function MarketCard({
   market,
@@ -35,12 +36,12 @@ export function MarketCard({
     "en-US",
     { month: "short", day: "numeric", timeZone: "America/Chicago" },
   );
-  const holdBadge =
-    connected && position.yesQty >= (market.lotSize ?? 1)
-      ? `You: Yes ${position.yesQty}`
-      : connected && position.noQty >= (market.lotSize ?? 1)
-        ? `You: No ${position.noQty}`
-        : null;
+  const holdBadge = positionBadge({
+    connected,
+    yesQty: position.yesQty,
+    noQty: position.noQty,
+    lotSize: market.lotSize,
+  });
 
   return (
     <article
@@ -103,10 +104,11 @@ export function MarketCard({
       </div>
       {holdBadge && (
         <span
-          className={`chip ${position.yesQty > 0 ? "chip-yes" : "chip-no"}`}
+          className={`chip chip-${holdBadge.tone === "both" ? "amber" : holdBadge.tone}`}
           style={{ alignSelf: "flex-start" }}
+          data-testid="position-badge"
         >
-          {holdBadge}
+          {holdBadge.text}
         </span>
       )}
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "auto" }}>
