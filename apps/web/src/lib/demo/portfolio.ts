@@ -1,9 +1,12 @@
 /**
- * Demo fixture portfolio when no indexer / token balances are available.
- * Used only for connected-wallet UI polish (badges, summary bar, constraint).
+ * Demo fixture portfolio — LOCALNET FIXTURE MODE ONLY (DLV-088).
+ * Shown only when the app is displaying fixture markets on a localnet-style cluster
+ * (lib/portfolio/demoMode). Devnet/mainnet and real localnet markets use on-chain reads.
  * Not on-chain facts.
  */
 import type { PositionSnapshot, OpenOrdersSnapshot } from "@/lib/intents/types";
+import type { MarketView } from "@/lib/market/types";
+import type { Portfolio } from "@/lib/portfolio/account";
 
 const DAY = 86400;
 
@@ -176,4 +179,65 @@ export function buildDemoHistory(nowSec = Math.floor(Date.now() / 1000)): DemoFi
       side: "yes",
     },
   ];
+}
+
+/** Demo rows in the real Portfolio shape (fixture markets only; no on-chain accounts). */
+export function buildDemoPortfolio(markets: readonly MarketView[]): Portfolio {
+  const byId = new Map(markets.map((m) => [m.marketId, m]));
+  const positions: Portfolio["positions"] = [];
+  for (const p of DEMO_POSITIONS) {
+    const market = byId.get(p.marketId);
+    if (!market || market.status !== "open") continue;
+    const ym = market.yesMid ?? market.lastYes ?? p.avgEntry;
+    const qty = p.side === "yes" ? p.yesQty : p.noQty;
+    const mark = p.side === "yes" ? ym : 1 - ym;
+    positions.push({
+      market,
+      side: p.side,
+      qty,
+      yesQty: p.yesQty,
+      noQty: p.noQty,
+      inSeat: 0,
+      mark,
+      value: qty * mark,
+    });
+  }
+  const orders: Portfolio["orders"] = [];
+  for (const o of listDemoOpenOrdersAcrossMarkets()) {
+    const market = byId.get(o.marketId);
+    if (!market) continue;
+    orders.push({
+      id: o.id,
+      side: o.intent === "buy-yes" || o.intent === "sell-no" ? "bid" : "ask",
+      price: o.price,
+      size: o.size - o.filled,
+      priceInTicks: "0",
+      orderSequenceNumber: "0",
+      intent: o.intent,
+      intentPrice: o.price,
+      market,
+    });
+  }
+  const redeemable: Portfolio["redeemable"] = markets
+    .filter((m) => m.status === "settled-yes" || m.status === "settled-no")
+    .map((m) => ({
+      marketId: m.marketId,
+      label: m.question,
+      side: m.status === "settled-yes" ? ("yes" as const) : ("no" as const),
+      size: 25,
+      payoutUsdc: 25,
+    }));
+  const summary = getDemoPortfolioSummary();
+  return {
+    positions,
+    orders,
+    seats: [],
+    redeemable,
+    totals: {
+      usdc: summary.usdcAvailable,
+      seatUsdcFree: 0,
+      redeemableUsdc: redeemable.reduce((s, r) => s + r.payoutUsdc, 0),
+      positionsValue: positions.reduce((s, r) => s + r.value, 0),
+    },
+  };
 }

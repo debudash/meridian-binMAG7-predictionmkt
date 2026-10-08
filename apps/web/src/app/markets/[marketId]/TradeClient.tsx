@@ -29,11 +29,16 @@ import {
 } from "@/lib/market/bookSelection";
 import { yesDefinition, noDefinition, oneLineExplainer } from "@/lib/copy/payoff";
 import { useIntentAvailability } from "@/hooks/useIntentAvailability";
-import { useLivePosition } from "@/hooks/useLivePosition";
+import { useMarketAccount } from "@/hooks/useMarketAccount";
+import { useWalletHistory } from "@/hooks/useWalletHistory";
+import { getCountdown } from "@/lib/market/countdown";
+import { CancelOrdersButton } from "@/components/portfolio/PhoenixActions";
 import { useUnderlyingPrice } from "@/hooks/useUnderlyingPrice";
 import { useChainClock } from "@/components/providers/AppProviders";
 import { DEFAULT_PROGRAM_ID } from "@/lib/solana/config";
-import { listDemoOpenOrdersAcrossMarkets, buildDemoHistory } from "@/lib/demo/portfolio";
+import { listDemoOpenOrdersAcrossMarkets } from "@/lib/demo/portfolio";
+import { demoHistoryRows } from "@/lib/history/view";
+import { demoMarketAllowed } from "@/lib/portfolio/demoMode";
 import { onTablistKeyDown, selectableRowProps, tabProps } from "@/components/ui/a11y";
 import { useRememberViewedMarket } from "@/components/ui/useLastViewedMarket";
 import { toggleSelection } from "@/lib/ui/selection";
@@ -46,6 +51,13 @@ const VALID_INTENTS = new Set<Intent>([
 ]);
 
 type ZoneTab = "position" | "orders" | "fills";
+
+const INTENT_LABEL: Record<Intent, string> = {
+  "buy-yes": "Buy Yes",
+  "buy-no": "Buy No",
+  "sell-yes": "Sell Yes",
+  "sell-no": "Sell No",
+};
 
 export function TradeClient({
   market,
@@ -120,14 +132,17 @@ export function TradeClient({
   const yes = liveMid ?? market.yesMid ?? market.lastYes ?? 0.5;
   const no = noPriceFromYes(yes, market.tickSize);
 
-  const livePosition = useLivePosition(market);
+  // Wallet Yes/No/USDC + Phoenix seat + resting orders (DLV-088/087). Demo only for localnet fixtures.
+  const demoMarket = demoMarketAllowed(market.marketId);
+  const account = useMarketAccount(market);
   const underlying = useUnderlyingPrice(market);
-  const { availability, position, openOrders, lifecycle } = useIntentAvailability(
-    market.marketId,
-    livePosition
-      ? { position: livePosition, openOrders: { openBuyYesQty: 0, openBuyNoQty: 0 } }
-      : {},
-  );
+  const { availability, position, openOrders, lifecycle } = useIntentAvailability(market.marketId, {
+    position: account.position ?? undefined,
+    openOrders: account.openOrders ?? undefined,
+    balancesLoading: account.connected && account.loading && !account.position,
+    lifecycle: getCountdown(market, nowSec).state,
+    lotSize: market.lotSize,
+  });
 
   let resolvedIntent: Intent | undefined;
   let intentNote: string | undefined;
@@ -186,12 +201,25 @@ export function TradeClient({
     timeZoneName: "short",
   });
 
-  const marketOrders = listDemoOpenOrdersAcrossMarkets().filter(
-    (o) => o.marketId === market.marketId,
+  const marketOrders = useMemo(
+    () =>
+      demoMarket
+        ? listDemoOpenOrdersAcrossMarkets()
+            .filter((o) => o.marketId === market.marketId)
+            .map((o) => ({ id: o.id, intent: o.intent, intentPrice: o.price, size: o.size - o.filled, demo: true as const }))
+        : account.orders.map((o) => ({ ...o, demo: false as const })),
+    [demoMarket, market.marketId, account.orders],
   );
-  const marketFills = buildDemoHistory(nowSec).filter(
-    (h) => h.marketId === market.marketId && h.type === "fill",
+  const history = useWalletHistory(demoMarket ? undefined : [market], account.connected);
+  const marketFills = useMemo(
+    () =>
+      (demoMarket ? demoHistoryRows(nowSec) : history.data?.rows ?? []).filter(
+        (h) => h.marketId === market.marketId && h.type === "trade",
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [demoMarket, demoMarket ? nowSec : 0, history.data, market.marketId],
   );
+  const seat = account.state?.phoenix?.seat ?? null;
 
   return (
     <div>
@@ -310,15 +338,17 @@ export function TradeClient({
               {zoneTab === "position" && (
                 <PositionPanel
                   market={market}
-                  yesQty={position.yesQty}
-                  noQty={position.noQty}
+                  yesQty={account.state?.wallet.yes ?? position.yesQty}
+                  noQty={account.state?.wallet.no ?? position.noQty}
+                  seat={seat}
+                  loading={account.connected && account.loading && !account.state}
                 />
               )}
               {zoneTab === "orders" && (
                 <div>
                   {marketOrders.length === 0 ? (
                     <p className="muted" style={{ margin: 0 }}>
-                      No open orders for this market. TODO(phoenix): Phoenix trader state.
+                      No resting orders on this market.
                     </p>
                   ) : (
                     <table className="markets-table" role="grid" aria-label="Open orders">
@@ -326,8 +356,8 @@ export function TradeClient({
                         <tr>
                           <th>Intent</th>
                           <th>Price</th>
-                          <th>Size</th>
-                          <th>Filled</th>
+                          <th>Remaining</th>
+                          <th aria-label="Actions" />
                         </tr>
                       </thead>
                       <tbody>
@@ -338,15 +368,34 @@ export function TradeClient({
                               setSelectedRow((c) => toggleSelection(c, o.id)),
                             )}
                           >
-                            <td>{o.intent}</td>
-                            <td className="tabular">{o.price.toFixed(2)}</td>
+                            <td>{INTENT_LABEL[o.intent]}</td>
+                            <td className="tabular">{o.intentPrice.toFixed(2)}</td>
                             <td className="tabular">{o.size}</td>
-                            <td className="tabular">{o.filled}</td>
+                            <td>
+                              {!o.demo && market.phoenixMarket ? (
+                                <CancelOrdersButton phoenixMarket={market.phoenixMarket} orders={[o]} />
+                              ) : (
+                                <span className="muted" style={{ fontSize: "0.78rem" }}>demo</span>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   )}
+                  {market.phoenixMarket && account.orders.length > 1 && (
+                    <div style={{ marginTop: 8 }}>
+                      <CancelOrdersButton
+                        phoenixMarket={market.phoenixMarket}
+                        orders={account.orders}
+                        label={`Cancel all (${account.orders.length})`}
+                        compact={false}
+                      />
+                    </div>
+                  )}
+                  <p className="muted" style={{ fontSize: "0.78rem", margin: "8px 0 0" }}>
+                    Resting buys count toward the one-side rule. Cancelling returns funds to your wallet.
+                  </p>
                 </div>
               )}
               {zoneTab === "fills" && (
@@ -384,13 +433,13 @@ export function TradeClient({
                                 minute: "2-digit",
                               })}
                             </td>
-                            <td>{f.intentOrOutcome}</td>
+                            <td>{f.intent}</td>
                             <td className="tabular">
                               {f.price != null ? f.price.toFixed(2) : "—"}
                             </td>
-                            <td className="tabular">{f.size}</td>
+                            <td className="tabular">{f.size ?? "—"}</td>
                             <td className="tabular">
-                              {f.amountUsdc != null ? f.amountUsdc.toFixed(2) : "—"}
+                              {f.usdcDelta ? `${f.usdcDelta > 0 ? "+" : ""}${f.usdcDelta.toFixed(2)}` : "—"}
                             </td>
                           </tr>
                         ))}
@@ -398,7 +447,10 @@ export function TradeClient({
                     </table>
                   )}
                   <p className="muted" style={{ fontSize: "0.8rem", marginTop: 8 }}>
-                    Lifecycle: {lifecycle}. Fixture fills when no indexer.
+                    Lifecycle: {lifecycle}.{" "}
+                    {demoMarket
+                      ? "Localnet fixture fills (demo)."
+                      : "Your taker fills from this wallet's transactions; resting-order fills show in Position → Phoenix."}
                   </p>
                 </div>
               )}
@@ -433,7 +485,7 @@ export function TradeClient({
             fillIntentHint={fillIntentHint}
             onConsumedFill={clearFill}
             liveBook={liveBook}
-            usdcBalance={livePosition?.usdc}
+            usdcBalance={account.usdc}
             onTicketChange={setTicketState}
             underlying={underlying}
           />

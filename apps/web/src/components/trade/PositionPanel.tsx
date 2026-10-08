@@ -1,15 +1,77 @@
 "use client";
 
 import type { MarketView } from "@/lib/market/types";
+import type { PhoenixSeatBalances } from "@/lib/portfolio/phoenixTrader";
+import { WithdrawSeatButton } from "@/components/portfolio/PhoenixActions";
 
+/**
+ * Position = wallet Yes/No + Phoenix trader-account (seat) balances (DLV-087). Seat-free Yes is
+ * yours (fills of resting bids) and counts as held; Withdraw moves it to the wallet.
+ */
 export function PositionPanel({
   market,
-  yesQty = 0,
+  yesQty: walletYes = 0,
   noQty = 0,
+  seat = null,
+  loading = false,
 }: {
   market: MarketView;
+  /** Wallet Yes */
   yesQty?: number;
   noQty?: number;
+  seat?: PhoenixSeatBalances | null;
+  loading?: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="card">
+        <strong>Position</strong>
+        <p className="muted" style={{ marginTop: 8 }}>Checking your balances…</p>
+      </div>
+    );
+  }
+  const seatYes = seat?.yesFree ?? 0;
+  const yesQty = walletYes + seatYes;
+  const seatCard =
+    seat && market.phoenixMarket && (seat.yesFree > 0 || seat.usdcFree > 0 || seat.yesLocked > 0 || seat.usdcLocked > 0) ? (
+      <SeatCard seat={seat} phoenixMarket={market.phoenixMarket} />
+    ) : null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      <PositionBody market={market} yesQty={yesQty} noQty={noQty} seatYes={seatYes} />
+      {seatCard}
+    </div>
+  );
+}
+
+function SeatCard({ seat, phoenixMarket }: { seat: PhoenixSeatBalances; phoenixMarket: string }) {
+  const free = seat.yesFree > 0 || seat.usdcFree > 0;
+  return (
+    <div className="card" style={{ padding: "0.6rem 0.8rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div>
+          <strong style={{ fontSize: "0.9rem" }}>Phoenix trader account</strong>
+          <div className="muted tabular" style={{ fontSize: "0.8rem", marginTop: 2 }}>
+            Free {seat.yesFree} Yes · {seat.usdcFree.toFixed(2)} USDC — In orders {seat.yesLocked} Yes ·{" "}
+            {seat.usdcLocked.toFixed(2)} USDC
+          </div>
+        </div>
+        {free && <WithdrawSeatButton phoenixMarket={phoenixMarket} />}
+      </div>
+    </div>
+  );
+}
+
+function PositionBody({
+  market,
+  yesQty,
+  noQty,
+  seatYes,
+}: {
+  market: MarketView;
+  yesQty: number;
+  noQty: number;
+  seatYes: number;
 }) {
   const settled =
     market.status === "settled-yes" ||
@@ -78,6 +140,11 @@ export function PositionPanel({
       <strong>
         {side} <span className="tabular">{qty}</span>
       </strong>
+      {side === "Yes" && seatYes > 0 && (
+        <span className="muted tabular" style={{ fontSize: "0.8rem" }}>
+          {" "}({seatYes} in Phoenix)
+        </span>
+      )}
       <div className="muted" style={{ marginTop: 8, fontSize: "0.85rem" }}>
         Mark {sideMark.toFixed(2)} · Value {(qty * sideMark).toFixed(2)} USDC · Payout if right{" "}
         {(qty * 1).toFixed(2)} USDC

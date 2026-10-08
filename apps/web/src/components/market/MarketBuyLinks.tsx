@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MarketView } from "@/lib/market/types";
 import type { IntentAvailabilityMap, OpenOrdersSnapshot, PositionSnapshot } from "@/lib/intents/types";
+import type { LiveExposure } from "@/hooks/useWalletPositions";
 import { getCountdown } from "@/lib/market/countdown";
 import { useChainClock } from "@/components/providers/AppProviders";
 import { useIntentAvailability } from "@/hooks/useIntentAvailability";
@@ -21,14 +22,13 @@ export interface MarketTradeState {
 }
 
 /**
- * Buy-side availability for a market on list surfaces (DLV-074). With a live
- * wallet position it runs the same exposure rules as the ticket
- * (getIntentAvailability); without one it keeps the previous behaviour.
- * Resting buy orders aren't read yet (DLV-068), same as the trade ticket.
+ * Buy-side availability for a market on list surfaces (DLV-074). With live
+ * exposure (wallet + Phoenix seat + resting orders, DLV-088/068) it runs the same rules as
+ * the ticket (getIntentAvailability); without one it keeps the previous behaviour.
  */
 export function useMarketTradeState(
   market: MarketView,
-  livePosition?: PositionSnapshot | null,
+  livePosition?: LiveExposure | null,
 ): MarketTradeState {
   const { nowSec } = useChainClock();
   const tradingBlocked = useTradingBlockedByBanner();
@@ -38,7 +38,7 @@ export function useMarketTradeState(
     livePosition
       ? {
           position: livePosition,
-          openOrders: NO_OPEN_ORDERS,
+          openOrders: livePosition.openOrders ?? NO_OPEN_ORDERS,
           lifecycle: cd.state,
           lotSize: market.lotSize,
         }
@@ -107,7 +107,7 @@ export function MarketBuyCell({
   livePosition,
 }: {
   market: MarketView;
-  livePosition?: PositionSnapshot | null;
+  livePosition?: LiveExposure | null;
 }) {
   const state = useMarketTradeState(market, livePosition);
   return <MarketBuyLinks market={market} state={state} compact />;
