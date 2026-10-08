@@ -54,12 +54,14 @@ Then pick **Localnet Dev Wallet** under *Select Wallet*. The adapter is only
 registered — and `/api/localnet-dev-wallet` only answers (else 404) — when **all** hold:
 `next dev` (never in a `next build` / `next start` production bundle), cluster `localnet`,
 flag `true`, RPC URL on loopback, request `Host` on loopback, forwarded client address on
-loopback, and `LOCALNET_DEV_WALLET_KEYPAIR` set. It is never shown on devnet/mainnet or any
-production build. Fund the key on localnet yourself (airdrop + fixture USDC mint).
+loopback, `LOCALNET_DEV_WALLET_KEYPAIR` set, **and the dev server itself bound to loopback**.
+It is never shown on devnet/mainnet or any production build. Fund the key on localnet yourself
+(airdrop + fixture USDC mint).
 
-> The Host / `x-forwarded-for` checks are client-controlled headers. If the dev server is bound
-> to `0.0.0.0` on a network others can reach, prefer `next dev -H 127.0.0.1` — a peer spoofing
-> both headers could otherwise fetch the (localnet-only) key (DLV-081).
+> Start it with `npm run dev` (= `next dev -H 127.0.0.1`). Host / `x-forwarded-for` are
+> client-controlled, so the route also probes its own port on every external interface; if the
+> server answers there (`next dev -H 0.0.0.0` or no `-H`) it returns 404 and logs
+> `[dev-wallet] refused: … reachable off-loopback` (DLV-081). Restart bound to 127.0.0.1 to fix.
 
 ## Tests / checks
 

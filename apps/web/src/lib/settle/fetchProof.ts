@@ -2,6 +2,7 @@
  * Find the settle tx for a market via RPC (DLV-076): getSignaturesForAddress(market)
  * → getTransactions in small batches → first Settled/AdminSettled event for it.
  */
+import { logChainReadError } from "@/lib/log/chainRead";
 import type { Connection, ConfirmedSignatureInfo } from "@solana/web3.js";
 import { PublicKey } from "@solana/web3.js";
 import type { MarketView } from "@/lib/market/types";
@@ -35,8 +36,8 @@ export async function fetchSettleTx(
         out.feedExpo = d.expo;
         out.mockFeed = d.source === "mock";
       }
-    } catch {
-      // leave unknown
+    } catch (e) {
+      logChainReadError("settleProof.feed", e, { feed: market.pythFeedId });
     }
   }
 
@@ -46,7 +47,8 @@ export async function fetchSettleTx(
     let sigs: ConfirmedSignatureInfo[];
     try {
       sigs = await connection.getSignaturesForAddress(marketPk, { limit: PAGE, before }, "confirmed");
-    } catch {
+    } catch (e) {
+      logChainReadError("settleProof.signatures", e, { marketId: market.marketId });
       return out;
     }
     if (sigs.length === 0) break;
@@ -59,7 +61,8 @@ export async function fetchSettleTx(
           chunk.map((c) => c.signature),
           { maxSupportedTransactionVersion: 0, commitment: "confirmed" },
         );
-      } catch {
+      } catch (e) {
+        logChainReadError("settleProof.transactions", e, { marketId: market.marketId });
         continue;
       }
       for (let j = 0; j < txs.length; j++) {

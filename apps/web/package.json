@@ -4,7 +4,7 @@
   "private": true,
   "description": "Meridian Next.js UI — consumes docs/ui/* and idl/meridian.prod.json only",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

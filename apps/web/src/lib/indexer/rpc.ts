@@ -9,6 +9,7 @@ import { getProgramId, getRpcUrl } from "@/lib/solana/config";
 import { mapStrikeMarketToView, type RawStrikeMarket } from "./mapStrikeMarket";
 import type { MarketView } from "@/lib/market/types";
 import { decodePythPriceAccount } from "@/lib/pyth/priceAccount";
+import { isMissingAccountError, logChainReadError } from "@/lib/log/chainRead";
 
 /** Read-only wallet stub for Anchor Program fetches (SSR / no signer). */
 function readOnlyProvider(connection: Connection): AnchorProvider {
@@ -38,7 +39,9 @@ async function fetchTreasury(program: Program): Promise<string | undefined> {
     );
     const acc = await (program.account as { config: { fetch: (k: PublicKey) => Promise<{ treasury: PublicKey }> } }).config.fetch(config);
     return acc.treasury.toBase58();
-  } catch {
+  } catch (e) {
+    // Mint / merge need the treasury; without it trades fail later — make the cause visible.
+    logChainReadError("rpc.config.treasury", e);
     return undefined;
   }
 }
@@ -69,12 +72,14 @@ async function attachPhoenixQuotes(
         if (ask != null) v.yesAsk = ask;
         if (bid != null && ask != null) v.yesMid = Math.round(((bid + ask) / 2) * 1000) / 1000;
         else if (bid != null || ask != null) v.yesMid = (bid ?? ask) as number;
-      } catch {
+      } catch (e) {
         // leave quotes unset for this market
+        logChainReadError("rpc.phoenix.ladder", e, { phoenixMarket: v.phoenixMarket });
       }
     }
-  } catch {
+  } catch (e) {
     // Phoenix unavailable on this cluster — quotes stay "—"
+    logChainReadError("rpc.phoenix.markets", e, { count: withBook.length });
   }
 }
 
@@ -110,8 +115,9 @@ export async function attachUnderlyingPrices(
           if (d.publishTime) chunk[j].v.underlyingPublishTs = d.publishTime;
         }
       });
-    } catch {
+    } catch (e) {
       // price stays unset
+      logChainReadError("rpc.pyth.prices", e, { count: chunk.length });
     }
   }
 }
@@ -137,10 +143,15 @@ export async function fetchMarketViaRpc(
   marketId: string,
   rpcUrl = getRpcUrl(),
 ): Promise<MarketView | null> {
+  let pk: PublicKey;
+  try {
+    pk = new PublicKey(marketId);
+  } catch {
+    return null; // fixture slug / not a pubkey — RPC only knows pubkeys
+  }
   try {
     const connection = new Connection(rpcUrl, "confirmed");
     const program = getReadProgram(connection);
-    const pk = new PublicKey(marketId);
     const acc = await (program.account as { strikeMarket: { fetch: (k: PublicKey) => Promise<RawStrikeMarket> } }).strikeMarket.fetch(pk);
     const treasury = await fetchTreasury(program);
     const view = mapStrikeMarketToView(pk.toBase58(), { ...acc, treasury: acc.treasury ?? treasury });
@@ -149,8 +160,9 @@ export async function fetchMarketViaRpc(
       attachUnderlyingPrices(connection, [view]),
     ]);
     return view;
-  } catch {
-    // marketId might be numeric fixture id — RPC only accepts pubkeys
-    return null;
+  } catch (e) {
+    if (isMissingAccountError(e)) return null; // genuine 404
+    logChainReadError("rpc.getMarket", e, { marketId });
+    throw e;
   }
 }

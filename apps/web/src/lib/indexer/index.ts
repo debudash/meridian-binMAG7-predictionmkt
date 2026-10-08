@@ -17,6 +17,7 @@ import {
   isHttpIndexerConfigured,
 } from "./http";
 import { fetchMarketViaRpc, fetchMarketsViaRpc } from "./rpc";
+import { errorMessage, logChainReadError, warnChainReadOnce } from "@/lib/log/chainRead";
 import type {
   FillHint,
   MarketListResult,
@@ -45,7 +46,9 @@ async function readLive(): Promise<LiveList> {
     const rpc = await fetchMarketsViaRpc();
     return { markets: rpc, source: "rpc-gpa", failed: false };
   } catch (e) {
-    return { markets: [], source: "rpc-gpa", failed: true, detail: e instanceof Error ? e.message : String(e) };
+    // DLV-090: never swallow — the cause must be visible in server logs on every cluster.
+    logChainReadError("indexer.listMarkets", e, { cluster: getCluster() });
+    return { markets: [], source: "rpc-gpa", failed: true, detail: errorMessage(e) };
   }
 }
 
@@ -69,6 +72,12 @@ export async function listMarkets(
     return { markets: live.markets, source: live.source, usedFixtures: false };
   }
   if (fixturesAllowed()) {
+    warnChainReadOnce(
+      "indexer.listMarkets",
+      `serving fixture markets on ${getCluster()}: ${
+        live.failed ? `live read failed (${live.detail})` : "no StrikeMarket accounts found"
+      }`,
+    );
     return {
       markets: buildFixtureMarkets(nowSec),
       source: "fixtures",
@@ -78,7 +87,6 @@ export async function listMarkets(
   }
   const cluster = getCluster();
   if (live.failed) {
-    console.error(`[indexer] market list failed on ${cluster}: ${live.detail}`);
     return { markets: [], source: "unavailable", usedFixtures: false, error: unavailableMessage(cluster) };
   }
   return {
@@ -110,8 +118,9 @@ export async function getMarket(
     if (rpc) {
       return { market: rpc, source: "rpc-gpa", usedFixtures: false };
     }
-  } catch {
+  } catch (e) {
     rpcFailed = true;
+    logChainReadError("indexer.getMarket", e, { cluster: getCluster(), marketId });
   }
   // Prefer live list match (HTTP list may have succeeded even if /markets/:id 404)
   const live = await readLive();
@@ -123,6 +132,9 @@ export async function getMarket(
   }
   if (fixturesAllowed()) {
     const fixture = getFixtureMarketById(marketId, nowSec) ?? null;
+    if (fixture && (rpcFailed || live.failed)) {
+      warnChainReadOnce("indexer.getMarket", `serving fixture ${marketId} on ${getCluster()}: live read failed`);
+    }
     return { market: fixture, source: "fixtures", usedFixtures: true };
   }
   if (rpcFailed && live.failed) {

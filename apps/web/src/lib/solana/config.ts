@@ -3,6 +3,7 @@
  * Matches docs/DEPLOY.md §4 NEXT_PUBLIC_* (no secrets).
  */
 import { PublicKey } from "@solana/web3.js";
+import { isFixtureCluster } from "@/lib/market/marketIdRoute";
 
 export const DEFAULT_PROGRAM_ID =
   "9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6";
@@ -15,10 +16,8 @@ export function getCluster(): string {
  * Fixture (sample) markets / order books are a localnet + local-dev convenience only (DLV-084).
  * Devnet, testnet and mainnet must surface real chain state or a clear error/empty state.
  */
-const FIXTURE_CLUSTERS = new Set(["localnet", "localhost", "custom"]);
-
 export function fixturesAllowed(cluster = getCluster()): boolean {
-  return FIXTURE_CLUSTERS.has(cluster);
+  return isFixtureCluster(cluster);
 }
 
 export function getRpcUrl(): string {
