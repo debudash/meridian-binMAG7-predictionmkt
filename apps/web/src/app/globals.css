@@ -158,6 +158,13 @@ button, input, select {
   display: none;
 }
 
+/* DLV-115: header Change wallet: short label on phones. */
+.change-wallet-short { display: none; }
+@media (max-width: 480px) {
+  .change-wallet-full { display: none; }
+  .change-wallet-short { display: inline; }
+  .header-row { gap: 0.5rem !important; }
+}
 @media (max-width: 768px) {
   .desktop-nav {
     display: none !important;

@@ -11,6 +11,7 @@ import {
   useCallback,
   createContext,
   useContext,
+  useRef,
   createElement,
   type ReactNode,
   type ComponentType,
@@ -20,7 +21,6 @@ import {
   ConnectionProvider,
   WalletProvider,
 } from "@solana/wallet-adapter-react";
-import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -30,6 +30,8 @@ import {
   LocalnetDevWalletAdapter,
   isLocalnetDevWalletAllowed,
 } from "@/lib/solana/localnetDevWallet";
+import { clearRememberedWalletStorage, createWalletErrorHandler } from "@/lib/solana/walletPicker";
+import { WalletPickerProvider, type WalletBridge } from "@/components/wallet/WalletPickerProvider";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 
@@ -37,9 +39,8 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 type ChildrenProps = PropsWithChildren<Record<string, unknown>>;
 const Conn = ConnectionProvider as ComponentType<ChildrenProps & { endpoint: string }>;
 const Wal = WalletProvider as ComponentType<
-  ChildrenProps & { wallets: unknown[]; autoConnect?: boolean }
+  ChildrenProps & { wallets: unknown[]; autoConnect?: boolean; onError?: (error: unknown, adapter?: unknown) => void }
 >;
-const WalModal = WalletModalProvider as ComponentType<ChildrenProps>;
 
 /* ---- ChainClock ---- */
 interface ChainClockValue {
@@ -184,6 +185,19 @@ function PythProvider({ children }: { children: ReactNode }) {
   return <PythContext.Provider value={value}>{children}</PythContext.Provider>;
 }
 
+/** DLV-115: lets the WalletProvider onError (outside TxStatus) show "X isn't installed" as a toast. */
+function WalletNoticeBridge({ bridge }: { bridge: { current: WalletBridge } }) {
+  const { push } = useTxStatus();
+  useEffect(() => {
+    const b = bridge.current;
+    b.notify = (m: string) => push("neutral", m);
+    return () => {
+      b.notify = undefined;
+    };
+  }, [bridge, push]);
+  return null;
+}
+
 export function AppProviders({
   children,
   serverNowSec,
@@ -204,16 +218,31 @@ export function AppProviders({
     [devWallet],
   );
   const [queryClient] = useState(() => new QueryClient());
+  // DLV-115: our onError replaces wallet-adapter's default (window.open(adapter.url) on WalletNotReadyError):
+  // forget the not-installed wallet and open the picker instead.
+  const walletBridge = useRef<WalletBridge>({});
+  const onWalletError = useMemo(
+    () =>
+      createWalletErrorHandler({
+        clearSelection: () =>
+          walletBridge.current.clearSelection
+            ? walletBridge.current.clearSelection()
+            : clearRememberedWalletStorage(typeof window !== "undefined" ? window.localStorage : null),
+        openPicker: () => walletBridge.current.openPicker?.(),
+        notify: (m) => walletBridge.current.notify?.(m),
+      }),
+    [],
+  );
 
   return createElement(
     Conn,
     { endpoint },
     createElement(
       Wal,
-      { wallets, autoConnect: devWallet },
+      { wallets, autoConnect: devWallet, onError: onWalletError },
       createElement(
-        WalModal,
-        null,
+        WalletPickerProvider,
+        { bridge: walletBridge },
         createElement(
           QueryClientProvider,
           { client: queryClient },
@@ -227,6 +256,7 @@ export function AppProviders({
                 PythProvider,
                 null,
                 createElement("span", { "data-cluster": getCluster(), hidden: true }),
+                createElement(WalletNoticeBridge, { bridge: walletBridge }),
                 children,
               ),
             ),
