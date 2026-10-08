@@ -1,0 +1,5 @@
+# LF everywhere: scripts run inside Linux (Docker toolchain, Railway, CI) even when checked out on Windows.
+* text=auto eol=lf
+*.so binary
+*.png binary
+*.ico binary

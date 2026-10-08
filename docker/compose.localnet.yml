@@ -1,0 +1,34 @@
+# Meridian local test instance. From the repo root:
+#   docker compose -f docker/compose.localnet.yml up --build        # first run builds the program (~10 min)
+#   open http://localhost:3000  → wallet button → "Localnet Dev Wallet"
+# See docker/README.md for settle, reset and the test suites.
+name: meridian-local
+services:
+  local:
+    build: { context: ., dockerfile: toolchain.Dockerfile }
+    image: meridian-toolchain:local
+    command: ["bash", "docker/localnet/start.sh"]
+    working_dir: /repo
+    environment:
+      RESET: ${RESET:-0}
+      REBUILD: ${REBUILD:-0}
+      SEED_MODE: ${SEED_MODE:-auto}
+      ANYTIME_EXPIRY_MINUTES: ${ANYTIME_EXPIRY_MINUTES:-120}
+    volumes:
+      - ..:/repo
+      - data:/data                          # ledger, keys, dumped Phoenix programs, state
+      - target:/repo/target                 # Linux build output stays off the Windows disk
+      - nm-root:/repo/node_modules
+      - nm-web:/repo/apps/web/node_modules
+      - nm-auto:/repo/apps/automation/node_modules
+      - next:/repo/apps/web/.next
+      - cargo:/opt/cargo/registry
+    ports:
+      # Windows loopback only: the dev wallet signs for anyone who can reach the web app.
+      - "127.0.0.1:3000:3001"
+      - "127.0.0.1:8899:8899"
+      - "127.0.0.1:8900:8900"
+    ulimits:
+      nofile: { soft: 1000000, hard: 1000000 }
+
+volumes: { data: {}, target: {}, nm-root: {}, nm-web: {}, nm-auto: {}, next: {}, cargo: {} }
