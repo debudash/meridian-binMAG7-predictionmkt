@@ -1,3 +1,15 @@
+## 2026-10-07T23:20:00-05:00 — Testers: devnet staging acceptance test plan (Phantom)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Testers |
+| **Branch** | `test/staging-test-plan` from `origin/main` @ `0d856ed` (!64) |
+| **Decision** | Add `docs/STAGING_TEST_PLAN.md`: a step-by-step Phantom checklist (Action / Expected / Pass-Fail) for Railway staging https://web-production-77fbb.up.railway.app on devnet, program `9Rb7nx…`, to run once the prod `.so` is deployed (DLV-077). Every step is grounded in main @ `0d856ed` (`apps/web` labels and toasts, `programs/meridian` errors and seeds, RAILWAY_STAGING §0 params: mUSDC, `admin_settle_delay_secs` 300). Covers connect, the four intents × Market/Limit, a resting fill by a 2nd wallet + Cancel / Withdraw to wallet (DLV-087, !63), real Portfolio/History (DLV-088, !63), the opposite-side UI gate (the program doesn't block, by design), the 20-min AAPL ≥ 300 close + operator `admin_settle` (Policy A, delay), redeem, the settle proof card, the payoff line, and Explorer invariants (vault == `pairs_minted − pairs_redeemed`, Yes == No supply while Open) at mint / trades / settle / redeem with PDA seeds + raw `StrikeMarket` offsets. Marked pending on main: resting Sell No merge-on-fill (DLV-069) and History maker fills. The short market has no Phoenix book (box bootstrap), so the plan asks the operator for tokens. Lists automated gaps (no component tests, opt-in E2E needs local seed scripts, no labs CI runners) and a sign-off table. Docs only: no deploy, no Railway, no validators. |
+| **Files** | `docs/STAGING_TEST_PLAN.md` · `docs/TRACKER.md` · `README.md` · `docs/AI_LOG.md` |
+| **Related** | DLV-077 · DLV-085 · DLV-087 · DLV-088 · DLV-069 · D-018 · D-024 · D-025 · !63 · !64 |
+
+---
+
 ## 2026-10-07T14:30:00-05:00 — Orchestrator: web Phoenix order-path fixes from live localnet (DLV-066) + sizing correction (D-020)
 
 | Field | Value |

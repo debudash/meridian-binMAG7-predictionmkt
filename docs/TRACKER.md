@@ -73,6 +73,7 @@ _Last refreshed: 2026-10-07 23:30 CT (main `7f8e766`; public-launch blockers DLV
 - [x] Web (observability): **chain-read errors are logged** DLV-090 (!62) — `lib/log/chainRead.ts` (`[chain-read] <scope> failed {ctx}: msg`, deduped 60 s) across the indexer (`listFromLive` / `getMarket` / rpc / http), Phoenix book reads, Pyth/position hooks and the settle proof. A missing account is "not found"; any other RPC error is logged and surfaced
 
 - [x] Reviewer continuous / demo readiness DLV-037 (MR !40; `docs/dlv037-demo-readiness-nits`) — fixtures/localnet walkthrough **conditional pass** @ `bcf5d23`; docs polish landed; Peak6 PRD demo **video** remains Todo (DLV-038)
+- [x] Testers: **devnet staging acceptance test plan** (MR !65; `test/staging-test-plan`) — [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md): Phantom checklist for Railway staging (devnet) written against main `0d856ed`, program `9Rb7nx…`. Covers connect, Buy/Sell Yes/No × Market/Limit, resting fill by a 2nd wallet + cancel/withdraw (DLV-087), real Portfolio/History (DLV-088), opposite-side block, 20-min AAPL close + `admin_settle` (300 s delay, no Hermes key), redeem, settle proof, payoff line, Explorer vault == pairs × $1 / Yes == No supply at 4 checkpoints, sign-off table. Pending on main: resting Sell No merge (DLV-069), History maker fills. Docs only, no deploy
 
 ## In Progress
 
