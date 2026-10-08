@@ -106,8 +106,9 @@ export interface AutomationConfig {
    */
   settlerKeypairRaw: string;
   /**
-   * Review dd46769: dedicated low-privilege key that is each Phoenix book's seat-manager authority
-   * (after the PSM handoff) and pauses books at expiry. Never the upgrade key, the config authority
+   * Review dd46769: dedicated key that is each Phoenix book's seat-manager authority (after the PSM
+   * handoff) and pauses books at expiry. NOT low-privilege (review mr72-73 M1): the SM authority can
+   * also unpause, move/burn the SM authority and hand the Phoenix market authority away. Never the upgrade key, the config authority
    * or the settler. Unset → pausing disabled (warned) off mainnet; required on mainnet-beta.
    */
   pauserKeypairRaw: string;
@@ -211,8 +212,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
     keypairRaw: env.AUTOMATION_KEYPAIR ?? "",
     settlerKeypairRaw: env.SETTLER_KEYPAIR ?? "",
     pauserKeypairRaw: env.PHOENIX_PAUSER_KEYPAIR ?? "",
-    pauseLeadSecs: Number(env.PHOENIX_PAUSE_LEAD_SECS ?? "0"),
-    pauseAlertSecs: Number(env.PHOENIX_PAUSE_ALERT_SECS ?? "120"),
+    pauseLeadSecs: intInRange("PHOENIX_PAUSE_LEAD_SECS", env.PHOENIX_PAUSE_LEAD_SECS, 0, 0, 300),
+    pauseAlertSecs: intInRange("PHOENIX_PAUSE_ALERT_SECS", env.PHOENIX_PAUSE_ALERT_SECS, 120, 10, 86_400),
     collateralMint: collateral ? new PublicKey(collateral) : null,
     symbols: parseSymbols(env.STRIKE_SYMBOLS ?? "AAPL").map((s) => s.toUpperCase()),
     priorCloseE6: BigInt(env.PRIOR_CLOSE_E6 ?? "180000000"),
@@ -239,6 +240,40 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
     pythHermesUrl: env.PYTH_HERMES_URL || "https://hermes.pyth.network",
     pythHermesApiKey: env.PYTH_HERMES_API_KEY || undefined,
   };
+}
+
+/**
+ * L1 (review mr72-73): pause timing must be a plain integer in range. `Number("5s")` is NaN, and
+ * `now < expiry − NaN` is false, so a typo used to pause every book immediately. Throw at startup.
+ */
+function intInRange(name: string, raw: string | undefined, def: number, min: number, max: number): number {
+  if (raw === undefined) return def;
+  const t = raw.trim();
+  if (!/^-?[0-9]+$/.test(t) || Number(t) < min || Number(t) > max) {
+    throw new Error(`${name} must be an integer in [${min}, ${max}] seconds (got ${JSON.stringify(raw)})`);
+  }
+  return Number(t);
+}
+
+/**
+ * L5 (review mr72-73): the ops-cli pause / handoff paths refuse a pauser equal to the config authority,
+ * the settler, the current seat-manager authority / upgrade key (handoff target must be a NEW key) or
+ * any pubkey in PAUSER_MUST_DIFFER_FROM (comma list; pubkeys only, so the upgrade key never has to be
+ * loaded just for this check).
+ */
+export function assertPauserDistinct(
+  pauser: PublicKey,
+  env: Record<string, string | undefined>,
+  opts: { checkSeatManagerAuthority?: boolean } = {},
+): void {
+  const keyVars = ["AUTOMATION_KEYPAIR", "SETTLER_KEYPAIR", ...(opts.checkSeatManagerAuthority ? ["SEAT_MANAGER_AUTHORITY_KEYPAIR"] : [])];
+  for (const v of keyVars) {
+    const raw = env[v];
+    if (raw && loadKeypairFromEnv(raw).publicKey.equals(pauser)) throw new Error(`PHOENIX_PAUSER_KEYPAIR must differ from ${v}`);
+  }
+  for (const pk of (env.PAUSER_MUST_DIFFER_FROM ?? "").split(",").map((x) => x.trim()).filter(Boolean)) {
+    if (new PublicKey(pk).equals(pauser)) throw new Error(`PHOENIX_PAUSER_KEYPAIR must differ from PAUSER_MUST_DIFFER_FROM (${pk})`);
+  }
 }
 
 export function loadKeypair(cfg: AutomationConfig): Keypair {

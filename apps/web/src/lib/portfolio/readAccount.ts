@@ -80,6 +80,7 @@ export async function readWalletAccount(
   // --- 2. Phoenix trader accounts
   const phoenixRefs = refs.filter((m) => hasPhoenixMarketPubkey(m.phoenixMarket));
   const traders = new Map<string, PhoenixTraderSnapshot | null>();
+  const readFailed = new Set<string>(); // L7: requested but unreadable (missing account / decode error)
   if (phoenixRefs.length > 0) {
     const load = opts.loadMarketState ?? (await defaultLoader());
     for (const part of chunk(phoenixRefs)) {
@@ -91,6 +92,7 @@ export async function readWalletAccount(
         const info = accts[j];
         if (!info?.data) {
           traders.set(m.marketId, null);
+          readFailed.add(m.marketId);
           return;
         }
         try {
@@ -99,6 +101,7 @@ export async function readWalletAccount(
         } catch (e) {
           logChainReadError("phoenix.traderState", e, { phoenixMarket: m.phoenixMarket });
           traders.set(m.marketId, null);
+          readFailed.add(m.marketId);
         }
       });
     }
@@ -110,6 +113,7 @@ export async function readWalletAccount(
       marketId: m.marketId,
       wallet: { yes: parsedTokenUiAmount(infos[yes]), no: parsedTokenUiAmount(infos[no]) },
       phoenix: traders.get(m.marketId) ?? null,
+      ...(readFailed.has(m.marketId) ? { phoenixReadFailed: true as const } : {}),
     });
   }
   return {

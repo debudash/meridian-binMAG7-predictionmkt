@@ -70,7 +70,7 @@ Required highlights:
 | `PHOENIX_MARKETS` / `NEXT_PUBLIC_PHOENIX_*` | Devnet Phoenix market wiring |
 | `AUTOMATION_KEYPAIR` | **Railway secret only** (config authority) |
 | `SETTLER_KEYPAIR` | **Railway secret only** — M3 low-balance settle key (must differ from the authority; unset → authority fallback + warning on devnet) |
-| `PHOENIX_PAUSER_KEYPAIR` | **Railway secret only** — Phoenix pauser (seat-manager authority after the bootstrap handoff); pauses each book at expiry. Must differ from the authority and the settler. The upgrade key never goes on Railway |
+| `PHOENIX_PAUSER_KEYPAIR` | **Railway secret only** — Phoenix pauser (seat-manager authority after the bootstrap handoff); pauses each book at expiry. **Not pause-only**: full Seat Manager authority (unpause, PSM 6/9/11; review mr72-73 M1), so treat a leak as an incident (`docs/runbooks/PAUSER_ROTATION.md`). Must differ from the authority and the settler. The upgrade key never goes on Railway |
 | `NEXT_PUBLIC_INDEXER_URL` | Optional; empty → RPC GPA → fixtures |
 
 ## 3. IDL bake (automation)

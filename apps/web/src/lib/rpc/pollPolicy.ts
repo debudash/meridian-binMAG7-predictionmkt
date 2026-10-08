@@ -92,6 +92,8 @@ function settled(s: MarketRefInput["status"]): boolean {
 }
 
 function seatEmpty(state: MarketAccountState): boolean {
+  // L7 (review mr72-73): only a successful decode with no seat counts as empty; a failed read keeps polling.
+  if (state.phoenixReadFailed) return false;
   const p = state.phoenix;
   if (!p) return true;
   const { yesFree, yesLocked, usdcFree, usdcLocked } = p.seat;

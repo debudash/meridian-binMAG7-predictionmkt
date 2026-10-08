@@ -10,7 +10,7 @@ import * as http from "http";
 import { loadConfig, loadKeypair, resolvePauser, resolveSettler } from "./config";
 import { createProgram, idlHasSimFixtures } from "./solana/client";
 import { createCalendarState, runMorningCreate, runSettlePass } from "./modes/calendar";
-import { followUpDelayMs, livePauseDeps, runPausePass } from "./phoenix/pauseAtExpiry";
+import { createPauseMemory, followUpDelayMs, livePauseDeps, runPausePass, serialRunner } from "./phoenix/pauseAtExpiry";
 
 function startHealthServer(port: number): http.Server {
   const server = http.createServer((req, res) => {
@@ -79,16 +79,16 @@ async function main() {
 
   const state = createCalendarState();
 
-  const pauseDeps = pauser
-    ? livePauseDeps({ connection: (program.provider as any).connection, program, pauser, doneBooks: new Set<string>() })
-    : null;
-  let pausing = false;
+  const pauseDeps = pauser ? livePauseDeps({ connection: (program.provider as any).connection, program, pauser }) : null;
+  // M2: one memory across passes (re-pause / authority-change detection, alert rate limits).
+  const pauseMemory = createPauseMemory();
   let pauseTimer: NodeJS.Timeout | null = null;
-  const pausePass = async () => {
-    if (!pauser || !pauseDeps || pausing) return;
-    pausing = true;
+  // L3: a timer firing while a tick's pass is running sets a rerun flag instead of being dropped.
+  const pausePass = serialRunner(async () => {
+    if (!pauser || !pauseDeps) return;
     try {
-      const r = await runPausePass(pauseDeps, pauser.publicKey, { leadSecs: cfg.pauseLeadSecs, alertAfterSecs: cfg.pauseAlertSecs });
+      const r = await runPausePass(pauseDeps, pauser.publicKey, { leadSecs: cfg.pauseLeadSecs, alertAfterSecs: cfg.pauseAlertSecs }, pauseMemory);
+      if (r.passError) console.error(`[worker] pause pass error: ${r.passError}`);
       const delay = followUpDelayMs(r.nextDelayMs, cfg.workerTickMs);
       if (delay !== null && !pauseTimer) {
         pauseTimer = setTimeout(() => {
@@ -97,11 +97,9 @@ async function main() {
         }, delay);
       }
     } catch (e) {
-      console.error(`[worker] pause pass error: ${e}`);
-    } finally {
-      pausing = false;
+      console.error(`[pause] ALERT pause pass crashed: ${e}`);
     }
-  };
+  });
 
   const tick = async () => {
     await pausePass();
