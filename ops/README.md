@@ -10,7 +10,8 @@ every keypair path, RPC, program id and secret comes from the environment or an 
 | `devnet-bootstrap.cjs` | Idempotent bootstrap (mUSDC, config, strike markets, Phoenix books + maker ladder, wallets, settler, **pauser** + seat-manager **handoff**). `DRY_RUN=1` offline plan. |
 | `settle-test.cjs` | Short-market `mint` / `settle` / `redeem` / `status`. `settle` = pull settle via `apps/automation` `ops-cli pull-settle` (settler key, `PYTH_HERMES_API_KEY`), then sponsored-account settle, then `admin_settle` (`ADMIN_PRICE_E6`). |
 | `pyth-read.py` | **Informational only**: last published price of the Mag-7 shard-0 accounts (weeks stale). Age guard (`--max-age-secs`, default 900): stale feeds print `STALE`, are left out of the JSON and exit 2. **Never a settle price** (Reviewers mr72-73 M3). |
-| `lib/admin-price.cjs` | `settle-test.cjs` refuses `ADMIN_PRICE_E6` without `ADMIN_PRICE_SOURCE` (unit-tested). |
+| `lib/admin-price.cjs` | `settle-test.cjs` refuses `ADMIN_PRICE_E6` without `ADMIN_PRICE_SOURCE`, and (!77 L-2) unless `ADMIN_PRICE_MARKET` equals the market being settled (unit-tested). |
+| `lib/atomic-write.cjs` | Atomic `$STATE` writes for `devnet-bootstrap.cjs` / `settle-test.cjs` (temp file in the same dir → fsync → rename), so the pause watcher never reads a torn file (Reviewers !78 N-1). |
 | `lib/psm.cjs` | Phoenix Seat Manager ix builders for the .cjs scripts; byte parity with `apps/automation/src/phoenix/seatManager.ts` is unit-tested. |
 | `staging.e2e.test.ts` | Opt-in web order-path e2e (`STAGING_E2E=1`), copied into a prepared `apps/web` by `run-staging.sh`. |
 
@@ -38,6 +39,13 @@ Mechanism (verified against `phoenix-seat-manager-v1` 31ad32a + `phoenix-v1` sou
    `Paused` (3): no new orders or crosses; **cancel and withdraw still work**. The automation worker does this every
    tick plus an exact-time timer; the box runs `ops-cli pause-watch` as a backstop and `pause-once` for the 20-min
    market. Overdue/failed pauses and books whose seat-manager authority isn't the pauser log `[pause] ALERT …`.
+   Since the !78 follow-up: a book that left PSM (market authority ≠ SM PDA) gets no pause send (`skip-left-psm`, one
+   rate-limited ALERT); repeated `went Active again` / `pause FAILED` ALERTs repeat at most every
+   `PHOENIX_PAUSE_ALERT_REPEAT_SECS` (3600) per book; `pause-watch` keeps its alert memory in
+   `<state>-pause-memory.json` (atomic; `--memory none` = off) and survives a torn state file with a `[pause] ALERT`;
+   a failed first pass is a `[pause] ALERT`. `pause-status --expect-pauser` also fails a book whose market authority
+   isn't the SM PDA (N-5). `EXPECTED_PAUSER_PUB` in `staging.env` pins the pauser: handoff and the watcher abort on a
+   mismatch (!77 L-3).
    Note: PSM ix 8 needs the seat-manager PDA **writable** (Phoenix's CPI marks its authority writable), although the
    PSM IDL lists it read-only.
 
@@ -53,7 +61,7 @@ SOLANA_RPC_URL=… PHOENIX_PAUSER_KEYPAIR=… SEAT_MANAGER_AUTHORITY_KEYPAIR=$KE
 `run-staging.sh` never settles from a stale account. When the Pyth pull settle hasn't landed by expiry + 330 s:
 
 1. `ops-cli admin-price --market <20-min market>` (read-only; Hermes key from env) takes the **Hermes price at expiry**
-   if it is the market's feed, `|publish_time − expiry| ≤ ADMIN_PRICE_MAX_SKEW_SECS` (600) and conf ≤ the config cap.
+   if it is the market's feed, `|publish_time − expiry| ≤ ADMIN_PRICE_MAX_SKEW_SECS` (default 60 s = the on-chain publish window; up to 300 s only as a logged override, !77 L-1) and conf ≤ the config cap.
 2. Otherwise it prints `ADMIN_PRICE_REFUSED reason=…`; the script logs `[settle] ALERT … REFUSED` and waits up to
    `OPERATOR_PRICE_WAIT_HOURS` (24) for `$ADMIN_PRICE_FILE` (default `$OPS_DIR/ADMIN_PRICE_20M`, gitignored):
 

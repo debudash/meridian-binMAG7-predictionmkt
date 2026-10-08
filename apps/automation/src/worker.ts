@@ -11,6 +11,7 @@ import { loadConfig, loadKeypair, resolvePauser, resolveSettler } from "./config
 import { createProgram, idlHasSimFixtures } from "./solana/client";
 import { createCalendarState, runMorningCreate, runSettlePass } from "./modes/calendar";
 import { createPauseMemory, followUpDelayMs, livePauseDeps, runPausePass, serialRunner } from "./phoenix/pauseAtExpiry";
+import { loadPauseMemory, savePauseMemory } from "./phoenix/pauseMemoryStore";
 
 function startHealthServer(port: number): http.Server {
   const server = http.createServer((req, res) => {
@@ -81,14 +82,28 @@ async function main() {
 
   const pauseDeps = pauser ? livePauseDeps({ connection: (program.provider as any).connection, program, pauser }) : null;
   // M2: one memory across passes (re-pause / authority-change detection, alert rate limits).
-  const pauseMemory = createPauseMemory();
+  // N-3: optional persistence (PAUSE_MEMORY_FILE on a mounted volume); Railway's default disk is per-deploy.
+  const pauseMemoryFile = process.env.PAUSE_MEMORY_FILE || undefined;
+  let pauseMemory = createPauseMemory();
+  if (pauseMemoryFile) {
+    const loaded = loadPauseMemory(pauseMemoryFile);
+    pauseMemory = loaded.memory;
+    if (loaded.warning) console.error(`[pause] ALERT ${loaded.warning}`);
+  }
   let pauseTimer: NodeJS.Timeout | null = null;
   // L3: a timer firing while a tick's pass is running sets a rerun flag instead of being dropped.
   const pausePass = serialRunner(async () => {
     if (!pauser || !pauseDeps) return;
     try {
-      const r = await runPausePass(pauseDeps, pauser.publicKey, { leadSecs: cfg.pauseLeadSecs, alertAfterSecs: cfg.pauseAlertSecs }, pauseMemory);
+      const r = await runPausePass(pauseDeps, pauser.publicKey, { leadSecs: cfg.pauseLeadSecs, alertAfterSecs: cfg.pauseAlertSecs, alertRepeatSecs: cfg.pauseAlertRepeatSecs }, pauseMemory);
       if (r.passError) console.error(`[worker] pause pass error: ${r.passError}`);
+      if (pauseMemoryFile) {
+        try {
+          savePauseMemory(pauseMemoryFile, pauseMemory);
+        } catch (e) {
+          console.error(`[pause] ALERT could not save pause memory ${pauseMemoryFile}: ${e}`);
+        }
+      }
       const delay = followUpDelayMs(r.nextDelayMs, cfg.workerTickMs);
       if (delay !== null && !pauseTimer) {
         pauseTimer = setTimeout(() => {

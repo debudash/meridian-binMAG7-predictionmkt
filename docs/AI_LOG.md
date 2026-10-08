@@ -1,3 +1,17 @@
+## 2026-10-08T10:15:00-05:00 — Engineers: Reviewers !77 / !78 / !79 follow-up (rotation runbook R-1/2/3, pause-watch N-1…N-5, !77 L-1/2/3, !79 design answers)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `fix/pause-watch-review-77-79` from `origin/main` @ `1c12909` (Merge !78) |
+| **Source** | `/workspace/meridian-review-mr77-79.md` + `mr-77` / `mr-78` / `mr-79` (no Highs; !78 approved with R-1 before any rotation and N-1 before the next staging run). |
+| **Decision** | Fix every !78 finding and the cheap !77 Lows in one MR; !79 answers are docs only (no program change). N-3: persist the pause memory (cheap, atomic file) **and** alert any listed book whose SM authority isn't the pauser, so a restart without memory still alerts. N-2: never send a pause to a book that left PSM (it can only fail), and route repeat alerts through the keyed limiter (configurable). L-2: bind the manual settle price to the market (Reviewers' second option); freshness stays in `ops-cli admin-price`. L-3: `EXPECTED_PAUSER_PUB` pin, unset = warning only. |
+| **Change** | `apps/automation`: `pauseAtExpiry.ts` (`skip-left-psm`, keyed reopen/fail alerts, every-book SM check, first-pass / consecutive failure ALERTs, `alertRepeatSecs`), new `phoenix/pauseMemoryStore.ts`, new `util/atomicWrite.ts`, `handoff.ts` (`authorityReport` checks header authority), `ops-cli.ts` (`stateComplete`, guarded watch loop, `--memory`, left-PSM ALERT line, `adminPriceMaxSkewSecs`, `[pause] ALERT` on fatal), `config.ts` (`PHOENIX_PAUSE_ALERT_REPEAT_SECS`), `worker.ts` (repeat + optional `PAUSE_MEMORY_FILE`), `pyth/adminFallback.ts` (60 s skew). `ops/`: new `lib/atomic-write.cjs`, `devnet-bootstrap.cjs` / `settle-test.cjs` atomic state, `lib/admin-price.cjs` market binding, `run-staging.sh` (pin, `ADMIN_PRICE_MARKET`, `RUN_TMP` trap, 60 s text), `pyth-read.py` arg parsing, README + env example. Docs: `runbooks/PAUSER_ROTATION.md`, `design/phoenix-pause-pda-authority.md` §3–§9, STAGING_TEST_PLAN, TRACKER DLV-109…112. |
+| **Tests** | Red first: `test/review-77-79.test.ts` (35). New localnet case: Reviewers' PoC (PSM 9 → Phoenix 101 → 103 Active) → `skip-left-psm`, 0 sends, 2 ALERTs over 5 passes, `--expect-pauser` fails. Automation **160 passing + 13 pending**; with a temporary :8699 Phoenix validator **173/173** (validator stopped). `tsc` (main, test, prod) clean. |
+| **Related** | DLV-109 · DLV-110 · DLV-111 · DLV-112 · DLV-104 · DLV-105 · review mr77-79 |
+
+---
+
 ## 2026-10-08T09:30:00-05:00 — Engineers: per-book resilient Phoenix quotes on market cards + both-sides position badge
 
 | Field | Value |

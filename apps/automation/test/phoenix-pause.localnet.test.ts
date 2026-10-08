@@ -40,6 +40,7 @@ import {
   seatManagerHandoffIxs,
 } from "../src/phoenix/seatManager";
 import { createPauseMemory, livePauseDeps, readBookStates, runPausePass } from "../src/phoenix/pauseAtExpiry";
+import { authorityReport } from "../src/phoenix/handoff";
 
 const RPC = process.env.PHOENIX_LOCALNET_RPC;
 const MARKET_SPACE = 232544;
@@ -161,6 +162,40 @@ describe("localnet PSM: handoff + ChangeMarketStatus(Paused) on a real Phoenix b
     expect(r2.paused).to.have.length(1);
     expect(await status()).to.equal(PhoenixMarketStatus.Paused);
     expect(alerts.some((a) => /went Active again after it was paused/.test(a))).to.equal(true);
+  });
+
+  it("Reviewers !78 N-2/N-5 PoC: book taken out of PSM (PSM 9 → Phoenix 101 → 103 Active) fails --expect-pauser, gets no pause send, rate-limited ALERTs", async () => {
+    const attacker = Keypair.generate();
+    await conn.confirmTransaction(await conn.requestAirdrop(attacker.publicKey, LAMPORTS_PER_SOL), "confirmed");
+    const psm9 = new TransactionInstruction({ programId: PSM, data: Buffer.concat([Buffer.from([9]), attacker.publicKey.toBuffer()]), keys: [
+      { pubkey: PHX, isSigner: false, isWritable: false }, { pubkey: phoenixLogAuthority(), isSigner: false, isWritable: false },
+      { pubkey: market, isSigner: false, isWritable: true }, { pubkey: seatManagerAddress(market), isSigner: false, isWritable: true },
+      { pubkey: pauser.publicKey, isSigner: true, isWritable: false }] });
+    await sendAndConfirmTransaction(conn, new Transaction().add(psm9), [pauser]); // leaked pauser names the attacker
+    await sendAndConfirmTransaction(conn, new Transaction().add(
+      phxAuthIx(101, Buffer.alloc(0), market, attacker.publicKey, false),
+      phxAuthIx(103, Buffer.from([1]), market, attacker.publicKey, true)), [attacker]);
+    expect(await status()).to.equal(PhoenixMarketStatus.Active);
+    const book = { strikeMarket: Keypair.generate().publicKey, phoenixMarket: market, expiryTs: Math.floor(Date.now() / 1000) - 1, label: "localnet-poc" };
+    const states = await readBookStates(conn, [book]);
+    expect(states.get(market.toBase58())!.seatManagerAuthority!.toBase58()).to.equal(pauser.publicKey.toBase58()); // the old gate passed N/N
+    const gate = authorityReport([book], states, pauser.publicKey);
+    expect(gate.ok).to.equal(false);
+    expect(gate.mismatches[0].reason).to.equal("left-psm");
+    const alerts: string[] = [];
+    let sends = 0;
+    const live = livePauseDeps({ connection: conn, program: undefined as any, pauser });
+    const deps = { ...live, listBooks: async () => [book], log: () => {}, alert: (m: string) => alerts.push(m), sendPause: async (b: any) => { sends++; return live.sendPause(b); } };
+    const mem = createPauseMemory();
+    mem.pausedOnce.add(market.toBase58());
+    for (let i = 0; i < 5; i++) {
+      const r = await runPausePass(deps, pauser.publicKey, {}, mem);
+      expect(r.decisions[0].action).to.equal("skip-left-psm");
+    }
+    expect(sends).to.equal(0);
+    expect(alerts.filter((a) => /not the Seat Manager PDA/.test(a))).to.have.length(1);
+    expect(alerts.filter((a) => /went Active again.*left the Seat Manager/.test(a))).to.have.length(1);
+    expect(alerts.length).to.equal(2);
   });
 });
 
