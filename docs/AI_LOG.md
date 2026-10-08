@@ -1,3 +1,15 @@
+## 2026-10-08T08:20:00-05:00 — Testers: VISUAL_RUNBOOK (click-by-click, localnet + devnet) and STAGING_TEST_PLAN for !73 pause at expiry + settle chain
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Testers |
+| **Branch** | `test/visual-runbook` from `origin/main` @ `7219ac1` (Merge !73) |
+| **Decision** | (1) New `docs/VISUAL_RUNBOOK.md`: 17 use cases × Track A (localnet :3000, Localnet Dev Wallet) / Track B (devnet staging, Phantom + wallet B). Every step has Click / Do, You should see, and a Pass box. UI strings are copied from `apps/web/src` @ `7219ac1`. It also lists the `/workspace/meridian-*.png` reference shots (localnet, 2026-10-07; some predate !63/!67) and a known-limits box (DLV-069, maker fills missing from History, Pyth off-hours → `admin_settle`). (2) `STAGING_TEST_PLAN.md` updated for !73. At expiry the pauser sends PSM `ChangeMarketStatus` → `Paused` (worker tick + exact-time timer; box `pause-once` / `pause-watch`). New orders are rejected on-chain (phoenix-v1 `assert_post_allowed` / `assert_cross_allowed`: `Post only order is not allowed, market status is Paused` / `FOK and IOC orders are not allowed, market status is Paused`, `invalid account data for instruction`), while cancel and withdraw still work (`reduce_allowed`). The app has no paused-specific copy: the ticket is already **Trading closed**, and `errors.ts` `Paused` is the Meridian config pause, not the Phoenix status. Rewrote 7.3b (blocked trading; Cancel, Cancel all and Withdraw succeed) and added 7.3c (status = Paused via `ops-cli pause-status` or Phoenix header u64 @ 8 = 3). The §7 box now covers the expiry-to-pause window and replaces the "books stay tradeable" known limit. Settle chain as coded: box `settle-test.cjs` runs pull-settle (sponsored → Hermes) → legacy sponsored `settle` → `admin_settle` at expiry + 330 s; automation runs sponsored → Hermes → `admin_settle` after 20 tries plus a fixed price. Signers: settler / authority / pauser. Added §0 rows, 1.2d (Railway `PHOENIX_PAUSER_KEYPAIR`, Debu's secret, and handoff check), 1.7 READY line, a §4 note on post-expiry runs, §9 Pyth-settle variants, a coverage gap (no localnet test for orders / cancel / withdraw on a paused book), and known limits. Docs only. |
+| **Files** | `docs/VISUAL_RUNBOOK.md` (new), `docs/STAGING_TEST_PLAN.md`, `docs/AI_LOG.md` |
+| **Related** | !73 · DLV-097 · DLV-098 · DLV-085 · DLV-069 · DLV-088 · D-025 · M3 |
+
+---
+
 ## 2026-10-08T01:05:00-05:00 — Engineers: pause Phoenix books at expiry (pauser + PSM handoff), ops/ scripts in git, Hermes pull settle
 
 | Field | Value |
