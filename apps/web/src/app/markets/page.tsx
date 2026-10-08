@@ -11,7 +11,7 @@ export default async function MarketsPage({
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
   const nowSec = Math.floor(Date.now() / 1000);
-  const { markets, usedFixtures, message, source } = await listMarkets(nowSec);
+  const { markets, usedFixtures, message, source, error } = await listMarkets(nowSec);
   const statusParam = typeof searchParams?.status === "string" ? searchParams.status : "open";
   const q = typeof searchParams?.q === "string" ? searchParams.q : "";
   const sort = typeof searchParams?.sort === "string" ? searchParams.sort : "close";
@@ -25,6 +25,17 @@ export default async function MarketsPage({
       <p className="muted" style={{ marginTop: -4 }}>
         One book per market — Yes and No are two prices on the same Phoenix book.
       </p>
+      {error && (
+        <div className="card" role="alert" data-testid="markets-unavailable" style={{ marginBottom: "1rem" }}>
+          <strong>Markets unavailable</strong>
+          <p className="muted" style={{ margin: "0.5rem 0 0" }}>{error}</p>
+        </div>
+      )}
+      {!error && !usedFixtures && markets.length === 0 && message && (
+        <div className="card" data-testid="markets-empty" style={{ marginBottom: "1rem" }}>
+          {message}
+        </div>
+      )}
       <MarketsClient
         markets={markets}
         initialStatus={statusParam}

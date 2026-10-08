@@ -10,7 +10,8 @@ import { OrderBook } from "@/components/trade/OrderBook";
 import { TradeTicket } from "@/components/trade/TradeTicket";
 import { PositionPanel } from "@/components/trade/PositionPanel";
 import { SettleProofCard } from "@/components/market/SettleProofCard";
-import { fixtureBook } from "@/lib/market/fixtures";
+import { displayBook } from "@/lib/market/fixtures";
+import { fixturesAllowed } from "@/lib/solana/config";
 import { fetchPhoenixBook, isPhoenixPlacementEnabled } from "@/lib/phoenix";
 import { useConnection } from "@solana/wallet-adapter-react";
 import type { OrderBookSnapshot } from "@/lib/market/types";
@@ -95,7 +96,7 @@ export function TradeClient({
     };
   }, [market.phoenixMarket, connection]);
   const book = useMemo(
-    () => liveBook ?? fixtureBook(market),
+    () => displayBook(liveBook, market, fixturesAllowed()),
     [liveBook, market],
   );
   // Book row selection ⇄ ticket price (DLV-071). Keys are Yes-price ticks, so the

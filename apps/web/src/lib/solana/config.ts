@@ -11,6 +11,16 @@ export function getCluster(): string {
   return process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet";
 }
 
+/**
+ * Fixture (sample) markets / order books are a localnet + local-dev convenience only (DLV-084).
+ * Devnet, testnet and mainnet must surface real chain state or a clear error/empty state.
+ */
+const FIXTURE_CLUSTERS = new Set(["localnet", "localhost", "custom"]);
+
+export function fixturesAllowed(cluster = getCluster()): boolean {
+  return FIXTURE_CLUSTERS.has(cluster);
+}
+
 export function getRpcUrl(): string {
   return (
     process.env.NEXT_PUBLIC_SOLANA_RPC_URL ??

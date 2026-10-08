@@ -36,7 +36,7 @@ export function MarketsClient({
   initialView?: string;
   initialUnderlyings?: string;
   initialExpiry?: string;
-  dataSource?: "indexer-http" | "rpc-gpa" | "fixtures";
+  dataSource?: "indexer-http" | "rpc-gpa" | "fixtures" | "unavailable";
   fixtureBanner?: string;
 }) {
   const { nowSec } = useChainClock();
