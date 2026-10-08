@@ -7,10 +7,11 @@
  * gates pass on the server and `LOCALNET_DEV_WALLET_KEYPAIR` is set.
  *
  * Hard gates (all required, see isLocalnetDevWalletAllowed):
+ *   NODE_ENV !== "production" (`next dev` only — a `next build` can never enable it; DLV-080)
  *   NEXT_PUBLIC_SOLANA_CLUSTER=localnet
  *   NEXT_PUBLIC_LOCALNET_DEV_WALLET=true
  *   NEXT_PUBLIC_SOLANA_RPC_URL on loopback (127.0.0.1 / localhost)
- * Devnet/mainnet builds never register this adapter.
+ * Devnet/mainnet and all production builds never register this adapter.
  */
 import {
   BaseSignerWalletAdapter,
@@ -38,12 +39,16 @@ export function isLocalnetDevWalletAllowed(env: {
   cluster?: string;
   flag?: string;
   rpcUrl?: string;
+  nodeEnv?: string;
 } = {
   cluster: process.env.NEXT_PUBLIC_SOLANA_CLUSTER,
   flag: process.env.NEXT_PUBLIC_LOCALNET_DEV_WALLET,
   rpcUrl: process.env.NEXT_PUBLIC_SOLANA_RPC_URL,
+  // Inlined by Next at build time → a production bundle constant-folds this gate to false.
+  nodeEnv: process.env.NODE_ENV,
 }): boolean {
   return (
+    env.nodeEnv !== "production" &&
     env.cluster === "localnet" &&
     env.flag === "true" &&
     !!env.rpcUrl &&
