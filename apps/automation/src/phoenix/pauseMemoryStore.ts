@@ -11,18 +11,21 @@ import { createPauseMemory, type PauseMemory } from "./pauseAtExpiry";
 
 const VERSION = 1;
 
-export function serializePauseMemory(m: PauseMemory): string {
+/** Alert timestamps older than this are dropped on save (the file must not grow forever). */
+export const ALERT_MEMORY_TTL_SECS = 7 * 86_400;
+
+export function serializePauseMemory(m: PauseMemory, nowUnix = Math.floor(Date.now() / 1000)): string {
   return JSON.stringify({
     version: VERSION,
     pausedOnce: [...m.pausedOnce],
     onPauser: [...m.onPauser],
-    lastAlert: Object.fromEntries(m.lastAlert),
+    lastAlert: Object.fromEntries([...m.lastAlert].filter(([, t]) => nowUnix - t < ALERT_MEMORY_TTL_SECS)),
     lastBooks: m.lastBooks.map((b) => ({ strikeMarket: b.strikeMarket.toBase58(), phoenixMarket: b.phoenixMarket.toBase58(), expiryTs: b.expiryTs, label: b.label })),
   });
 }
 
-export function savePauseMemory(file: string, m: PauseMemory): void {
-  writeFileAtomicSync(file, serializePauseMemory(m), 0o600);
+export function savePauseMemory(file: string, m: PauseMemory, nowUnix?: number): void {
+  writeFileAtomicSync(file, serializePauseMemory(m, nowUnix), 0o600);
 }
 
 export function loadPauseMemory(file: string): { memory: PauseMemory; warning?: string } {

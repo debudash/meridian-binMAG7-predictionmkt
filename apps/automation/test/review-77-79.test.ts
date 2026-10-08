@@ -202,6 +202,15 @@ describe("N-3: alert memory survives restarts", () => {
     expect(back.memory.lastBooks[0].phoenixMarket.toBase58()).to.equal(b.phoenixMarket.toBase58());
     expect(back.memory.lastBooks[0].expiryTs).to.equal(b.expiryTs);
   });
+  it("alert timestamps older than 7 days are pruned on save (file can't grow forever)", () => {
+    const d = tmpdir();
+    const f = path.join(d, "mem.json");
+    const m = createPauseMemory();
+    m.lastAlert.set("old", T - 8 * 86400);
+    m.lastAlert.set("new", T - 60);
+    savePauseMemory(f, m, T);
+    expect([...loadPauseMemory(f).memory.lastAlert.keys()]).to.deep.equal(["new"]);
+  });
   it("a missing file is a fresh memory; a corrupt file is a fresh memory + warning (never a crash)", () => {
     const d = tmpdir();
     expect(loadPauseMemory(path.join(d, "nope.json")).warning).to.equal(undefined);
