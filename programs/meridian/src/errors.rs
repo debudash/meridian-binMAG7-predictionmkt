@@ -50,4 +50,7 @@ pub enum MeridianError {
     OutcomeInconsistent,
     #[msg("Simulated clock not enabled")]
     SimClockNotEnabled,
+    /// D-025: Pyth update must be the first price at/after expiry (prev_publish_time < expiry_ts <= publish_time).
+    #[msg("Pyth update is not the first price at or after market expiry")]
+    PythPriceNotAtExpiry,
 }

@@ -1,3 +1,5 @@
+use anchor_lang::prelude::*;
+
 pub const PRICE_SCALE: u64 = 1_000_000;
 pub const CONFIG_SEED: &[u8] = b"config";
 #[cfg(feature = "localnet-test")]
@@ -13,8 +15,14 @@ pub const DEFAULT_CONF_RATIO_BPS: u16 = 500;
 pub const DEFAULT_ADMIN_SETTLE_DELAY_SECS: u64 = 1800;
 /// Mock Pyth price account magic (little-endian "MPYT") — localnet-test only.
 pub const MOCK_PYTH_MAGIC: u32 = 0x5459_504d;
-/// Legacy Pyth on-chain Price account magic (pyth-sdk-solana).
-pub const PYTH_PRICE_MAGIC: u32 = 0xa1b2_c3d4;
+/// Pyth Solana Receiver program — owner of every pull-oracle `PriceUpdateV2` account
+/// (freshly posted updates and the Price Feed program's sponsored shard PDAs). D-019 / D-025.
+pub const PYTH_RECEIVER_PROGRAM_ID: Pubkey =
+    anchor_lang::solana_program::pubkey!("rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ");
+/// Anchor discriminator of `PriceUpdateV2` = sha256("account:PriceUpdateV2")[..8].
+pub const PRICE_UPDATE_V2_DISCRIMINATOR: [u8; 8] = [34, 241, 35, 99, 157, 126, 244, 205];
+/// Milliseconds per slot used to map D-005's slot staleness onto Pyth publish_time seconds.
+pub const SLOT_MS: u64 = 400;
 /// Hard cap on mint/redeem fee bps (10%). Reviewer S2.
 pub const MAX_FEE_BPS: u16 = 1_000;
 /// Minimum admin_settle_delay_secs on production update_config (localnet-test may use 0).

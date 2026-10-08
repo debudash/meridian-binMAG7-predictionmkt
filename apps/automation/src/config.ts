@@ -115,6 +115,10 @@ export interface AutomationConfig {
   adminSettleOutcomeYes: boolean | null;
   workerTickMs: number;
   logLevel: string;
+  /** D-025: Hermes base URL for pull-oracle settle prices. */
+  pythHermesUrl: string;
+  /** D-025: Hermes API key (Bearer). Required off-localnet for permissionless settle since 2026-08-26. */
+  pythHermesApiKey: string | undefined;
 }
 
 function resolveIdlPath(raw: string): string {
@@ -212,6 +216,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
         : env.ADMIN_SETTLE_OUTCOME_YES === "true" || env.ADMIN_SETTLE_OUTCOME_YES === "1",
     workerTickMs: Number(env.WORKER_TICK_MS ?? "60000"),
     logLevel: env.LOG_LEVEL ?? "info",
+    pythHermesUrl: env.PYTH_HERMES_URL || "https://hermes.pyth.network",
+    pythHermesApiKey: env.PYTH_HERMES_API_KEY || undefined,
   };
 }
 

@@ -122,7 +122,9 @@ Set per Railway environment (staging → devnet, prod → mainnet). **Secrets on
 | `SOLANA_CLUSTER` | `devnet` | `mainnet-beta` | no |
 | `MERIDIAN_PROGRAM_ID` | Devnet program pubkey | Mainnet program pubkey | no |
 | `MERIDIAN_IDL_PATH` | `idl/meridian.prod.json` (in-package bake) | same | no |
-| `PYTH_PRICE_FEED_*` / feed map | **Devnet** Pyth price account pubkeys + feed ids | **Mainnet** feeds | no |
+| `PYTH_PRICE_FEEDS` / `PYTH_FEED_IDS` | **Devnet** reference accounts (shard-1 PDAs, SCHEMA §3.1.1) + feed ids (**required**, D-025) | **Mainnet** reference accounts + feed ids | no |
+| `PYTH_HERMES_API_KEY` | Pyth Hermes key (Bearer) — required for permissionless pull-oracle settle (D-025) | same | **YES** |
+| `PYTH_HERMES_URL` | `https://hermes.pyth.network` (default) or `https://pyth.dourolabs.app/hermes` | same | no |
 | `PHOENIX_MARKET_*` | Devnet Phoenix market pubkeys | Mainnet Phoenix | no |
 | `COLLATERAL_MINT` | Devnet USDC (or test mint) | Mainnet USDC | no |
 | `AUTHORITY_KEYPAIR` / `AUTOMATION_KEYPAIR` | Base58 or JSON via Railway secret | Railway secret | **YES** |
@@ -134,6 +136,7 @@ Set per Railway environment (staging → devnet, prod → mainnet). **Secrets on
 ### Automation notes
 
 - Staging/prod automation uses **permissionless settle** + **admin_settle** only with authority secret; no mock Pyth upsert.
+- Permissionless settle (D-025): Hermes price at `expiry_ts` → Pyth receiver post (full verification) → `settle` → close accounts. Without `PYTH_HERMES_API_KEY` it logs `needsApiKey` and only `admin_settle` can resolve markets.
 - Localnet-only sim session / mock Pyth helpers must not be imported into Railway prod bundles (tree-shake / separate package entry).
 - Package: [`apps/automation`](../apps/automation) — start `node dist/worker.js` (calendar). Sim one-liner: `yarn automation:sim` (localnet only) — see [`SIM_LIFECYCLE.md`](SIM_LIFECYCLE.md).
 - Dual-mode: `MODE=calendar` (default, Railway) vs `MODE=sim` (`sim-lifecycle` entry). Worker refuses `MODE=sim`. Client refuses fixture IDL when `SOLANA_CLUSTER` ≠ `localnet`.
