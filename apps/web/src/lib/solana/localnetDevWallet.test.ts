@@ -23,6 +23,7 @@ describe("isLocalnetDevWalletAllowed (hard gate)", () => {
     ["remote RPC", { ...LOCAL, rpcUrl: "https://api.devnet.solana.com" }],
     ["lookalike host", { ...LOCAL, rpcUrl: "http://127.0.0.1.evil.example:8899" }],
     ["no RPC", { ...LOCAL, rpcUrl: undefined }],
+    ["production build (NODE_ENV=production)", { ...LOCAL, nodeEnv: "production" }],
   ])("denies: %s", (_label, env) => {
     expect(isLocalnetDevWalletAllowed(env)).toBe(false);
   });
@@ -52,6 +53,29 @@ describe("/api/localnet-dev-wallet", () => {
     expect(res.status).toBe(404);
   });
 
+  it("404s for a spoofed loopback Host when Next forwarded a non-loopback client address (DLV-080)", async () => {
+    process.env.NEXT_PUBLIC_SOLANA_CLUSTER = "localnet";
+    process.env.NEXT_PUBLIC_LOCALNET_DEV_WALLET = "true";
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL = "http://127.0.0.1:8899";
+    process.env.LOCALNET_DEV_WALLET_KEYPAIR = "/nonexistent.json";
+    const res = await GET(
+      new Request("http://localhost:3000/api/localnet-dev-wallet", {
+        headers: { host: "localhost:3000", "x-forwarded-for": "172.30.0.2" },
+      }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("404s in a production build even with every localnet env set (DLV-080)", async () => {
+    process.env.NEXT_PUBLIC_SOLANA_CLUSTER = "localnet";
+    process.env.NEXT_PUBLIC_LOCALNET_DEV_WALLET = "true";
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL = "http://127.0.0.1:8899";
+    process.env.LOCALNET_DEV_WALLET_KEYPAIR = "/nonexistent.json";
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    const res = await GET(new Request("http://127.0.0.1:3000/api/localnet-dev-wallet", { headers: { host: "127.0.0.1:3000" } }));
+    expect(res.status).toBe(404);
+  });
+
   it("404s when no keypair path is configured", async () => {
     process.env.NEXT_PUBLIC_SOLANA_CLUSTER = "localnet";
     process.env.NEXT_PUBLIC_LOCALNET_DEV_WALLET = "true";
@@ -70,7 +94,11 @@ describe("/api/localnet-dev-wallet", () => {
       process.env.NEXT_PUBLIC_LOCALNET_DEV_WALLET = "true";
       process.env.NEXT_PUBLIC_SOLANA_RPC_URL = "http://127.0.0.1:8899";
       process.env.LOCALNET_DEV_WALLET_KEYPAIR = file;
-      const res = await GET(new Request("http://127.0.0.1:3000/api/localnet-dev-wallet", { headers: { host: "127.0.0.1:3000" } }));
+      const res = await GET(
+        new Request("http://127.0.0.1:3000/api/localnet-dev-wallet", {
+          headers: { host: "127.0.0.1:3000", "x-forwarded-for": "127.0.0.1" },
+        }),
+      );
       expect(res.status).toBe(200);
       const body = (await res.json()) as { secretKey: number[] };
       expect(Keypair.fromSecretKey(Uint8Array.from(body.secretKey)).publicKey.toBase58()).toBe(kp.publicKey.toBase58());
