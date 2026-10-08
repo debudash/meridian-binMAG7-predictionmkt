@@ -42,6 +42,7 @@ import { demoMarketAllowed } from "@/lib/portfolio/demoMode";
 import { onTablistKeyDown, selectableRowProps, tabProps } from "@/components/ui/a11y";
 import { useRememberViewedMarket } from "@/components/ui/useLastViewedMarket";
 import { toggleSelection } from "@/lib/ui/selection";
+import { POLL_MS } from "@/lib/rpc/pollPolicy";
 
 const VALID_INTENTS = new Set<Intent>([
   "buy-yes",
@@ -98,15 +99,20 @@ export function TradeClient({
       if (!cancelled && snap) setLiveBook(snap);
     };
     void load();
-    // Poll so fills show up on the ladder without a reload.
-    const t = isPhoenixPlacementEnabled(market.phoenixMarket)
-      ? setInterval(load, 4000)
-      : undefined;
+    // Poll so fills show up on the ladder without a reload. M4: 6s (was 4s), skipped while the
+    // tab is hidden, and no polling once the market is no longer open.
+    const t =
+      isPhoenixPlacementEnabled(market.phoenixMarket) && market.status === "open"
+        ? setInterval(() => {
+            if (typeof document !== "undefined" && document.hidden) return;
+            void load();
+          }, POLL_MS.tradeBook)
+        : undefined;
     return () => {
       cancelled = true;
       if (t) clearInterval(t);
     };
-  }, [market.phoenixMarket, connection]);
+  }, [market.phoenixMarket, market.status, connection]);
   const book = useMemo(
     () => displayBook(liveBook, market, fixturesAllowed()),
     [liveBook, market],
@@ -140,6 +146,8 @@ export function TradeClient({
     position: account.position ?? undefined,
     openOrders: account.openOrders ?? undefined,
     balancesLoading: account.connected && account.loading && !account.position,
+    // M5: a failed first read keeps the ticket locked (with a retry), never "flat".
+    balancesError: account.connected && !account.position && account.error != null,
     lifecycle: getCountdown(market, nowSec).state,
     lotSize: market.lotSize,
   });
@@ -210,7 +218,12 @@ export function TradeClient({
         : account.orders.map((o) => ({ ...o, demo: false as const })),
     [demoMarket, market.marketId, account.orders],
   );
-  const history = useWalletHistory(demoMarket ? undefined : [market], account.connected);
+  // M4: poll history only while the Fills tab is open (one read otherwise, for the tab count).
+  const history = useWalletHistory(
+    demoMarket ? undefined : [market],
+    account.connected,
+    zoneTab === "fills" ? POLL_MS.history : false,
+  );
   const marketFills = useMemo(
     () =>
       (demoMarket ? demoHistoryRows(nowSec) : history.data?.rows ?? []).filter(
@@ -488,6 +501,8 @@ export function TradeClient({
             usdcBalance={account.usdc}
             onTicketChange={setTicketState}
             underlying={underlying}
+            seatFree={seat ? { yesFree: seat.yesFree, usdcFree: seat.usdcFree } : null}
+            onRetryBalances={account.refresh}
           />
         </aside>
       </div>

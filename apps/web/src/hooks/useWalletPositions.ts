@@ -8,7 +8,7 @@
 import { useMemo } from "react";
 import type { OpenOrdersSnapshot, PositionSnapshot } from "@/lib/intents/types";
 import { availabilityInputs } from "@/lib/portfolio/account";
-import type { AccountMarketRef } from "@/lib/portfolio/readAccount";
+import { accountRefsFor, POLL_MS } from "@/lib/rpc/pollPolicy";
 import { useWalletAccount } from "./useWalletAccount";
 
 export interface LiveExposure extends PositionSnapshot {
@@ -17,10 +17,12 @@ export interface LiveExposure extends PositionSnapshot {
 }
 
 export function useWalletPositions(
-  markets: readonly AccountMarketRef[],
-  pollMs = 10_000,
+  markets: Parameters<typeof accountRefsFor>[0],
+  pollMs: number = POLL_MS.marketsAccount,
 ): Map<string, LiveExposure> | null {
-  const { account } = useWalletAccount(markets, pollMs);
+  // M4: Phoenix reads only for open markets (settled ones can't be traded); 30s (was 10s).
+  const refs = useMemo(() => accountRefsFor(markets), [markets]);
+  const { account } = useWalletAccount(refs, pollMs);
   return useMemo(() => {
     if (!account) return null;
     const out = new Map<string, LiveExposure>();

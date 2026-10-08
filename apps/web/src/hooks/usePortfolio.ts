@@ -14,6 +14,7 @@ import { demoAccountAllowed } from "@/lib/portfolio/demoMode";
 import { buildDemoPortfolio } from "@/lib/demo/portfolio";
 import { useMarketList } from "./useMarketList";
 import { useWalletAccount } from "./useWalletAccount";
+import { accountRefsFor, POLL_MS, type AccountScope } from "@/lib/rpc/pollPolicy";
 
 export interface UsePortfolioResult {
   portfolio: Portfolio | null;
@@ -25,12 +26,21 @@ export interface UsePortfolioResult {
   connected: boolean;
 }
 
-export function usePortfolio(nowSec: number, pollMs = 15_000): UsePortfolioResult {
+/**
+ * scope "portfolio" (default) reads settled markets' Phoenix seats too (withdraw leftovers);
+ * the Header uses "redeemable": settled markets' ATAs only, no Phoenix reads (M4).
+ */
+export function usePortfolio(
+  nowSec: number,
+  pollMs: number = POLL_MS.portfolioAccount,
+  scope: AccountScope = "portfolio",
+): UsePortfolioResult {
   const { connected } = useWallet();
   const list = useMarketList();
   const markets = list.data?.markets;
   const demo = list.data ? demoAccountAllowed({ usedFixtures: list.data.usedFixtures }) : false;
-  const acct = useWalletAccount(demo ? [] : markets ?? [], pollMs);
+  const refs = useMemo(() => (demo || !markets ? [] : accountRefsFor(markets, { scope })), [demo, markets, scope]);
+  const acct = useWalletAccount(refs, pollMs);
   const portfolio = useMemo(() => {
     if (!connected || !list.data) return null;
     if (demo) return buildDemoPortfolio(buildFixtureMarkets(nowSec));

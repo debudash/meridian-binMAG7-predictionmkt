@@ -18,6 +18,7 @@ import {
 } from "./http";
 import { fetchMarketViaRpc, fetchMarketsViaRpc } from "./rpc";
 import { errorMessage, logChainReadError, warnChainReadOnce } from "@/lib/log/chainRead";
+import { createTtlCache, marketListCacheTtl } from "./listCache";
 import type {
   FillHint,
   MarketListResult,
@@ -35,7 +36,7 @@ type LiveList =
   | { markets: MarketView[]; source: "indexer-http" | "rpc-gpa"; failed: false }
   | { markets: []; source: "rpc-gpa"; failed: true; detail: string };
 
-async function readLive(): Promise<LiveList> {
+async function readLiveUncached(): Promise<LiveList> {
   if (isHttpIndexerConfigured()) {
     const http = await httpListMarkets();
     if (http && http.length > 0) {
@@ -50,6 +51,25 @@ async function readLive(): Promise<LiveList> {
     logChainReadError("indexer.listMarkets", e, { cluster: getCluster() });
     return { markets: [], source: "rpc-gpa", failed: true, detail: errorMessage(e) };
   }
+}
+
+// M4 / L10: one cached market scan shared by listMarkets, /api/markets and getMarket misses.
+const liveCache = createTtlCache(readLiveUncached, {
+  get ttlMs() {
+    return marketListCacheTtl().ttlMs;
+  },
+  get failureTtlMs() {
+    return marketListCacheTtl().failureTtlMs;
+  },
+});
+
+function readLive(): Promise<LiveList> {
+  return liveCache.get();
+}
+
+/** Tests / ops: drop the cached market scan. */
+export function resetMarketListCache(): void {
+  liveCache.reset();
 }
 
 async function listFromLive(): Promise<{

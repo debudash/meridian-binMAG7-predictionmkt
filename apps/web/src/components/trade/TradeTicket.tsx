@@ -30,6 +30,10 @@ import { getUsdcMint } from "@/lib/solana/config";
 import { getMeridianProgram } from "@/lib/solana/program";
 import type { MintAccounts } from "@/lib/solana/instructions";
 import { explorerTx } from "@/lib/solana/config";
+import { lotSizeError } from "@/lib/phoenix/size";
+import { sweepDisclosure } from "@/lib/phoenix/sweepCopy";
+import { marketWorstPrice } from "@/lib/phoenix/compose";
+import { confirmSignature, toastForConfirm } from "@/lib/solana/confirm";
 
 const INTENTS: Intent[] = ["buy-yes", "sell-yes", "buy-no", "sell-no"];
 
@@ -62,6 +66,8 @@ export function TradeTicket({
   usdcBalance,
   onTicketChange,
   underlying,
+  seatFree,
+  onRetryBalances,
 }: {
   market: MarketView;
   perspective: Perspective;
@@ -83,6 +89,10 @@ export function TradeTicket({
   onTicketChange?: (s: { intent: Intent; price: number; orderType: "market" | "limit" }) => void;
   /** Live underlying (mock Pyth on localnet / Pyth) for the distance-to-strike readout. */
   underlying?: UnderlyingQuote | null;
+  /** Free Yes / USDC in this wallet's Phoenix seat — swept to the wallet with the next order (L11) */
+  seatFree?: { yesFree: number; usdcFree: number } | null;
+  /** Re-read balances after a failed first read (M5) */
+  onRetryBalances?: () => void;
 }) {
   const { connected, publicKey, sendTransaction } = useWallet();
   const anchorWallet = useAnchorWallet();
@@ -169,6 +179,16 @@ export function TradeTicket({
 
   const current = availability[intent];
   const isBuy = intent.startsWith("buy");
+  // M1: whole lots only — Phoenix floors to lots while the mint uses the exact size.
+  const lotSize = market.lotSize ?? 1;
+  const sizeError = lotSizeError(size, lotSize);
+  // L8: worst price clamped to the market's price band (Buy No at p_no ≥ 0.98 used to give Yes ≤ 0).
+  const worstPrice =
+    orderType === "market"
+      ? marketWorstPrice(touchPrice ?? price, isBuy, { minPrice: market.minPrice, maxPrice: market.maxPrice })
+      : undefined;
+  // L11: the order tx also withdraws free seat funds to the wallet — say so.
+  const sweepLine = phoenixReady ? sweepDisclosure(seatFree) : null;
   // What-if payoff (DLV-075): Market → live best price in the intent's terms; Limit → typed price.
   const effectivePrice = orderType === "market" ? touchPrice : price;
   const whenShort = new Date(market.settleTs * 1000).toLocaleDateString("en-US", {
@@ -221,6 +241,10 @@ export function TradeTicket({
       return;
     }
     if (!current.enabled) return;
+    if (sizeError) {
+      push("error", sizeError);
+      return;
+    }
     const recheck = getIntentAvailability(
       position,
       openOrders,
@@ -279,10 +303,10 @@ export function TradeTicket({
           intent,
           price,
           size,
+          lotSize,
           orderType: phoenixType,
           tickSize: market.tickSize,
-          worstPrice:
-            orderType === "market" ? price + (isBuy ? 0.02 : -0.02) : undefined,
+          worstPrice,
           strikeMarket: market.marketId,
           yesMint: market.yesMint,
           noMint: market.noMint,
@@ -300,13 +324,17 @@ export function TradeTicket({
       );
 
       if (result.ok && result.signature) {
-        push(
-          "success",
-          `${result.message} Tx: ${result.signature.slice(0, 8)}…`,
-        );
         if (typeof window !== "undefined") {
           console.info("explorer", explorerTx(result.signature));
         }
+        // L14: success only once the tx confirmed without error.
+        push("info", "Submitted — confirming…");
+        const outcome = await confirmSignature(connection, result.signature, result.blockhash);
+        const swept = result.swept ? sweepDisclosure(seatFree, "past") : null;
+        const t = toastForConfirm(outcome, swept ? `${result.message} ${swept}` : result.message, result.signature);
+        push(t.kind, t.message);
+      } else if (result.reason === "invalid-size") {
+        push("error", result.message);
       } else if (result.reason === "not-configured") {
         push("neutral", result.message);
       } else if (result.reason === "merge-schema-todo") {
@@ -376,6 +404,16 @@ export function TradeTicket({
       {!current.enabled && current.copy && (
         <div className="muted" style={{ fontSize: "0.82rem" }}>
           {current.copy}
+          {current.reason === "balances-error" && onRetryBalances && (
+            <button
+              type="button"
+              className="btn"
+              style={{ marginLeft: 8, padding: "0.2rem 0.5rem", fontSize: "0.8rem" }}
+              onClick={onRetryBalances}
+            >
+              Retry
+            </button>
+          )}
           {current.cta && (
             <button
               type="button"
@@ -422,9 +460,11 @@ export function TradeTicket({
         <input
           className="tabular"
           type="number"
-          min={market.lotSize}
-          step={market.lotSize}
+          min={lotSize}
+          step={lotSize}
           value={size}
+          aria-invalid={sizeError ? true : undefined}
+          aria-describedby={sizeError ? "ticket-size-error" : undefined}
           onChange={(e) => setSize(Number(e.target.value))}
           style={{
             background: "var(--bg)",
@@ -435,6 +475,11 @@ export function TradeTicket({
           }}
         />
       </label>
+      {sizeError && (
+        <p id="ticket-size-error" role="alert" style={{ color: "var(--danger)", fontSize: "0.78rem", margin: 0 }}>
+          {sizeError}
+        </p>
+      )}
 
       {orderType === "limit" && (
         <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: "0.85rem" }}>
@@ -490,6 +535,11 @@ export function TradeTicket({
             Sell No (resting): bid Yes only — merge_pair on fill not automatic yet.
           </p>
         )}
+        {sweepLine && (
+          <p className="muted" data-testid="sweep-line" style={{ margin: "0.4rem 0 0", fontSize: "0.75rem" }}>
+            {sweepLine}
+          </p>
+        )}
       </div>
 
       {!phoenixReady && (
@@ -501,7 +551,7 @@ export function TradeTicket({
       {connected && phoenixReady && (
         <p className="muted tabular" style={{ fontSize: "0.75rem", margin: 0 }}>
           {orderType === "market" && touchPrice != null
-            ? `Market fills at best ${intent.includes("no") ? "No" : "Yes"} ${touchPrice.toFixed(2)} (up to ${(isBuy ? touchPrice + 0.02 : touchPrice - 0.02).toFixed(2)}). `
+            ? `Market fills at best ${intent.includes("no") ? "No" : "Yes"} ${touchPrice.toFixed(2)} (up to ${(worstPrice ?? touchPrice).toFixed(2)}). `
             : ""}
           {usdcBalance != null ? `Wallet USDC ${usdcBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ""}
         </p>
@@ -510,7 +560,7 @@ export function TradeTicket({
       <button
         type="button"
         className="btn btn-primary"
-        disabled={busy || tradingBlocked || (connected && !current.enabled)}
+        disabled={busy || tradingBlocked || (connected && (!current.enabled || sizeError != null))}
         onClick={onSubmit}
       >
         {ctaLabel()}

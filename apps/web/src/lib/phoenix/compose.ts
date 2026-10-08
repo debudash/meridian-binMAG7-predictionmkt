@@ -172,3 +172,21 @@ export function effectiveYesLimitPrice(
   const action = intentToBookAction(plan.intent);
   return snapYesPrice(action.priceFromUser(worstPriceSide), tickSize);
 }
+
+/** Market-order slippage in the intent's own price terms (D-024). */
+export const MARKET_SLIPPAGE = 0.02;
+
+/**
+ * L8 (Reviewers, !54): worst price for a market order = touch ± slippage, clamped to the market's
+ * [minPrice, maxPrice] so the derived Yes limit never leaves the book's price band.
+ */
+export function marketWorstPrice(
+  touch: number,
+  isBuy: boolean,
+  band: { minPrice: number; maxPrice: number },
+  slippage = MARKET_SLIPPAGE,
+): number {
+  const raw = touch + (isBuy ? slippage : -slippage);
+  const clamped = Math.min(band.maxPrice, Math.max(band.minPrice, raw));
+  return Math.round(clamped * 1e6) / 1e6;
+}

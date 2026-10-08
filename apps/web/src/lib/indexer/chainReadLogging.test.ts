@@ -17,7 +17,7 @@ vi.mock("./http", () => ({
   httpPortfolioHints: vi.fn(async () => null),
 }));
 
-import { listMarkets, getMarket } from "./index";
+import { listMarkets, getMarket, resetMarketListCache } from "./index";
 import { __resetChainReadLogForTests } from "@/lib/log/chainRead";
 
 const NOW = 1_791_400_000;
@@ -26,6 +26,7 @@ let err: ReturnType<typeof vi.spyOn>;
 let warn: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
+  resetMarketListCache();
   __resetChainReadLogForTests();
   rpc.fetchMarketsViaRpc.mockReset();
   rpc.fetchMarketViaRpc.mockReset();
