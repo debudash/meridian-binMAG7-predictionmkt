@@ -280,7 +280,7 @@ describe("D-025 morning create requires a Pyth feed id off-localnet", () => {
         PYTH_PRICE_FEEDS: JSON.stringify({ AAPL: Keypair.generate().publicKey.toBase58() }),
       } as any),
     };
-    // 2026-10-08 09:45 ET — inside the DLV-118 create window [09:30, 16:00) ET, so the D-025 feed-id rule is what skips it
+    // 2026-10-08 09:45 ET — inside the D-026 create window [07:00, 16:00) ET, so the D-025 feed-id rule is what skips it
     const out = await runMorningCreate({ cfg, program, authority: Keypair.generate(), state: createCalendarState(), now: new Date("2026-10-08T13:45:00Z") });
     expect(out).to.deep.equal([]);
     expect(created).to.equal(0);

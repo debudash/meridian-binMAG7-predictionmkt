@@ -73,9 +73,11 @@ async function main() {
     startHealthServer(healthPort);
   }
 
+  const hhmm = (t: { hour: number; minute: number }) => `${String(t.hour).padStart(2, "0")}:${String(t.minute).padStart(2, "0")}`;
   console.log(
     `[worker] start cluster=${cfg.cluster} program=${cfg.programId.toBase58()} ` +
-      `idl=${cfg.idlPath} create=09:30 ET open → expiry 16:00 ET same day (DLV-118) settleHourEt=${cfg.settleHourEt} symbols=${cfg.symbols.join(",")}`
+      `idl=${cfg.idlPath} create=[${hhmm(cfg.createFromEt)}, 16:00) ET deadline=${hhmm(cfg.createDeadlineEt)} ET strikes=ATM on the prior close → expiry 16:00 ET same day (D-026) ` +
+      `settleHourEt=${cfg.settleHourEt} symbols=${cfg.symbols.join(",")}`
   );
 
   const state = createCalendarState();

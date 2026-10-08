@@ -3,7 +3,6 @@ import {
   assertSettleAllowedCalendar,
   canSettleCalendar,
   getEtParts,
-  isCreateWindow,
 } from "../src/schedule";
 
 /** Build a Date that formats to the given ET wall time (approximate via binary search). */
@@ -40,10 +39,5 @@ describe("ET schedule gates", () => {
     expect(() => assertSettleAllowedCalendar(at, 16)).to.not.throw();
   });
 
-  it("create window is only CREATE_HOUR_ET", () => {
-    const at8 = dateAtEt(2026, 10, 6, 8, 15);
-    const at9 = dateAtEt(2026, 10, 6, 9, 0);
-    expect(isCreateWindow(at8, 8)).to.equal(true);
-    expect(isCreateWindow(at9, 8)).to.equal(false);
-  });
+  // CREATE_HOUR_ET / isCreateWindow retired (D-026): the create window is marketDay.sameDaySession({ notBeforeEt }).
 });

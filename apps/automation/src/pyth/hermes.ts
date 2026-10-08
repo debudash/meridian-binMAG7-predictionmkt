@@ -74,8 +74,8 @@ export async function fetchUpdateAt(opts: {
 }
 
 /**
- * DLV-118: latest parsed price for a feed (strike reference at the 9:30 ET open). Same auth + 401/403 handling as
- * fetchUpdateAt; equities are currently 403 "not entitled" (DLV-106), so callers fall back to operator prices.
+ * DLV-118: latest parsed price for a feed. Same auth + 401/403 handling as fetchUpdateAt. No longer the strike
+ * reference: D-026 strikes use fetchUpdateAt at the PRIOR close (equities are 403 "not entitled" today, DLV-106).
  */
 export async function fetchLatestPrice(opts: {
   baseUrl?: string;

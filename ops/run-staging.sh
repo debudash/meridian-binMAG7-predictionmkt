@@ -19,9 +19,10 @@
 #   program keypair ($PROGRAM_KEYPAIR).
 # ── TODAY'S MARKETS (DLV-118, SPEC §1 / §3.3) ───────────────────────────────────────────────────────────────────────
 #   `ops-cli market-day --strikes` → $RUN_TMP/today-plan.json: expiry = 16:00 America/New_York TODAY (DST-aware), one ATM
-#   strike per STRIKE_SYMBOLS (default MAG7) from a fresh reference: Hermes latest (if the key is entitled; equities are 403
-#   today, DLV-106) → a fresh sponsored Pyth account (PYTH_PRICE_FEEDS) → the operator file $STRIKE_PRICES_FILE (default
-#   $OPS_DIR/STRIKE_PRICES_TODAY.json: {"dateKey":"YYYY-MM-DD","source":"…","pricesE6":{"AAPL":"227310000",…}}).
+#   strike per STRIKE_SYMBOLS (default MAG7) on the previous trading day's close (D-026): Hermes at that close (if the key
+#   is entitled; equities are 403 today, DLV-106) → a sponsored Pyth account (PYTH_PRICE_FEEDS) posted at that close → the
+#   operator file $STRIKE_PRICES_FILE (default $OPS_DIR/STRIKE_PRICES_TODAY.json:
+#   {"dateKey":"<market day>","closeDateKey":"<previous trading day>","source":"…","pricesE6":{"AAPL":"227310000",…}}).
 #   After the close / weekend / NYSE holiday it REFUSES (exit 7, nothing created) — never next-close books.
 # ── HOW DEBU STARTS THE 20-MINUTE AAPL ATM MARKET ─────────────────────────────────────────────────────────────────────
 #   After bootstrap + e2e the log says "waiting for START signal". Start it (up to START_WAIT_HOURS=24 later) with:
@@ -107,7 +108,7 @@ ops_cli_ro(){   # read-only ops-cli status reads: no pauser / settler key at all
   ( cd "$AUTO" && env -u PHOENIX_PAUSER_KEYPAIR -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG \
       MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json node dist/ops-cli.js "$@" )
 }
-# DLV-118: today's plan (session + ATM strikes from a fresh reference). Exit 5 from ops-cli = no same-day session
+# DLV-118: today's plan (session + ATM strikes on the previous trading day's close, D-026). Exit 5 from ops-cli = no same-day session
 # (DLV-119 M-1: an early-close day is refused too — plan_refused logs it as an ALERT).
 today_plan(){
   ( cd "$AUTO" && env -u PHOENIX_PAUSER_KEYPAIR -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG \
@@ -239,7 +240,7 @@ if [ "$DRY_RUN" = 1 ]; then
   log "3. e2e Buy Yes / Buy No (trader) on today's books, NEXT_PUBLIC_SOLANA_CLUSTER=$WEB_CLUSTER (WEB_SRC=${WEB_SRC:-unset → skipped})"
   if [ "$START_20M" = now ]; then tr="START_20M=now (would start immediately)"; elif [ -e "$START_FILE" ]; then tr="$START_FILE PRESENT (would start immediately)"; else tr="waiting — touch $START_FILE to start"; fi
   log "4. START trigger for the 20-min AAPL ATM market: $tr; timeout ${START_WAIT_HOURS}h → skip"
-  log "5. bootstrap phase 2 (SHORT_PHASE=only): AAPL ATM (fresh reference) WITH Phoenix book + maker ladder + SM handoff to pauser, expiry = chain now + ${SHORT_MIN}m + ${SHORT_SETUP_SECS}s → handoff repair (all books) → 'SHORT MARKET READY'"
+  log "5. bootstrap phase 2 (SHORT_PHASE=only): AAPL ATM (prior-close reference, D-026) WITH Phoenix book + maker ladder + SM handoff to pauser, expiry = chain now + ${SHORT_MIN}m + ${SHORT_SETUP_SECS}s → handoff repair (all books) → 'SHORT MARKET READY'"
   log "6. trader mints 5 pairs; at expiry: pause-once (book → Paused); expiry+${PULL_SETTLE_AFTER}s: permissionless Pyth pull settle (settler $SETTLER_PUB, PYTH_HERMES_API_KEY $HERMES); expiry+${SETTLE_AFTER}s: admin_settle fallback → redeem"
   log "6b. admin_settle fallback price (M3): ops-cli admin-price = Hermes price at expiry (|publish_time − expiry| <= ${ADMIN_PRICE_MAX_SKEW_SECS:-60}s); else REFUSE + '[settle] ALERT' + wait ${OPERATOR_PRICE_WAIT_HOURS}h for $ADMIN_PRICE_FILE (market= price_e6= source=). Never the stale shard-0 account price"
   log "DRY_RUN complete — 0 transactions sent"; exit 0
@@ -276,7 +277,7 @@ pin_web_cluster apply | while read -r l; do log "$l"; done
 # 2. bootstrap phase 1: TODAY's markets (DLV-118: expiry 16:00 ET today) + Debu wallet + wallet B + settler + pauser; books → pauser
 if [ "$BOOTSTRAP_DAILY_MARKETS" = 1 ]; then
   if ! today_plan; then
-    plan_refused "today's markets (no same-day session; never next-close books — rerun on the next trading day after 09:30 ET)"
+    plan_refused "today's markets (no same-day session; never next-close books — rerun on the next trading day from 07:00 ET)"
     exit 7
   fi
   log "today's plan: $(python3 -c 'import json,sys;p=json.load(open(sys.argv[1]));print(p["dateKey"],"close",p["closeTs"],[(m["symbol"],int(m["strikeE6"])/1e6,m["source"]) for m in p["markets"]],"refused",[r["symbol"] for r in p["refused"]])' "$TODAY_PLAN")"

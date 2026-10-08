@@ -103,7 +103,7 @@ describe("DLV-118 marketDay — same-day 16:00 ET close", () => {
     });
   });
 
-  describe("strikes from a fresh reference price", () => {
+  describe("strikes from the prior close (D-026)", () => {
     it("ATM strike rounds to the step, offsets around it", () => {
       expect(atmStrikesE6(227_310_000n, [0], 5_000_000n)).to.deep.equal([225_000_000n]);
       expect(atmStrikesE6(227_600_000n, [-5_000_000, 0, 5_000_000], 5_000_000n)).to.deep.equal([225_000_000n, 230_000_000n, 235_000_000n]);
@@ -111,52 +111,53 @@ describe("DLV-118 marketDay — same-day 16:00 ET close", () => {
       expect(() => atmStrikesE6(2_000_000n, [-5_000_000], 1_000_000n)).to.throw(/> 0/);
     });
 
-    const now = utc(2026, 10, 8, 13, 31);
-    it("a fresh Hermes price wins (feed match, ≤ maxAge, sane conf)", () => {
+    const close = 1791403200; // 2026-10-07 16:00 EDT = the 2026-10-08 market day's prior close
+    const prevClose = { dateKey: "2026-10-07", closeTs: close };
+    it("a Hermes price at the prior close wins (feed match, publish_time in [close, close + skew], sane conf)", () => {
       const r = decideStrikeReference({
-        symbol: "AAPL", dateKey: "2026-10-08", nowSec: now, feedIdHex: "aa".repeat(32), maxAgeSecs: 120, maxConfBps: 500,
-        hermes: { parsed: { feedIdHex: "aa".repeat(32), price: 22731000000n, conf: 1000000n, expo: -8, publishTime: now - 5, prevPublishTime: now - 6 } },
-        operator: { dateKey: "2026-10-08", source: "x", pricesE6: { AAPL: "1" } },
+        symbol: "AAPL", dateKey: "2026-10-08", prevClose, feedIdHex: "aa".repeat(32), maxSkewSecs: 300, maxConfBps: 500,
+        hermes: { parsed: { feedIdHex: "aa".repeat(32), price: 22731000000n, conf: 1000000n, expo: -8, publishTime: close + 5, prevPublishTime: close - 1 } },
+        operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "x", pricesE6: { AAPL: "1" } },
       });
       expect(r).to.deep.include({ ok: true, priceE6: 227_310_000n });
-      if (r.ok) expect(r.source).to.match(/^hermes/);
+      if (r.ok) expect(r.source).to.match(/^hermes prior close 2026-10-07/);
     });
 
-    it("Hermes 403 (DLV-106) → operator price bound to TODAY with a source", () => {
+    it("Hermes 403 (DLV-106) → operator prior close bound to the market day with a source", () => {
       const r = decideStrikeReference({
-        symbol: "AAPL", dateKey: "2026-10-08", nowSec: now, feedIdHex: "aa".repeat(32), maxAgeSecs: 120, maxConfBps: 500,
+        symbol: "AAPL", dateKey: "2026-10-08", prevClose, feedIdHex: "aa".repeat(32), maxSkewSecs: 300, maxConfBps: 500,
         hermes: { error: "HTTP 403 not entitled" },
-        operator: { dateKey: "2026-10-08", source: "Nasdaq last sale 09:31 ET", pricesE6: { AAPL: "227310000" } },
+        operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "Nasdaq official close 2026-10-07", pricesE6: { AAPL: "227310000" } },
       });
       expect(r).to.deep.include({ ok: true, priceE6: 227_310_000n });
-      if (r.ok) expect(r.source).to.equal("operator: Nasdaq last sale 09:31 ET");
+      if (r.ok) expect(r.source).to.equal("operator: Nasdaq official close 2026-10-07");
     });
 
-    it("refuses a stale Hermes price, a yesterday operator file, a missing source or symbol (no hardcoded fallback)", () => {
-      const base = { symbol: "AAPL", dateKey: "2026-10-08", nowSec: now, feedIdHex: "aa".repeat(32), maxAgeSecs: 120, maxConfBps: 500 };
-      const stale = { parsed: { feedIdHex: "aa".repeat(32), price: 1n, conf: 0n, expo: -8, publishTime: now - 3600, prevPublishTime: 0 } };
-      expect(decideStrikeReference({ ...base, hermes: stale }).ok).to.equal(false);
-      expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: { dateKey: "2026-10-07", source: "s", pricesE6: { AAPL: "1" } } }).ok).to.equal(false);
-      expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: { dateKey: "2026-10-08", source: " ", pricesE6: { AAPL: "1" } } }).ok).to.equal(false);
-      expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: { dateKey: "2026-10-08", source: "s", pricesE6: { MSFT: "1" } } }).ok).to.equal(false);
+    it("refuses a Hermes price not at the prior close, a wrong-day operator file, a missing source or symbol (no hardcoded fallback)", () => {
+      const base = { symbol: "AAPL", dateKey: "2026-10-08", prevClose, feedIdHex: "aa".repeat(32), maxSkewSecs: 300, maxConfBps: 500 };
+      const late = { parsed: { feedIdHex: "aa".repeat(32), price: 1n, conf: 0n, expo: -8, publishTime: close + 3600, prevPublishTime: 0 } };
+      expect(decideStrikeReference({ ...base, hermes: late }).ok).to.equal(false);
+      expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: { dateKey: "2026-10-07", closeDateKey: "2026-10-06", source: "s", pricesE6: { AAPL: "1" } } }).ok).to.equal(false);
+      expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: " ", pricesE6: { AAPL: "1" } } }).ok).to.equal(false);
+      expect(decideStrikeReference({ ...base, hermes: { error: "403" }, operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "s", pricesE6: { MSFT: "1" } } }).ok).to.equal(false);
       expect(decideStrikeReference({ ...base, hermes: { error: "403" } }).ok).to.equal(false);
     });
   });
 });
 
-describe("DLV-118 strike reference: sponsored on-chain Pyth account (e.g. devnet shard-1)", () => {
-  const now = Math.floor(Date.UTC(2026, 9, 8, 13, 31) / 1000);
-  const base = { symbol: "AAPL", dateKey: "2026-10-08", nowSec: now, feedIdHex: "aa".repeat(32), maxAgeSecs: 300, maxConfBps: 500 };
-  const px = (age: number) => ({ feedIdHex: "aa".repeat(32), price: 22731000000n, conf: 1000000n, expo: -8, publishTime: now - age, prevPublishTime: 0 });
-  it("Hermes 403 + fresh on-chain account → on-chain price (before any operator price)", () => {
-    const r = decideStrikeReference({ ...base, hermes: { error: "403" }, onchain: { parsed: px(90), account: "D9uk39pqZMcnmtPP9WeC8cREUpKZmyXLga9mSQ79SphW" },
-      operator: { dateKey: "2026-10-08", source: "op", pricesE6: { AAPL: "1" } } });
+describe("D-026 strike reference: sponsored on-chain Pyth account (e.g. devnet shard-1) at the prior close", () => {
+  const close = 1791403200;
+  const base = { symbol: "AAPL", dateKey: "2026-10-08", prevClose: { dateKey: "2026-10-07", closeTs: close }, feedIdHex: "aa".repeat(32), maxSkewSecs: 300, maxConfBps: 500 };
+  const px = (publishTime: number) => ({ feedIdHex: "aa".repeat(32), price: 22731000000n, conf: 1000000n, expo: -8, publishTime, prevPublishTime: 0 });
+  it("Hermes 403 + on-chain account posted at the prior close → on-chain price (before any operator price)", () => {
+    const r = decideStrikeReference({ ...base, hermes: { error: "403" }, onchain: { parsed: px(close + 90), account: "D9uk39pqZMcnmtPP9WeC8cREUpKZmyXLga9mSQ79SphW" },
+      operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "op", pricesE6: { AAPL: "1" } } });
     expect(r).to.deep.include({ ok: true, priceE6: 227_310_000n });
     if (r.ok) expect(r.source).to.match(/^pyth account D9uk/);
   });
-  it("stale on-chain account (e.g. 30 min heartbeat) → operator price", () => {
-    const r = decideStrikeReference({ ...base, hermes: { error: "403" }, onchain: { parsed: px(1800), account: "D9uk" },
-      operator: { dateKey: "2026-10-08", source: "op", pricesE6: { AAPL: "227000000" } } });
+  it("on-chain account not at the prior close (e.g. this morning's heartbeat) → operator price", () => {
+    const r = decideStrikeReference({ ...base, hermes: { error: "403" }, onchain: { parsed: px(close + 15 * 3600), account: "D9uk" },
+      operator: { dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "op", pricesE6: { AAPL: "227000000" } } });
     expect(r).to.deep.include({ ok: true, priceE6: 227_000_000n, source: "operator: op" });
   });
 });
