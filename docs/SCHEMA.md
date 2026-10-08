@@ -181,10 +181,10 @@ Stored on `StrikeMarket` and gated by `Config` global bounds:
 | --- | --- | --- |
 | Price account | `StrikeMarket.pyth_price_feed` | Per-equity Pyth Solana price account |
 | Feed id | `StrikeMarket.pyth_feed_id` | 32-byte Pyth feed id |
-| Max staleness | `Config.settle_max_staleness_slots` | **150 slots** (~60s on 400ms) — tune for close window |
+| Max staleness | `Config.settle_max_staleness_slots` | **150 slots** (~60s on 400ms) — localnet mock: slot age; prod (D-025): publish window `expiry_ts … expiry_ts + slots × 0.4 s` |
 | Max confidence ratio | `Config.settle_max_conf_ratio_bps` | **500 bps (5%)** — reject wider |
 
-**Field roles:** `StrikeMarket.pyth_feed_id` stores the **32-byte Pyth Core feed id**. `StrikeMarket.pyth_price_feed` stores the **Solana price account** pubkey from the V1 MAG7 registry below (prod/devnet), or a mock price account under `localnet-test`.
+**Field roles:** `StrikeMarket.pyth_feed_id` stores the **32-byte Pyth Core feed id** — on prod builds this is the binding settle check (D-025) and must be non-zero. `StrikeMarket.pyth_price_feed` stores the **reference Solana price account** (sponsored push-feed PDA from the registry below; used for display / distance-to-strike and as the first settle candidate), or a mock price account under `localnet-test`. Prod settle accepts **any** receiver-owned, fully verified `PriceUpdateV2` with the market's feed id (freshly posted or sponsored), so the stored address is not pinned.
 
 ### 3.1 V1 MAG7 registry (D-019)
 
@@ -202,21 +202,43 @@ Pyth Core stable feed ids from Hermes `Equity.US.*/USD` (hex, **no `0x` prefix**
 | NVDA | `Equity.US.NVDA/USD` | `b1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593` | `2w1Tg1XTZbUib7srfRoStJ4v5JXVsK7roQEGMsMaGZFC` |
 | TSLA | `Equity.US.TSLA/USD` | `16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1` | `E8WFH8brgP58arcuW2wwsPHiomYrSvrgWTsRLZLAEZUQ` |
 
-**Upgrade caveat:** Pyth Core upgrade program `pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou` would change PDAs. Upgraded accounts were **missing** on mainnet as of **2026-10-07** — V1 pins the **current** Price Feed program accounts above. **Re-derive and re-pin after any Pyth upgrade.**
+**Upgrade caveat:** Pyth Core upgrade program `pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou` would change PDAs. Upgraded-program PDAs (shards 0 and 1) were **missing** on both mainnet and devnet as of **2026-10-07 21:40 CT** — the receiver/Price Feed programs were upgraded in place, so the current PDAs remain authoritative. **Re-derive and re-pin after any Pyth upgrade.**
+
+#### 3.1.1 Which accounts are actually fresh (checked 2026-10-07 ~21:40 CT, D-025)
+
+All accounts below are receiver-owned `PriceUpdateV2` (134 B, verification **Full**). Shard *n* PDA = `findProgramAddress([u16le(n), feed_id], pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT)`. Shards 2–12 do not exist on mainnet (2–6 not on devnet).
+
+| Symbol | shard-0 PDA (registry above) | shard-1 PDA | devnet shard-0 | devnet shard-1 | mainnet shard-0 | mainnet shard-1 |
+| --- | --- | --- | --- | --- | --- | --- |
+| AAPL | `DJ2FyTgU…VbUy` | `D9uk39pqZMcnmtPP9WeC8cREUpKZmyXLga9mSQ79SphW` | stale (2026-07-02) | **fresh** (≤30 min) | stale (2026-08-14) | stale (2026-09-28) |
+| MSFT | `7VYuuJxz…aqtK` | `EKhrgXYwqsjgxF71Gxznui1zdoeqgxJzzPzfefEmm5un` | stale | **fresh** | stale | stale |
+| GOOGL | `HShKFQqh…pRNh` | `7aUtbtC3o3GVwRWvaDp5fxKjBq53QL3UrVmDzDgeNo8M` | stale | **fresh** | stale | stale |
+| AMZN | `GBkjjFxb…uFNd` | `4eT5d4SJ7GjD8HMpMysSNoPV7RBVTBGzoSEkynmPLMPS` | stale | **fresh** | stale (2026-08-20) | stale |
+| META | `GsKrMNoa…M6K2` | `6NJCSCAWy1yB1jEGhPbsMTrT4WH13o8BGD5wgPbBtdY9` | stale | **fresh** | stale | stale |
+| NVDA | `2w1Tg1XT…GZFC` | `5VETJ8h3p4JrESYrzhjTDAWPEjDjfcnduqe9CjxgqBNd` | stale | **fresh** | stale (2026-08-26) | stale |
+| TSLA | `E8WFH8br…EZUQ` | `FQB8c4zB8Emrp9W8bmyk6GanCLq4aRytHYPDAnaEpq9z` | 35 h old | **fresh** | stale (2026-09-11) | stale |
+
+- **Devnet:** shard-1 is the live sponsored set (updates every few minutes to ~30 min, incl. outside 09:30–16:00 ET). Use the shard-1 PDAs as `pyth_price_feed` (reference/display) on devnet. Heartbeat is too coarse to guarantee an update inside the 60 s post-expiry window, so settle still posts the expiry price (below).
+- **Mainnet:** **no** MAG7 sponsored account is fresh (newest: shard-1 2026-09-28 11:53 UTC). Keep shard-0 as the reference pin; prod settle **must** post the expiry price itself.
+- **Settle source (both clusters):** Hermes `GET /v2/updates/price/{expiry_ts}?ids[]=0x<feed_id>&encoding=base64&parsed=true` with `Authorization: Bearer $PYTH_HERMES_API_KEY` (Hermes has required a key since 2026-08-26; unauthenticated → 401) → `@pythnetwork/pyth-solana-receiver` `addPostPriceUpdates` (full Wormhole verification) → Meridian `settle` with the posted account → close accounts. Implemented in `apps/automation/src/solana/pullSettle.ts`.
 
 **Footnote (not V1 MAG7):** GOOG Class C feed `e65ff435be42630439c96396653a342829e877e2aafaeaf1a10d0ee5fd2cf3f2` exists on Hermes; SPEC uses **GOOGL** — do **not** include GOOG in the V1 set unless Debu overrides.
 
-**Sources:** Hermes `https://hermes.pyth.network/v2/price_feeds`; Pyth docs push-feeds / PDA derivation; mainnet RPC `getAccountInfo` verified 2026-10-07.
+**Sources:** Hermes `https://hermes.pyth.network/v2/price_feeds` (metadata route is still unauthenticated); Pyth docs push-feeds / PDA derivation; mainnet + devnet RPC `getMultipleAccounts` / `getSignaturesForAddress` verified 2026-10-07 ~21:40 CT.
 
-**Accept settle iff:**
+**Accept settle iff (production build, D-025 pull oracle):**
 
 1. `status == Open` (`Settling` is unused/reserved — do not accept Settling)
-2. `effective_clock.unix_timestamp >= expiry_ts` (or within configured settle window); see §5.0 / [`sim-clock.md`](sim-clock.md)
-3. Pyth price account matches `pyth_price_feed` / feed id
-4. `slot_now - pyth_publish_slot <= settle_max_staleness_slots`
-5. `conf_ratio_bps = conf * 10_000 / |agg_price| <= settle_max_conf_ratio_bps`
-6. Convert Pyth price → `settlement_price_e6` per [`units.md`](units.md)
-7. Outcome: `SettledYes` if `settlement_price_e6 >= strike_price_e6`, else `SettledNo`
+2. `clock.unix_timestamp >= expiry_ts`
+3. Price account **owner == Pyth receiver** `rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ`, `PriceUpdateV2` discriminator, verification level **Full**
+4. `price_message.feed_id == pyth_feed_id` (and `pyth_feed_id != 0`) — the account address itself is not pinned
+5. **First price at/after expiry:** `prev_publish_time < expiry_ts <= publish_time` (else `PythPriceNotAtExpiry`)
+6. `publish_time <= expiry_ts + settle_max_staleness_slots × 0.4 s` (150 → 60 s; else `StalePythPrice`)
+7. `conf_ratio_bps = conf * 10_000 / price <= settle_max_conf_ratio_bps`
+8. Convert Pyth price → `settlement_price_e6` per [`units.md`](units.md)
+9. Outcome: `SettledYes` if `settlement_price_e6 >= strike_price_e6`, else `SettledNo`
+
+**`localnet-test` build (mock path, unchanged):** account must equal `pyth_price_feed`; Meridian mock layout; feed id compared when non-zero; `effective_clock.slot - publish_slot <= settle_max_staleness_slots`; same conf / ≥ rules; SimClock per §5.0 / [`sim-clock.md`](sim-clock.md).
 
 **Admin settle:** after `expiry_ts + admin_settle_delay_secs`, authority may set outcome + price without Pyth (emergency). **Policy A (A-05):** `outcome_yes` must equal `(settlement_price_e6 >= strike_price_e6)` else `OutcomeInconsistent`. Emits `AdminSettled`.
 
@@ -361,11 +383,11 @@ Fee → `Config.treasury` from vault; `collateral_out` → user.
 
 ### 5.4 `settle` (resolve via Pyth)
 
-**Accounts:** `anyone` (signer, permissionless), `config`, `strike_market`, `pyth_price_feed` (must match market)[, `sim_clock` optional under `localnet-test`].
+**Accounts:** `anyone` (signer, permissionless), `config`, `strike_market`, `pyth_price_feed` (prod: any receiver-owned Full `PriceUpdateV2` for the market's feed id — usually one the settler just posted from Hermes; localnet-test: must equal market)[, `sim_clock` optional under `localnet-test`].
 
 **Args:** none (or optional `expected_feed_id` for safety).
 
-**Checks:** Pyth accept rules in §3 (staleness uses `effective_clock.slot`); `status == Open`; `effective_clock.unix_timestamp >= expiry_ts`.
+**Checks:** Pyth accept rules in §3 (prod: D-025 publish-time rules; localnet-test: staleness uses `effective_clock.slot`); `status == Open`; `effective_clock.unix_timestamp >= expiry_ts`.
 
 **State:**
 

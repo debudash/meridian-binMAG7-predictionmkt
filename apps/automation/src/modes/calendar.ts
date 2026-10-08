@@ -21,6 +21,8 @@ import {
   setPhoenixMarket,
   settleMarket,
 } from "../solana/instructions";
+import { configPda } from "../solana/pdas";
+import { livePullSettleDeps, publishWindowSecs, settleWithPullOracle, PullSettleDeps } from "../solana/pullSettle";
 
 export interface TrackedMarket {
   market: PublicKey;
@@ -86,6 +88,11 @@ export async function runMorningCreate(opts: {
   const created: TrackedMarket[] = [];
 
   for (const strike of strikes) {
+    // D-025: off-localnet a market with a zero feed id can never permissionless-settle.
+    if (opts.cfg.cluster !== "localnet" && !opts.cfg.pythFeedIds[strike.symbol]) {
+      log(`skip ${strike.symbol} — missing PYTH_FEED_IDS entry (required off-localnet, D-025)`);
+      continue;
+    }
     const feed = opts.cfg.pythPriceFeeds[strike.symbol];
     if (!feed) {
       log(`skip ${strike.symbol} — missing PYTH_PRICE_FEEDS entry`);
@@ -144,6 +151,8 @@ export async function runSettlePass(opts: {
   authority: Keypair;
   state: CalendarState;
   now?: Date;
+  /** Test seam: override pull-oracle deps per market. */
+  pullDeps?: (market: PublicKey) => PullSettleDeps;
 }): Promise<void> {
   const now = opts.now ?? new Date();
   try {
@@ -162,6 +171,21 @@ export async function runSettlePass(opts: {
   } catch (e) {
     log(`fetchOpenMarkets failed: ${e}`);
     return;
+  }
+
+  // D-025: off-localnet the prod program only accepts Pyth pull-oracle PriceUpdateV2 accounts.
+  const pull = opts.cfg.cluster !== "localnet";
+  let rule = { windowSecs: 60, maxConfBps: 500 };
+  if (pull && open.some((m) => Number(m.account.expiryTs?.toString?.() ?? 0) <= nowUnix)) {
+    try {
+      const c = await (opts.program.account as any).config.fetch(configPda(opts.program.programId)[0]);
+      rule = {
+        windowSecs: publishWindowSecs(BigInt(c.settleMaxStalenessSlots.toString())),
+        maxConfBps: Number(c.settleMaxConfRatioBps),
+      };
+    } catch (e) {
+      log(`config fetch failed; using D-005 defaults`, { err: String(e) });
+    }
   }
 
   for (const m of open) {
@@ -188,22 +212,56 @@ export async function runSettlePass(opts: {
     }
 
     tracked.settleAttempts += 1;
-    try {
-      const sig = await settleMarket({
-        program: opts.program,
-        settler: opts.authority,
-        market: tracked.market,
-        pythPriceFeed: tracked.pythPriceFeed,
-      });
-      log(`settled`, { market: tracked.market.toBase58(), sig, attempts: tracked.settleAttempts });
-      tracked.settleAttempts = 0;
-      continue;
-    } catch (e) {
-      log(`settle retry failed`, {
-        market: tracked.market.toBase58(),
-        attempts: tracked.settleAttempts,
-        err: String(e),
-      });
+    if (pull) {
+      const feedIdHex = Buffer.from(m.account.pythFeedId ?? m.account.pyth_feed_id ?? []).toString("hex");
+      const deps =
+        opts.pullDeps?.(tracked.market) ??
+        livePullSettleDeps({
+          program: opts.program,
+          connection: (opts.program.provider as any).connection,
+          settler: opts.authority,
+          market: tracked.market,
+          hermesUrl: opts.cfg.pythHermesUrl,
+          hermesApiKey: opts.cfg.pythHermesApiKey,
+        });
+      try {
+        const r = await settleWithPullOracle(
+          { market: tracked.market, expiryTs: expiry, feedIdHex, sponsoredFeed: tracked.pythPriceFeed ?? null },
+          rule,
+          deps
+        );
+        if (r.ok) {
+          log(`settled (pull oracle, ${r.via})`, { market: tracked.market.toBase58(), sigs: r.signatures });
+          tracked.settleAttempts = 0;
+          continue;
+        }
+        log(`pull settle not possible yet`, {
+          market: tracked.market.toBase58(),
+          attempts: tracked.settleAttempts,
+          reason: r.reason,
+          needsApiKey: r.needsApiKey ?? false,
+        });
+      } catch (e) {
+        log(`pull settle failed`, { market: tracked.market.toBase58(), attempts: tracked.settleAttempts, err: String(e) });
+      }
+    } else {
+      try {
+        const sig = await settleMarket({
+          program: opts.program,
+          settler: opts.authority,
+          market: tracked.market,
+          pythPriceFeed: tracked.pythPriceFeed,
+        });
+        log(`settled`, { market: tracked.market.toBase58(), sig, attempts: tracked.settleAttempts });
+        tracked.settleAttempts = 0;
+        continue;
+      } catch (e) {
+        log(`settle retry failed`, {
+          market: tracked.market.toBase58(),
+          attempts: tracked.settleAttempts,
+          err: String(e),
+        });
+      }
     }
 
     if (

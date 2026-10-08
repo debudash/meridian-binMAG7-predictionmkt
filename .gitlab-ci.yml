@@ -62,6 +62,8 @@ prod-build-no-fixtures:
       echo "FORBIDDEN on this job: --features localnet-test"
       yarn build:prod
     - bash scripts/assert-prod-no-fixtures.sh target/deploy/meridian.so idl/meridian.prod.json
+    # D-025 / DLV-082: prod settle decoder (Pyth pull oracle PriceUpdateV2) on the PROD .so via LiteSVM
+    - MERIDIAN_PROD_SO=target/deploy/meridian.so yarn test:prod-settle
   artifacts:
     paths:
       - target/deploy/meridian.so

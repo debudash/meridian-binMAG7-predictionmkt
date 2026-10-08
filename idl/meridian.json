@@ -1177,7 +1177,12 @@
           "writable": true
         },
         {
-          "name": "pyth_price_feed"
+          "name": "pyth_price_feed",
+          "docs": [
+            "Prod (D-025): any Pyth Solana Receiver-owned, fully verified `PriceUpdateV2` whose",
+            "feed_id == strike_market.pyth_feed_id (a freshly posted update or the sponsored feed PDA).",
+            "localnet-test: must equal strike_market.pyth_price_feed (Meridian mock layout)."
+          ]
         },
         {
           "name": "sim_clock",
@@ -1916,6 +1921,11 @@
       "code": 6023,
       "name": "SimClockNotEnabled",
       "msg": "Simulated clock not enabled"
+    },
+    {
+      "code": 6024,
+      "name": "PythPriceNotAtExpiry",
+      "msg": "Pyth update is not the first price at or after market expiry"
     }
   ],
   "types": [
