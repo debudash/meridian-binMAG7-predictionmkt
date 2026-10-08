@@ -1,5 +1,5 @@
 /**
- * DLV-077 guard: no inline `<style>{`…`}</style>` text children in components.
+ * DLV-079 guard: no inline `<style>{`…`}</style>` text children in components.
  * React SSR escapes `>`, `<`, `&`, quotes inside <style> text (e.g. `.a > *` → `.a &gt; *`),
  * so the server CSS is wrong until hydration and the client text differs → React #425/#422
  * in production. Put CSS in app/globals.css instead.
@@ -18,7 +18,7 @@ function tsxFiles(dir: string): string[] {
   });
 }
 
-describe("no inline <style> text children (DLV-077)", () => {
+describe("no inline <style> text children (DLV-079)", () => {
   it("src/**/*.tsx has no <style>{…} blocks", () => {
     const offenders = tsxFiles(SRC).filter((f) => /<style[^>]*>\s*\{/.test(readFileSync(f, "utf8")));
     expect(offenders.map((f) => f.slice(SRC.length + 1))).toEqual([]);

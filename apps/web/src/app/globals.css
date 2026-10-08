@@ -425,7 +425,7 @@ tr.row-selectable:focus-visible { outline: var(--focus-ring); outline-offset: -2
 
 /* Trade page layout (DLV-072). Lives here, not in an inline <style>: React SSR escapes
    `>` inside <style> text to `&gt;`, which broke the child-combinator rules before
-   hydration and threw React #425/#422 in production (DLV-077). */
+   hydration and threw React #425/#422 in production (DLV-079). */
 .trade-header {
   display: flex;
   flex-wrap: wrap;
