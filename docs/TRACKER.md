@@ -65,10 +65,11 @@ _Last refreshed: 2026-10-07 14:30 CT (base `0c173ac`; DLV-066 web Phoenix fixes 
 
 ## In Progress
 
-_(none)_
+- [ ] Ops: **Railway staging (devnet)** DLV-077 — project `meridian-staging` with `web` (https://web-production-77fbb.up.railway.app, `/api/health` 200) + `automation` (calendar, `/health` green; keeper key as Railway secret) live on devnet env; dev wallet off. **Blocked on devnet SOL** for the prod-build program deploy + Phoenix books (public airdrop 429); web shows fixtures until then. Dry run of the prod `.so` green for bootstrap + Buy Yes / Buy No; see [`RAILWAY_STAGING.md`](RAILWAY_STAGING.md) §0
 
 ## Todo
 
+- [ ] Program: **prod Pyth decoder reads legacy `Price` layout** — D-019 accounts are receiver `PriceUpdateV2` (134 B) → permissionless settle fails `InvalidPythAccount` off-localnet; decode PriceUpdateV2 (owner `rec5EK…`, feed-id compare, publish-time staleness) and handle stale sponsored MAG7 feeds (post updates via Hermes key or re-pin). **Prod blocker** (DLV-078)
 - [ ] Web: live Portfolio / History / trade-page Open orders + Fills from chain (Phoenix trader state + token balances) — today demo fixtures (DLV-068)
 - [ ] Web: merge-on-fill for **resting** Sell No (limit/post-only bid fills → `merge_pair`); Market Sell No already merges in-tx (DLV-069)
 - [ ] Web: Buy No under-fill — IOC ask past the ±0.02 cap can fill 0/partial and leave the user holding Yes+No; set min-fill (abort whole tx) or auto-merge remainder (DLV-070)
