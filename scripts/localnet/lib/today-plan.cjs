@@ -30,11 +30,23 @@ function fairYes(refE6, strikeE6) {
 }
 
 /**
+ * D-017 anytime session for the Docker localnet: expiry = now + `secs` (rounded up to the minute), ignoring the ET
+ * calendar, so a local instance can be played with after the close or on a weekend. Localnet only (the script refuses
+ * any non-loopback RPC); never used by the calendar worker or ops/.
+ */
+function anytimeSession(md, nowSec, secs) {
+  if (!Number.isInteger(secs) || secs < 300 || secs > 7 * 86400) throw new Error(`ANYTIME_EXPIRY_MINUTES must be 5..10080 (got ${secs / 60})`);
+  const closeTs = Math.ceil((nowSec + secs) / 60) * 60;
+  return { ok: true, plan: { dateKey: md.etWall(nowSec).dateKey, openTs: nowSec, closeTs, anytime: true } };
+}
+
+/**
  * Plan today's-close markets for `symbols` at effective time `nowSec`.
  * Returns { ok:false, code, reason } when there is no same-day session (after the 16:00 ET close → never rolls).
+ * `anytimeExpirySecs` (localnet D-017 only) replaces the same-day session with expiry = now + secs.
  */
-function planTodayMarkets(md, { nowSec, symbols, refPricesE6 = {}, allowNonTradingDay = false }) {
-  const s = md.sameDaySession(nowSec, { allowNonTradingDay });
+function planTodayMarkets(md, { nowSec, symbols, refPricesE6 = {}, allowNonTradingDay = false, anytimeExpirySecs }) {
+  const s = anytimeExpirySecs !== undefined ? anytimeSession(md, nowSec, anytimeExpirySecs) : md.sameDaySession(nowSec, { allowNonTradingDay });
   if (!s.ok) return { ok: false, code: s.code, reason: s.reason, dateKey: s.dateKey, nextDateKey: s.nextDateKey };
   const markets = [];
   for (const raw of symbols) {
@@ -48,4 +60,4 @@ function planTodayMarkets(md, { nowSec, symbols, refPricesE6 = {}, allowNonTradi
   return { ok: true, session: s.plan, markets };
 }
 
-module.exports = { LOCALNET_REF_USD, parseRefPrices, fairYes, planTodayMarkets };
+module.exports = { LOCALNET_REF_USD, parseRefPrices, fairYes, planTodayMarkets, anytimeSession };
