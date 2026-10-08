@@ -1,24 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { buildFixtureMarkets } from "@/lib/market/fixtures";
 import { SettlementCountdown } from "@/components/market/SettlementCountdown";
-import { RedeemButton, type RedeemableRow } from "@/components/portfolio/RedeemButton";
+import { RedeemButton } from "@/components/portfolio/RedeemButton";
+import { CancelOrdersButton, WithdrawSeatButton } from "@/components/portfolio/PhoenixActions";
+import { usePortfolio } from "@/hooks/usePortfolio";
 import { useChainClock } from "@/components/providers/AppProviders";
-import {
-  getDemoPortfolioSummary,
-  listDemoOpenOrdersAcrossMarkets,
-  listDemoPositions,
-} from "@/lib/demo/portfolio";
 import { Suspense, type KeyboardEvent } from "react";
 import { onTablistKeyDown, selectableRowProps, tabProps } from "@/components/ui/a11y";
 import { isActivationKey, toggleSelection } from "@/lib/ui/selection";
 
-type Tab = "positions" | "orders" | "redeemable";
+type Tab = "positions" | "orders" | "balances" | "redeemable";
+const TABS: readonly Tab[] = ["positions", "orders", "balances", "redeemable"];
+const asTab = (v: string | null | undefined): Tab | null => (v && (TABS as readonly string[]).includes(v) ? (v as Tab) : null);
 
 function PortfolioInner() {
   const { connected } = useWallet();
@@ -28,10 +26,7 @@ function PortfolioInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get("tab");
-  const initialTab: Tab =
-    tabParam === "orders" || tabParam === "redeemable" || tabParam === "positions"
-      ? tabParam
-      : "positions";
+  const initialTab: Tab = asTab(tabParam) ?? "positions";
   const [tab, setTab] = useState<Tab>(initialTab);
   const [selected, setSelected] = useState<string | null>(null);
   const toggle = (id: string) => setSelected((c) => toggleSelection(c, id));
@@ -52,9 +47,8 @@ function PortfolioInner() {
   });
 
   useEffect(() => {
-    if (tabParam === "orders" || tabParam === "redeemable" || tabParam === "positions") {
-      setTab(tabParam);
-    }
+    const t = asTab(tabParam);
+    if (t) setTab(t);
   }, [tabParam]);
 
   function setTabAndUrl(next: Tab) {
@@ -66,55 +60,7 @@ function PortfolioInner() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
 
-  const demo = useMemo(() => {
-    const markets = buildFixtureMarkets(nowSec);
-    const byId = new Map(markets.map((m) => [m.marketId, m]));
-    const openPos = listDemoPositions()
-      .map((p) => {
-        const market = byId.get(p.marketId);
-        if (!market || market.status !== "open") return null;
-        return { market, side: p.side, size: p.side === "yes" ? p.yesQty : p.noQty, avgEntry: p.avgEntry };
-      })
-      .filter(Boolean) as {
-      market: (typeof markets)[0];
-      side: "yes" | "no";
-      size: number;
-      avgEntry: number;
-    }[];
-
-    const redeemable: RedeemableRow[] = markets
-      .filter((m) => m.status === "settled-yes" || m.status === "settled-no")
-      .map((m) => ({
-        marketId: m.marketId,
-        label: m.question,
-        side: m.status === "settled-yes" ? "yes" : "no",
-        size: 25,
-        payoutUsdc: 25,
-      }));
-
-    const summary = getDemoPortfolioSummary();
-    let unrealized = 0;
-    let positionsValue = 0;
-    for (const p of openPos) {
-      const markRaw = p.market.yesMid ?? p.market.lastYes ?? p.avgEntry;
-      const mark = p.side === "yes" ? markRaw : 1 - markRaw;
-      positionsValue += p.size * mark;
-      unrealized += p.size * (mark - p.avgEntry);
-    }
-    const portfolioValue = positionsValue + summary.usdcAvailable;
-
-    return {
-      openPos,
-      redeemable,
-      orders: listDemoOpenOrdersAcrossMarkets(),
-      summary: {
-        ...summary,
-        unrealized,
-        positionsValue,
-        portfolioValue,
-      },
-    };
-  }, [nowSec]);
+  const { portfolio, demo, loading, error } = usePortfolio(nowSec);
 
   if (!connected) {
     return (
@@ -130,68 +76,55 @@ function PortfolioInner() {
     );
   }
 
+  const p = portfolio;
+  const seatYesTotal = p ? p.seats.reduce((s, r) => s + r.yesFree, 0) : 0;
+  const seatUsdcTotal = p ? p.totals.seatUsdcFree : 0;
+  const withdrawable = p ? p.seats.filter((r) => r.yesFree > 0 || r.usdcFree > 0) : [];
+  const portfolioValue = p ? p.totals.positionsValue + (p.totals.usdc ?? 0) + seatUsdcTotal + p.totals.redeemableUsdc : 0;
+  const fmt = (n: number | null | undefined) => (n == null ? "—" : `${n.toFixed(2)} USDC`);
+
   return (
     <div className="container">
       <h1 style={{ marginTop: 0 }}>Portfolio</h1>
-      <div className="card" style={{ marginBottom: "1rem" }}>
+      {error && (
+        <div className="banner banner-danger" role="alert" style={{ marginBottom: "0.75rem" }}>
+          Couldn&apos;t read some on-chain balances: {error}. Showing what loaded; retrying.
+        </div>
+      )}
+      <div className="card" style={{ marginBottom: "0.75rem" }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-            gap: "0.75rem",
+            gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
+            gap: "0.6rem",
           }}
         >
-          <SummaryTile label="Portfolio value" value={`${demo.summary.portfolioValue.toFixed(2)} USDC`} />
-          <SummaryTile label="USDC available" value={`${demo.summary.usdcAvailable.toFixed(2)} USDC`} />
+          <SummaryTile label="Portfolio value" value={p ? fmt(portfolioValue) : "…"} />
+          <SummaryTile label="USDC in wallet" value={p ? fmt(p.totals.usdc) : "…"} />
+          <SummaryTile label="Positions (mark)" value={p ? fmt(p.totals.positionsValue) : "…"} />
           <SummaryTile
-            label="Unrealized P&L"
-            value={`${demo.summary.unrealized >= 0 ? "+" : ""}${demo.summary.unrealized.toFixed(2)} USDC`}
-            accent={demo.summary.unrealized >= 0 ? "var(--green)" : "var(--red)"}
+            label="In Phoenix (withdrawable)"
+            value={p ? `${seatUsdcTotal.toFixed(2)} USDC${seatYesTotal > 0 ? ` · ${seatYesTotal} Yes` : ""}` : "…"}
           />
-          <SummaryTile
-            label="Redeemable now"
-            value={`${demo.redeemable.reduce((s, r) => s + r.payoutUsdc, 0).toFixed(2)} USDC`}
-          />
-          <SummaryTile
-            label="Unsettled Phoenix"
-            value={`${demo.summary.unsettledPhoenixUsdc.toFixed(2)} USDC`}
-          />
+          <SummaryTile label="Redeemable now" value={p ? fmt(p.totals.redeemableUsdc) : "…"} />
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-          {demo.redeemable.length > 0 && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => setTabAndUrl("redeemable")}
-            >
-              Redeem all
-            </button>
-          )}
-          {demo.summary.unsettledPhoenixUsdc > 0 && (
-            <button
-              type="button"
-              className="btn"
-              title="TODO(phoenix): settleFunds"
-              onClick={() => undefined}
-            >
-              Settle funds
-            </button>
-          )}
-        </div>
-        <p className="muted" style={{ fontSize: "0.8rem", marginBottom: 0, marginTop: 10 }}>
-          Demo fixtures until indexer + token account reads (TODO(schema) / INDEXER_URL).
+        <p className="muted" style={{ fontSize: "0.78rem", marginBottom: 0, marginTop: 8 }}>
+          {demo
+            ? "Localnet fixture mode — demo balances, not on-chain."
+            : loading && !p
+              ? "Reading your on-chain balances…"
+              : "On-chain: wallet token accounts + Phoenix trader accounts. Marks use the Yes mid."}
         </p>
       </div>
 
-      <div
-        style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}
-      >
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
         <div role="tablist" aria-label="Portfolio sections" onKeyDown={onTablistKeyDown}>
           {(
             [
-              ["positions", "Positions"],
-              ["orders", "Open orders"],
-              ["redeemable", `Redeemable (${demo.redeemable.length})`],
+              ["positions", `Positions${p?.positions.length ? ` (${p.positions.length})` : ""}`],
+              ["orders", `Open orders${p?.orders.length ? ` (${p.orders.length})` : ""}`],
+              ["balances", `Phoenix balances${withdrawable.length ? ` (${withdrawable.length})` : ""}`],
+              ["redeemable", `Redeemable${p?.redeemable.length ? ` (${p.redeemable.length})` : ""}`],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -209,47 +142,50 @@ function PortfolioInner() {
         </Link>
       </div>
 
-      {tab === "positions" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          {demo.openPos.length === 0 ? (
+      {!p && <div className="card muted">{loading ? "Loading…" : "No data yet."}</div>}
+
+      {p && tab === "positions" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {p.positions.length === 0 ? (
             <div className="card">
               No open positions. <Link href="/markets">Browse markets</Link>
             </div>
           ) : (
-            demo.openPos.map((p) => {
-              const markRaw = p.market.yesMid ?? 0.5;
-              const mark = p.side === "yes" ? markRaw : 1 - markRaw;
-              const value = p.size * mark;
-              const pnl = p.size * (mark - p.avgEntry);
+            p.positions.map((r) => {
+              const sellSide = r.side === "no" ? "no" : "yes";
               return (
-                <div key={p.market.marketId} {...cardSelectProps(p.market.marketId)}>
+                <div key={r.market.marketId} {...cardSelectProps(r.market.marketId)} style={{ padding: "0.7rem 0.85rem" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                     <div>
-                      <Link href={`/markets/${p.market.marketId}`}>{p.market.question}</Link>
-                      <div style={{ marginTop: 6 }}>
-                        <span className={`chip ${p.side === "yes" ? "chip-yes" : "chip-no"}`}>
-                          {p.side.toUpperCase()}
-                        </span>{" "}
-                        <span className="tabular">{p.size}</span>
+                      <Link href={`/markets/${r.market.marketId}`}>{r.market.question}</Link>
+                      <div style={{ marginTop: 4, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        {r.yesQty > 0 && <span className="chip chip-yes tabular">YES {r.yesQty}</span>}
+                        {r.noQty > 0 && <span className="chip chip-no tabular">NO {r.noQty}</span>}
+                        {r.inSeat > 0 && (
+                          <span className="chip chip-amber tabular" title="Filled on Phoenix, still in your trader account">
+                            {r.inSeat} Yes in Phoenix
+                          </span>
+                        )}
                       </div>
-                      <div className="muted tabular" style={{ fontSize: "0.85rem", marginTop: 6 }}>
-                        Avg {p.avgEntry.toFixed(2)} · Mark {mark.toFixed(2)} · Value{" "}
-                        {value.toFixed(2)} USDC · P&amp;L {pnl >= 0 ? "+" : ""}
-                        {pnl.toFixed(2)} · Payout if right {(p.size * 1).toFixed(2)}
+                      <div className="muted tabular" style={{ fontSize: "0.82rem", marginTop: 4 }}>
+                        Mark {r.mark.toFixed(2)} · Value {r.value.toFixed(2)} USDC · Pays {r.qty.toFixed(2)} if right
                       </div>
                     </div>
-                    <SettlementCountdown market={p.market} compact />
+                    <SettlementCountdown market={r.market} compact />
                   </div>
-                  <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                  <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <Link
                       className="btn"
-                      href={`/markets/${p.market.marketId}?side=${p.side}&intent=sell-${p.side}`}
+                      href={`/markets/${r.market.marketId}?side=${sellSide}&intent=sell-${sellSide}`}
                     >
-                      Sell all
+                      Sell
                     </Link>
-                    <Link className="btn" href={`/markets/${p.market.marketId}?side=${p.side}`}>
+                    <Link className="btn" href={`/markets/${r.market.marketId}?side=${sellSide}`}>
                       Trade
                     </Link>
+                    {r.inSeat > 0 && r.market.phoenixMarket && !demo && (
+                      <WithdrawSeatButton phoenixMarket={r.market.phoenixMarket} compact={false} />
+                    )}
                   </div>
                 </div>
               );
@@ -258,12 +194,10 @@ function PortfolioInner() {
         </div>
       )}
 
-      {tab === "orders" && (
+      {p && tab === "orders" && (
         <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-          {demo.orders.length === 0 ? (
-            <p style={{ margin: "1rem" }}>
-              No open orders. TODO(phoenix): list Phoenix trader state per market.
-            </p>
+          {p.orders.length === 0 ? (
+            <p style={{ margin: "1rem" }}>No resting orders on Phoenix.</p>
           ) : (
             <table className="markets-table" role="grid" aria-label="Open orders">
               <thead>
@@ -271,20 +205,26 @@ function PortfolioInner() {
                   <th>Market</th>
                   <th>Intent</th>
                   <th>Price</th>
-                  <th>Size</th>
-                  <th>Filled</th>
+                  <th>Remaining</th>
+                  <th aria-label="Actions" />
                 </tr>
               </thead>
               <tbody>
-                {demo.orders.map((o) => (
-                  <tr key={o.id} {...selectableRowProps(selected === o.id, () => toggle(o.id))}>
+                {p.orders.map((o) => (
+                  <tr key={`${o.market.marketId}:${o.id}`} {...selectableRowProps(selected === o.id, () => toggle(o.id))}>
                     <td>
-                      <Link href={`/markets/${o.marketId}`}>{o.marketLabel}</Link>
+                      <Link href={`/markets/${o.market.marketId}`}>{o.market.question}</Link>
                     </td>
-                    <td>{o.intent}</td>
-                    <td className="tabular">{o.price.toFixed(2)}</td>
+                    <td>{intentLabel(o.intent)}</td>
+                    <td className="tabular">{o.intentPrice.toFixed(2)}</td>
                     <td className="tabular">{o.size}</td>
-                    <td className="tabular">{o.filled}</td>
+                    <td>
+                      {o.market.phoenixMarket && !demo ? (
+                        <CancelOrdersButton phoenixMarket={o.market.phoenixMarket} orders={[o]} />
+                      ) : (
+                        <span className="muted" style={{ fontSize: "0.78rem" }}>demo</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -293,12 +233,45 @@ function PortfolioInner() {
         </div>
       )}
 
-      {tab === "redeemable" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          {demo.redeemable.length === 0 ? (
+      {p && tab === "balances" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {p.seats.length === 0 ? (
+            <div className="card">No Phoenix trader accounts yet — one is created with your first limit order.</div>
+          ) : (
+            p.seats.map((r) => (
+              <div
+                key={r.phoenixMarket}
+                {...cardSelectProps(`seat-${r.phoenixMarket}`)}
+                style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center", padding: "0.7rem 0.85rem" }}
+              >
+                <div>
+                  <Link href={`/markets/${r.market.marketId}`}>{r.market.question}</Link>
+                  <div className="muted tabular" style={{ fontSize: "0.82rem", marginTop: 4 }}>
+                    Free {r.yesFree} Yes · {r.usdcFree.toFixed(2)} USDC — In orders {r.yesLocked} Yes ·{" "}
+                    {r.usdcLocked.toFixed(2)} USDC
+                  </div>
+                </div>
+                {r.yesFree > 0 || r.usdcFree > 0 ? (
+                  <WithdrawSeatButton phoenixMarket={r.phoenixMarket} compact={false} />
+                ) : (
+                  <span className="muted" style={{ fontSize: "0.8rem" }}>Nothing free to withdraw</span>
+                )}
+              </div>
+            ))
+          )}
+          <p className="muted" style={{ fontSize: "0.78rem", margin: 0 }}>
+            Fills of your resting orders land in your Phoenix trader account. New orders sweep it to your
+            wallet automatically; Withdraw does it now.
+          </p>
+        </div>
+      )}
+
+      {p && tab === "redeemable" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {p.redeemable.length === 0 ? (
             <div className="card">Nothing to redeem.</div>
           ) : (
-            demo.redeemable.map((r) => (
+            p.redeemable.map((r) => (
               <div
                 key={r.marketId}
                 {...cardSelectProps(`redeem-${r.marketId}`)}
@@ -308,13 +281,13 @@ function PortfolioInner() {
                   gap: 12,
                   flexWrap: "wrap",
                   alignItems: "center",
+                  padding: "0.7rem 0.85rem",
                 }}
               >
                 <div>
                   <div>{r.label}</div>
-                  <div className="muted" style={{ fontSize: "0.85rem", marginTop: 4 }}>
-                    Settled {r.side === "yes" ? "Yes" : "No"} · {r.size} contracts ·{" "}
-                    {r.payoutUsdc.toFixed(2)} USDC
+                  <div className="muted" style={{ fontSize: "0.82rem", marginTop: 4 }}>
+                    Settled {r.side === "yes" ? "Yes" : "No"} · {r.size} contracts · {r.payoutUsdc.toFixed(2)} USDC
                   </div>
                 </div>
                 <RedeemButton row={r} />
@@ -325,6 +298,12 @@ function PortfolioInner() {
       )}
     </div>
   );
+}
+
+function intentLabel(intent: string): string {
+  return (
+    { "buy-yes": "Buy Yes", "buy-no": "Buy No", "sell-yes": "Sell Yes", "sell-no": "Sell No" } as Record<string, string>
+  )[intent] ?? intent;
 }
 
 function SummaryTile({

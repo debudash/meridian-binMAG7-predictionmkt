@@ -7,7 +7,7 @@ import { impliedLabel, shortQuestion } from "@/lib/copy/payoff";
 import { noPriceFromYes } from "@/lib/market/bookTransform";
 import type { MarketView } from "@/lib/market/types";
 import { useWallet } from "@solana/wallet-adapter-react";
-import type { PositionSnapshot } from "@/lib/intents/types";
+import type { LiveExposure } from "@/hooks/useWalletPositions";
 import { MarketBuyLinks, useMarketTradeState } from "./MarketBuyLinks";
 import { DistanceReadout } from "@/components/trade/DistanceReadout";
 
@@ -18,7 +18,7 @@ export function MarketCard({
 }: {
   market: MarketView;
   /** Connected wallet's live Yes/No balance (batched by the list, DLV-074). */
-  livePosition?: PositionSnapshot | null;
+  livePosition?: LiveExposure | null;
   /** Market the user last opened (sessionStorage) — marked "Last viewed" (D-022). */
   lastViewed?: boolean;
 }) {
