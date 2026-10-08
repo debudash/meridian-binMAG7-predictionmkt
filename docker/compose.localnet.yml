@@ -1,6 +1,6 @@
 # Meridian local test instance. From the repo root:
 #   docker compose -f docker/compose.localnet.yml up --build        # first run builds the program (~10 min)
-#   open http://localhost:3000  → wallet button → "Localnet Dev Wallet"
+#   open http://127.0.0.1:3000  → wallet button → "Localnet Dev Wallet"
 # See docker/README.md for settle, reset and the test suites.
 name: meridian-local
 services:

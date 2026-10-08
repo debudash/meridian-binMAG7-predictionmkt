@@ -70,7 +70,7 @@ export NEXT_PUBLIC_SOLANA_CLUSTER=localnet NEXT_PUBLIC_SOLANA_RPC_URL=http://127
   NEXT_PUBLIC_PHOENIX_ENABLED=true NEXT_PUBLIC_PHOENIX_PROGRAM_ID=PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY \
   NEXT_PUBLIC_LOCALNET_DEV_WALLET=true LOCALNET_DEV_WALLET_KEYPAIR=$KEYS/devwallet.json \
   NEXT_PUBLIC_EXPLORER_URL="https://explorer.solana.com/?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899"
-log "web: next dev on 127.0.0.1:3000 → open http://localhost:3000 on Windows"
+log "web: next dev on 127.0.0.1:3000 → open http://127.0.0.1:3000 on Windows"
 (cd apps/web && PORT=3000 npx next dev -H 127.0.0.1 -p 3000) &
 WEB=$!
 # Relay inside the namespace: Docker's port mapping lands on :3001 and is forwarded to 127.0.0.1:3000, so Next sees a

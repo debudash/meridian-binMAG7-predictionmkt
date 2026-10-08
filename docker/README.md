@@ -19,8 +19,8 @@ docker compose -f docker/compose.localnet.yml up --build
 The first run builds the image and the program (`anchor build -- --features localnet-test`) and dumps the Phoenix V1 and
 Seat Manager programs from mainnet (read-only). That takes ~15 min. Later starts take about a minute.
 
-Watch for `[meridian-local] ready`. Then open **http://localhost:3000**, click the wallet button and choose
-**Localnet Dev Wallet**. It holds 20 SOL and 100,000 test USDC and signs without a browser extension.
+Watch for `[meridian-local] ready`. Then open **http://127.0.0.1:3000**, click the wallet button and choose
+**Localnet Dev Wallet**. Use `127.0.0.1` rather than `localhost`: if another app on the PC listens on `[::]:3000`, `localhost` reaches it instead. The wallet holds 20 SOL and 100,000 test USDC and signs without a browser extension.
 
 What `docker/localnet/start.sh` does, in order:
 
