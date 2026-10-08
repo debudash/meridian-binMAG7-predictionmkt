@@ -52,9 +52,14 @@ LOCALNET_DEV_WALLET_KEYPAIR=/path/to/localnet-dev-wallet.json
 
 Then pick **Localnet Dev Wallet** under *Select Wallet*. The adapter is only
 registered — and `/api/localnet-dev-wallet` only answers (else 404) — when **all** hold:
-cluster `localnet`, flag `true`, RPC URL on loopback, request `Host` on loopback, and
-`LOCALNET_DEV_WALLET_KEYPAIR` set. It is never shown on devnet/mainnet builds. Fund the key
-on localnet yourself (airdrop + fixture USDC mint).
+`next dev` (never in a `next build` / `next start` production bundle), cluster `localnet`,
+flag `true`, RPC URL on loopback, request `Host` on loopback, forwarded client address on
+loopback, and `LOCALNET_DEV_WALLET_KEYPAIR` set. It is never shown on devnet/mainnet or any
+production build. Fund the key on localnet yourself (airdrop + fixture USDC mint).
+
+> The Host / `x-forwarded-for` checks are client-controlled headers. If the dev server is bound
+> to `0.0.0.0` on a network others can reach, prefer `next dev -H 127.0.0.1` — a peer spoofing
+> both headers could otherwise fetch the (localnet-only) key (DLV-081).
 
 ## Tests / checks
 
