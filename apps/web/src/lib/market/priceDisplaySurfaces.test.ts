@@ -16,14 +16,14 @@ describe("view models (AMZN acceptance)", () => {
     expect(buyButtonPrices(marketPriceDisplay(AMZN))).toEqual({
       yes: { price: "0.43", title: undefined },
       no: { price: "0.59", title: undefined },
-      implied: "42% implied",
+      implied: "42% implied Yes",
     });
   });
   it("header pills: Buy Yes 0.43 / Buy No 0.59 + a separate implied label", () => {
     expect(headerPills(marketPriceDisplay(AMZN))).toEqual({
       yes: { label: "Buy Yes", price: "0.43", text: "Buy Yes 0.43", title: undefined },
       no: { label: "Buy No", price: "0.59", text: "Buy No 0.59", title: undefined },
-      implied: "42% implied",
+      implied: "42% implied Yes",
     });
     expect(headerPills(marketPriceDisplay(AMZN, { open: false }))).toEqual({
       yes: { label: "Yes", price: null, text: "Yes", title: undefined },
@@ -66,7 +66,7 @@ describe("Buy links (card, table, ladder)", () => {
 
 describe("Markets table + ladder", () => {
   const mc = src("app/markets/MarketsClient.tsx");
-  it("table keeps labeled bid/ask columns and adds an Implied column", () => {
+  it("table keeps labeled bid/ask columns and adds an Implied column (header stays `Implied`)", () => {
     const thead = mc.slice(mc.indexOf("<th>Underlying</th>"), mc.indexOf("<th>Trade</th>"));
     expect(thead).toMatch(/<th>Yes bid\/ask<\/th>/);
     expect(thead).toMatch(/<th>No bid\/ask<\/th>/);
@@ -89,6 +89,10 @@ describe("Trade header + chart stub + book spread row", () => {
     expect(trade).not.toMatch(/liveMid/);
     expect(trade).toMatch(/data-testid="trade-implied"/);
     expect(trade).toMatch(/title=\{impliedTooltip\(priceView\)\}/);
+  });
+  it("chart stub uses the helper's implied Yes text (no doubled Yes)", () => {
+    expect(trade).not.toMatch(/Yes\{" "\}\s*\{impliedText\(priceView\)\}/);
+    expect(trade).toMatch(/\{impliedText\(priceView\)\}/);
   });
   it("chart stub and spread row never print a bare mid", () => {
     expect(trade).not.toMatch(/Mid\{" "\}/);

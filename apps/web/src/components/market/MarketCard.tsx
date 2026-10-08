@@ -29,7 +29,7 @@ export function MarketCard({
   const { connected } = useWallet();
   const trade = useMarketTradeState(market, livePosition, balancesLock);
   const { position } = trade;
-  // DLV-116 (docs/ui/08): no bare mid on the card — `NN% implied` only; prices live on the Buy buttons.
+  // DLV-116 (docs/ui/08): no bare mid on the card — `NN% implied Yes` only; prices live on the Buy buttons.
   // Closed / settled: no executables and implied hidden (08 fallbacks); countdown + proof link unchanged.
   const display = marketPriceDisplay(market, { open: trade.tradingOpen });
   const whenShort = new Date(market.tradingCloseTs * 1000).toLocaleDateString(

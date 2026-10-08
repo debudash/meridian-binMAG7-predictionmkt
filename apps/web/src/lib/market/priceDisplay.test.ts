@@ -20,15 +20,15 @@ import {
 const AMZN = { bestBid: 0.41, bestAsk: 0.43, lastYes: 0.42, tickSize: 0.01 };
 
 describe("priceDisplay core", () => {
-  it("AMZN bid 0.41 / ask 0.43 → four executables + 42% implied", () => {
+  it("AMZN bid 0.41 / ask 0.43 → four executables + 42% implied Yes", () => {
     const d = priceDisplay(AMZN);
     expect(d.exec).toEqual({ "buy-yes": 0.43, "buy-no": 0.59, "sell-yes": 0.41, "sell-no": 0.57 });
     expect(execLabel(d, "buy-yes")).toBe("0.43");
     expect(execLabel(d, "buy-no")).toBe("0.59");
     expect(execLabel(d, "sell-yes")).toBe("0.41");
     expect(execLabel(d, "sell-no")).toBe("0.57");
-    expect(impliedText(d)).toBe("42% implied");
-    expect(spreadText(d)).toBe("Spread 0.02 · 42% implied");
+    expect(impliedText(d)).toBe("42% implied Yes");
+    expect(spreadText(d)).toBe("Spread 0.02 · 42% implied Yes");
   });
 
   it("Buy Yes + Buy No = 1 + spread (never 1.00); implied Yes + No = 100%", () => {
@@ -42,8 +42,8 @@ describe("priceDisplay core", () => {
     expect(d.exec).toEqual({ "buy-yes": 0.425, "buy-no": 0.585, "sell-yes": 0.415, "sell-no": 0.575 });
     expect(execLabel(d, "buy-no")).toBe("0.585");
     expect(execLabel(d, "sell-no")).toBe("0.575");
-    expect(impliedText(d)).toBe("42% implied");
-    expect(spreadText(d)).toBe("Spread 0.010 · 42% implied");
+    expect(impliedText(d)).toBe("42% implied Yes");
+    expect(spreadText(d)).toBe("Spread 0.010 · 42% implied Yes");
   });
 
   it("integer-tick math with tickSize 0.05 (mid between ticks rounds half up)", () => {
@@ -57,7 +57,7 @@ describe("priceDisplay core", () => {
     const hi = priceDisplay({ bestBid: 0.99, bestAsk: 1.0, tickSize: 0.005 });
     expect(hi.exec["buy-yes"]).toBe(0.99);
     expect(hi.impliedPct).toBe(99);
-    expect(impliedText(hi)).toBe("99% implied");
+    expect(impliedText(hi)).toBe("99% implied Yes");
     const lo = priceDisplay({ bestBid: 0.0, bestAsk: 0.005, tickSize: 0.005 });
     expect(lo.exec["buy-no"]).toBe(0.99);
     expect(lo.exec["sell-yes"]).toBe(0.01);
@@ -75,7 +75,7 @@ describe("priceDisplay core", () => {
     expect(execTitle(d, "buy-no")).toBeUndefined();
     expect(NO_SELLERS_TITLE).toBe("No sellers right now — set a limit price");
     expect(NO_BUYERS_TITLE).toBe("No buyers right now");
-    expect(impliedText(d)).toBe("40% implied (last trade)");
+    expect(impliedText(d)).toBe("40% implied Yes (last trade)");
     expect(spreadText(d)).toBeNull();
   });
 
@@ -107,10 +107,11 @@ describe("priceDisplay core", () => {
     expect(Number(no5.bids[0].price.toFixed(3))).toBe(d5.exec["sell-no"]);
   });
 
-  it("long form for tooltips (06 §4.1): 0.42 ≈ 42% implied chance", () => {
-    expect(impliedTooltip(priceDisplay(AMZN))).toBe("0.42 ≈ 42% implied chance");
-    expect(impliedTooltip(priceDisplay({ bestBid: 0.41, lastYes: 0.4 }))).toBe("Last trade 0.40 ≈ 40% implied chance");
-    expect(impliedTooltip(priceDisplay({ bestBid: 0.415, bestAsk: 0.425, tickSize: 0.005 }))).toBe("0.420 ≈ 42% implied chance");
+  it("long form for tooltips (06 §4.1): 0.42 ≈ 42% implied Yes chance", () => {
+    expect(impliedTooltip(priceDisplay(AMZN))).toBe("0.42 ≈ 42% implied Yes chance");
+    expect(impliedTooltip(priceDisplay({ bestBid: 0.41, lastYes: 0.4 }))).toBe("Last trade 0.40 ≈ 40% implied Yes chance");
+    expect(impliedTooltip(priceDisplay({ bestBid: 0.415, bestAsk: 0.425, tickSize: 0.005 }))).toBe("0.420 ≈ 42% implied Yes chance");
+    expect(impliedTooltip(priceDisplay(AMZN))).not.toMatch(/chance of winning/);
     expect(impliedTooltip(priceDisplay({}))).toBeUndefined();
   });
 

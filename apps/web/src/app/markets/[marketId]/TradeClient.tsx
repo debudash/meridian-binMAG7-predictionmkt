@@ -133,7 +133,7 @@ export function TradeClient({
   const highlightKey = resolveHighlightKey(selection, tKey, levelKeys);
 
   // DLV-116 (docs/ui/08): header pills show EXECUTABLE Buy prices (live book when we have one, else the
-  // market snapshot) + a separate `NN% implied`; never a bare mid, never a `?? 0.5` default.
+  // market snapshot) + a separate `NN% implied Yes`; never a bare mid, never a `?? 0.5` default.
   const priceView = marketPriceDisplay(market, {
     book: liveBook,
     open: getCountdown(market, nowSec).tradingEnabled,
@@ -333,7 +333,7 @@ export function TradeClient({
             <div className="card trade-chart">
               <strong>Chart (stub)</strong>
               <p className="muted" style={{ fontSize: "0.85rem", margin: "0.5rem 0 0" }}>
-                Chart stub — implied price series + Pyth overlay not wired (TODO(indexer)). Yes{" "}
+                Chart stub — implied price series + Pyth overlay not wired (TODO(indexer)).{" "}
                 {impliedText(priceView)}.
               </p>
             </div>
