@@ -173,6 +173,29 @@ To reproduce, use `scripts/e2e/create-lifecycle-markets.ts` plus the local boots
 
 ---
 
+## Launch-blocker pass 2026-10-07 (CT, after the hardening pass)
+
+Run 22:20–23:30 CT by Grok Bot (executor). Local green was the gate (no CI). Temp validators: Anchor suite on `:8699`, real-Phoenix account E2E on `:8799`; both stopped afterwards. Debu's `:8899` / `:3000` and the staging watcher were not touched.
+
+| Area | Result | Notes |
+| --- | --- | --- |
+| Anchor localnet-test, full `tests/**/*.ts` | **PASS 108/108** (27 min) | On main `0ef2626` (programs unchanged through `7f8e766`). Counts: A 5, B 1, INV 3, M 11, MP 8, PHX 6, PULL 21 (`tests/prod/settle_pull_oracle.ts` on `target/prod/meridian.so`), R 9, S 15, SC 3 + SC-IDL 1, SIM 9, V 8, X 7 |
+| Automation | **PASS 37/37** + tsc | On `7f8e766` |
+| Web unit | **PASS 252 + 14 skipped** | The 14 skipped are the two opt-in real-Phoenix E2E files. tsc, `next lint`, and `next build` are green on the !63 head |
+| Real-Phoenix account E2E (`LOCALNET_E2E=1`, `src/lib/portfolio/localnet.account.e2e.test.ts`) | **PASS 4/4** | (1) Partial maker fill: seat holds 4 Yes, 6 still resting; `availabilityInputs` gives Yes held = wallet + 4 and resting Buy Yes = 6 → Buy No blocked; Cancel (UI path `submitPhoenixManage`) empties the seat, puts the 4 Yes in the wallet, and returns 6 × px USDC. (2) Withdraw-only moves seat Yes and keeps the order resting; seat Yes is sold by a market Sell Yes thanks to the prepended sweep. (3) A resting Sell No locks No. (4) History classifies trade / order / cancel / withdraw from chain |
+
+MRs: !62 → `20b06c7` (DLV-090 / 089 / 081), !63 → `7f8e766` (DLV-088 / 087 / 068).
+
+### Go / no-go (updated)
+
+- **Devnet + Railway staging (internal demo): GO.** Still needs the prod `.so` deploy (DLV-077, devnet SOL) and `admin_settle` or `PYTH_HERMES_API_KEY` (DLV-085). Portfolio / History are now real on-chain data.
+- **Public / mainnet: NO-GO** until the pull-oracle settle is proven end-to-end on devnet (Hermes key) and an external security review is done. DLV-087 / DLV-088 are no longer blockers. Known gaps:
+  - History misses maker fills by other traders;
+  - a resting Sell No does not merge on fill (DLV-069);
+  - localnet settle-proof lookup (DLV-089 residual).
+
+---
+
 ## Flake evidence (X-03 / SIM-08 → !34)
 
 | Event | Tip | Result | Notes |
@@ -239,3 +262,4 @@ Expect: **74 passing / 0 failing**. Labs CI runners may be absent — Debu don't
 | 2026-10-07 | Meridian Testers | Initial DLV-039 artifact from tip `92d414e` / suite green `65c1ddf` (!34) |
 | 2026-10-07 | Meridian Orchestrator / Reviewers | Demo table: Phoenix on-book → Done (!38 / DLV-064); residual Phoenix.so create; post-!38 PHX census TBD; tip note `bcf5d23` |
 | 2026-10-07 | Grok Bot (hardening executor) | Hardening pass section (21:05–22:45 CT): per-area results, E2E 10/10, fixes !52–!56 + !60, DLV-086–090, go/no-go |
+| 2026-10-07 | Grok Bot (launch-blocker executor) | Launch-blocker pass: Anchor 108/108 on main, automation 37/37, web 252, account E2E 4/4; !62 + !63 (DLV-081/087/088/089/090, DLV-068); go/no-go updated |
