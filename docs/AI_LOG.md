@@ -1,3 +1,17 @@
+## 2026-10-08T12:37:00-05:00 — Engineers: executable prices on every control, mid only as `NN% implied` (docs/ui/08)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers (build ask from Meridian UI via Grok Bot; Debu's standing autonomy) |
+| **Branch** | `feat/price-display-executables` from `origin/main` @ `8284aa5` (Merge !86) |
+| **Source** | Debu on Trade AMZN ≥ 190: header pills Yes 0.42 / No 0.58 (the mid) looked tradable next to a book at ask 0.43 / bid 0.41. Normative doc `docs/ui/08-price-display.md` (Meridian UI, MR !87, opened while this was built). |
+| **Decision** | One pure helper for every price control. Controls show executable top-of-book prices only. The mid shows only as `NN% implied` (long form `0.42 ≈ 42% implied chance` as a tooltip). Missing side shows `—`, stays enabled for a limit order, and gets a tooltip. Closed / settled shows no executables and no implied. Built against Meridian UI's rules, then reconciled with !87's 08: implied hidden when closed, tooltip long form, `[minPrice, maxPrice]` caps, both-perspective tests. My first docs/ui 01/02/03 commit was reverted in the same MR because !87 owns those lines. |
+| **Change** | `apps/web`: new `src/lib/market/priceDisplay.ts`. `MarketBuyLinks` (prices on Buy Yes / Buy No for card, table, ladder; `tradingOpen` on the trade state; slightly tighter card button padding so both prices fit a 4-up row). `MarketCard` (`Yes · No` mid row → `42% implied`). `MarketsClient` (table + Implied column; ladder implied via helper). `TradeClient` (pills `Buy Yes 0.43` / `Buy No 0.59`, `aria-pressed` unchanged, separate implied label, no `?? 0.5`, chart stub without a bare mid). `OrderBook` (`Spread 0.02 · 42% implied`). `TradeTicket` (price under each intent). `indexer/phoenixQuotes.ts` (`applyTopOfBook`: no one-sided mid). |
+| **Tests** | Red first: `src/lib/market/priceDisplay.test.ts` (14: AMZN, 1 + spread, tickSize 0.005 / 0.05, caps, min/max, missing sides, closed, both perspectives, tooltip, adapter), `src/lib/market/priceDisplaySurfaces.test.ts` (10: view models + source guards per surface), `phoenixQuotes.test.ts` one-sided mid → undefined. Web vitest **408 passed + 14 skipped** (was 384 + 14). `tsc --noEmit` clean, `next lint` clean. Live on a temporary 127.0.0.1:3100 (reads :8899 only, stopped afterwards): AMZN ≥ 190 card / table / ladder / header show Buy Yes 0.43 / Buy No 0.59 + `42% implied`; book `Spread 0.02 · 42% implied` in both perspectives; ticket Buy Yes 0.43 / Sell Yes 0.41 / Buy No 0.59 / Sell No 0.57. Screenshots `/workspace/meridian-price-display-run/`. No Railway redeploy; :3000 not restarted. |
+| **Related** | DLV-116 · MR !88 · docs/ui/08 (MR !87) · 06 §4.1 · DLV-071 · D-022 |
+
+---
+
 ## 2026-10-08T12:10:00-05:00 — Engineers: remembered-but-not-installed wallet opens the picker (never the wallet site) + header Change wallet
 
 | Field | Value |

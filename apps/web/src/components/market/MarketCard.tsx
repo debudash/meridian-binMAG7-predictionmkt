@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { SettlementCountdown } from "./SettlementCountdown";
-import { formatOutcomePrice } from "@/lib/format";
-import { impliedLabel, shortQuestion } from "@/lib/copy/payoff";
-import { noPriceFromYes } from "@/lib/market/bookTransform";
+import { shortQuestion } from "@/lib/copy/payoff";
+import { impliedText, impliedTooltip, marketPriceDisplay } from "@/lib/market/priceDisplay";
 import type { MarketView } from "@/lib/market/types";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { LiveExposure } from "@/hooks/useWalletPositions";
@@ -30,8 +29,9 @@ export function MarketCard({
   const { connected } = useWallet();
   const trade = useMarketTradeState(market, livePosition, balancesLock);
   const { position } = trade;
-  const yes = market.yesMid ?? market.lastYes;
-  const no = yes != null ? noPriceFromYes(yes, market.tickSize) : undefined;
+  // DLV-116 (docs/ui/08): no bare mid on the card — `NN% implied` only; prices live on the Buy buttons.
+  // Closed / settled: no executables and implied hidden (08 fallbacks); countdown + proof link unchanged.
+  const display = marketPriceDisplay(market, { open: trade.tradingOpen });
   const whenShort = new Date(market.tradingCloseTs * 1000).toLocaleDateString(
     "en-US",
     { month: "short", day: "numeric", timeZone: "America/Chicago" },
@@ -68,23 +68,14 @@ export function MarketCard({
           whenShort,
         )}
       </Link>
-      <div className="tabular" style={{ display: "flex", gap: "1rem", fontSize: "0.95rem" }}>
-        <span>
-          Yes{" "}
-          <strong style={{ color: "var(--yes)" }}>
-            {yes != null ? formatOutcomePrice(yes) : "—"}
-          </strong>
-        </span>
-        <span>
-          No{" "}
-          <strong style={{ color: "var(--no)" }}>
-            {no != null ? formatOutcomePrice(no) : "—"}
-          </strong>
-        </span>
-      </div>
-      {yes != null && (
-        <div className="muted" style={{ fontSize: "0.8rem" }}>
-          {impliedLabel(yes)}
+      {display.open && (
+        <div
+          className="tabular"
+          style={{ fontSize: "0.95rem" }}
+          data-testid="card-implied"
+          title={impliedTooltip(display)}
+        >
+          {impliedText(display)}
         </div>
       )}
       {market.status === "open" && (
