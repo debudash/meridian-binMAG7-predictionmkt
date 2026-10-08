@@ -9,6 +9,8 @@ import { SettlementCountdown } from "@/components/market/SettlementCountdown";
 import { RedeemButton } from "@/components/portfolio/RedeemButton";
 import { CancelOrdersButton, WithdrawSeatButton } from "@/components/portfolio/PhoenixActions";
 import { usePortfolio } from "@/hooks/usePortfolio";
+import { useSolBalance } from "@/hooks/useSolBalance";
+import { formatSol, solIsLow } from "@/lib/portfolio/solBalance";
 import { useChainClock } from "@/components/providers/AppProviders";
 import { Suspense, type KeyboardEvent } from "react";
 import { onTablistKeyDown, selectableRowProps, tabProps } from "@/components/ui/a11y";
@@ -61,6 +63,7 @@ function PortfolioInner() {
   }
 
   const { portfolio, demo, loading, error } = usePortfolio(nowSec);
+  const solLamports = useSolBalance();
 
   if (!connected) {
     return (
@@ -107,6 +110,11 @@ function PortfolioInner() {
             value={p ? `${seatUsdcTotal.toFixed(2)} USDC${seatYesTotal > 0 ? ` · ${seatYesTotal} Yes` : ""}` : "…"}
           />
           <SummaryTile label="Redeemable now" value={p ? fmt(p.totals.redeemableUsdc) : "…"} />
+          <SummaryTile
+            label={solIsLow(solLamports) ? "SOL for fees (low)" : "SOL for fees"}
+            value={demo ? "—" : formatSol(solLamports)}
+            accent={solIsLow(solLamports) ? "var(--danger)" : undefined}
+          />
         </div>
         <p className="muted" style={{ fontSize: "0.78rem", marginBottom: 0, marginTop: 8 }}>
           {demo
