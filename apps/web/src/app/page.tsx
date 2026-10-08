@@ -94,12 +94,6 @@ export default async function LandingPage() {
           time. Hold one side per market in this app.
         </p>
       </section>
-
-      <style>{`
-        @media (max-width: 900px) {
-          .hero-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   );
 }
