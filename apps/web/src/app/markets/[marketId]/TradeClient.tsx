@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Intent } from "@/lib/intents/types";
@@ -43,6 +43,7 @@ import { onTablistKeyDown, selectableRowProps, tabProps } from "@/components/ui/
 import { useRememberViewedMarket } from "@/components/ui/useLastViewedMarket";
 import { toggleSelection } from "@/lib/ui/selection";
 import { POLL_MS } from "@/lib/rpc/pollPolicy";
+import { shouldRefetchOnFillsOpen } from "@/lib/rpc/refreshAfterOwnTx";
 
 const VALID_INTENTS = new Set<Intent>([
   "buy-yes",
@@ -224,6 +225,17 @@ export function TradeClient({
     account.connected,
     zoneTab === "fills" ? POLL_MS.history : false,
   );
+  // DLV-114: the history query stays mounted across tabs, so opening Fills alone never refetched it
+  // (30 s staleTime); refetch once on open (tab transition only, so an RPC error can't loop) when the
+  // cached read is older than 10 s.
+  const { data: historyData, dataUpdatedAt: historyUpdatedAt, isFetching: historyFetching, refetch: refetchHistory } = history;
+  const prevZoneTab = useRef(zoneTab);
+  useEffect(() => {
+    const opened = zoneTab === "fills" && prevZoneTab.current !== "fills";
+    prevZoneTab.current = zoneTab;
+    if (!opened || !historyData || historyFetching) return;
+    if (shouldRefetchOnFillsOpen(historyUpdatedAt, Date.now())) void refetchHistory();
+  }, [zoneTab, historyData, historyUpdatedAt, historyFetching, refetchHistory]);
   const marketFills = useMemo(
     () =>
       (demoMarket ? demoHistoryRows(nowSec) : history.data?.rows ?? []).filter(

@@ -14,7 +14,8 @@ import { readWalletAccount, type AccountMarketRef, type WalletAccount } from "@/
 import { getUsdcMint } from "@/lib/solana/config";
 import { refetchWithBackoff } from "@/lib/rpc/pollPolicy";
 
-export const WALLET_ACCOUNT_KEY = "wallet-account";
+export { WALLET_ACCOUNT_KEY } from "@/lib/rpc/refreshAfterOwnTx"; // shared with refreshAfterOwnTx (DLV-114)
+import { WALLET_ACCOUNT_KEY } from "@/lib/rpc/refreshAfterOwnTx";
 
 export interface UseWalletAccountResult {
   /** undefined until the first read lands (or when disconnected) */

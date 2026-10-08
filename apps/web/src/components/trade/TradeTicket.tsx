@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAnchorWallet, useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AnchorProvider } from "@coral-xyz/anchor";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { PublicKey } from "@solana/web3.js";
@@ -35,6 +36,7 @@ import { lotSizeError } from "@/lib/phoenix/size";
 import { sweepDisclosure } from "@/lib/phoenix/sweepCopy";
 import { marketWorstPrice } from "@/lib/phoenix/compose";
 import { confirmSignature, toastForConfirm } from "@/lib/solana/confirm";
+import { refreshAfterOwnTx } from "@/lib/rpc/refreshAfterOwnTx";
 
 const INTENTS: Intent[] = ["buy-yes", "sell-yes", "buy-no", "sell-no"];
 
@@ -98,6 +100,7 @@ export function TradeTicket({
   const { connected, publicKey, sendTransaction } = useWallet();
   const anchorWallet = useAnchorWallet();
   const { connection } = useConnection();
+  const queryClient = useQueryClient();
   const { setVisible } = useWalletModal();
   const { push } = useTxStatus();
   const { nowSec } = useChainClock();
@@ -342,6 +345,10 @@ export function TradeTicket({
           const swept = result.swept ? sweepDisclosure(seatFree, "past") : null;
           const t = toastForConfirm(outcome, swept ? `${result.message} ${swept}` : result.message, result.signature);
           push(t.kind, t.message);
+        }
+        // DLV-114: Position + Fills update without a reload (bounded history retry until the sig is listed).
+        if (outcome.status !== "failed") {
+          void refreshAfterOwnTx(queryClient, result.signature).catch(() => undefined);
         }
       } else if (result.reason === "invalid-size") {
         push("error", result.message);
