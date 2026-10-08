@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
+import { logChainReadError } from "@/lib/log/chainRead";
 import type { MarketView } from "@/lib/market/types";
 import type { PositionSnapshot } from "@/lib/intents/types";
 import { getUsdcMint } from "@/lib/solana/config";
@@ -47,7 +48,8 @@ export function useLivePosition(
         if (!cancelled) {
           setPos({ yesQty: amt(0), noQty: amt(1), usdc: usdc ? amt(2) : 0, updatedAt: Date.now() });
         }
-      } catch {
+      } catch (e) {
+        logChainReadError("wallet.positions", e);
         // keep last value
       }
     };

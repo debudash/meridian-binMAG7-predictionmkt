@@ -8,6 +8,7 @@
  */
 import type { MarketView } from "@/lib/market/types";
 import type { FillHint, PortfolioHints } from "./types";
+import { logChainReadError } from "@/lib/log/chainRead";
 
 function baseUrl(): string | null {
   const u = process.env.NEXT_PUBLIC_INDEXER_URL;
@@ -23,9 +24,13 @@ async function getJson<T>(path: string): Promise<T | null> {
       next: { revalidate: 15 },
       headers: { Accept: "application/json" },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (res.status !== 404) logChainReadError("indexer.http", `HTTP ${res.status}`, { path });
+      return null;
+    }
     return (await res.json()) as T;
-  } catch {
+  } catch (e) {
+    logChainReadError("indexer.http", e, { path });
     return null;
   }
 }

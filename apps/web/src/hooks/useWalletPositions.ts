@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
+import { logChainReadError } from "@/lib/log/chainRead";
 import type { PositionSnapshot } from "@/lib/intents/types";
 import {
   chunk,
@@ -75,7 +76,8 @@ export function useWalletPositions(
         if (!cancelled) {
           setPositions(positionsFromAccounts(plan, parts.flatMap((p) => p.value)));
         }
-      } catch {
+      } catch (e) {
+        logChainReadError("wallet.positions", e);
         // keep last value; next tick retries
       }
     };

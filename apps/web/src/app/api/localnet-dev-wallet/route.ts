@@ -6,13 +6,15 @@
  * didn't) is loopback, and LOCALNET_DEV_WALLET_KEYPAIR (server-only) points at a Solana
  * keypair JSON. Never configure this on devnet/mainnet.
  *
- * Residual (DLV-081): Host / x-forwarded-for are client-controlled, so a peer that can reach
- * a dev server bound to 0.0.0.0 and spoofs both headers still gets the (localnet-only) key.
- * Bind `next dev -H 127.0.0.1` when the box is reachable from a shared network.
+ * DLV-081: Host / x-forwarded-for are client-controlled, so on top of those checks the route
+ * refuses whenever this dev server is reachable on a non-loopback interface (probed, see
+ * devServerExposure.ts). Run `npm run dev` (binds `-H 127.0.0.1`) — `next dev -H 0.0.0.0`
+ * now gets a 404 plus a server-log line explaining why.
  */
 import { readFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { isLocalnetDevWalletAllowed } from "@/lib/solana/localnetDevWallet";
+import { devServerExposure } from "@/lib/solana/devServerExposure";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,14 @@ export async function GET(req: Request) {
   const host = req.headers.get("host") ?? "";
   const path = process.env.LOCALNET_DEV_WALLET_KEYPAIR;
   if (!isLocalnetDevWalletAllowed() || !LOOPBACK_HOST.test(host) || !forwardedClientIsLoopback(req) || !path) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+  const exposed = await devServerExposure();
+  if (exposed) {
+    console.error(
+      `[dev-wallet] refused: this dev server is reachable off-loopback (${exposed}). ` +
+        "Restart it bound to loopback: `npm run dev` (next dev -H 127.0.0.1). DLV-081",
+    );
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
   try {

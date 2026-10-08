@@ -14,7 +14,10 @@ type Props = {
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { market: m } = await getMarket(params.marketId);
+  const { market: m, error } = await getMarket(params.marketId);
+  // Metadata resolves before the streamed shell is flushed, so notFound() here gives a real
+  // HTTP 404 for an unknown market (in the page body it streams under loading.tsx → 200). DLV-089
+  if (!m && !error) notFound();
   return {
     title: m ? `${m.underlyingSymbol} · Meridian` : "Market · Meridian",
     description: m?.question,

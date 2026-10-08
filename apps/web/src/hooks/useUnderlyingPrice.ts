@@ -10,6 +10,7 @@ import { useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import type { MarketView } from "@/lib/market/types";
 import { decodePythPriceAccount, type PythPriceSource } from "@/lib/pyth/priceAccount";
+import { logChainReadError } from "@/lib/log/chainRead";
 
 export interface UnderlyingQuote {
   price: number;
@@ -51,8 +52,9 @@ export function useUnderlyingPrice(
             publishTime: d.publishTime,
           });
         }
-      } catch {
+      } catch (e) {
         // keep last value
+        logChainReadError("pyth.underlying", e, { feed: market.pythFeedId });
       }
     };
     void load();
