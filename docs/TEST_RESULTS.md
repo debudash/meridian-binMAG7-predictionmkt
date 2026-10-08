@@ -36,10 +36,13 @@ This artifact cites eng-reported localnet greens on the SHAs above; full suite w
 | **SIM** anytime session (localnet-only) | SIM-01…SIM-09 | 9 | **Green** | !15 → !16; flake harden !34 |
 | **MP** `merge_pair` (D-018) | MP-01…MP-08 | 8 | **Green** | !30 → !31 @ `9f175d7` |
 | **P2** + INV gates | A-05, R-08, X-07, INV-P2-I3, INV-PROD-01, INV-FEE-TRUNC | 6 | **Green** | !27 suite → !32 @ `3051584` |
+| **PHX** Phoenix on-book sim E2E (DLV-064) | PHX-01…PHX-06 (`tests/phoenix_onbook_e2e.ts`) + 3 compose unit cases (`tests/unit/phoenix_compose.ts`) | 6 (+3 unit) | **Green** | !38 — **9/9** focused localnet per !38 report (6 PHX + 3 compose). PHX 6/6 also inside the full-suite **87/87** (hardening pass) and **108/108** (launch-blocker pass @ `0ef2626`) runs below |
 | **Flake harden** | X-03, SIM-08 (+ suite-wide mint-window slack) | — | **Green** | !34 @ `65c1ddf` (**74/74**) |
 | **Total** | — | **74** | **74 passing / 0 failing** | tip `65c1ddf` / docs tip `92d414e` |
 
 Mocha count note: **70** named lifecycle `it()` + **4** S-10 unit vectors = **74** (matches eng !32/!34 reports).
+
+**Census after !38:** the **74** total is the DLV-039 snapshot @ `65c1ddf`, taken before PHX existed, so it doesn't include the PHX row. Later full-suite runs reported in this file: **87/87** (hardening pass, includes PHX 6) and **108/108** (launch-blocker pass @ `0ef2626`, includes PHX 6 and PULL 21). This census refresh did **not** re-run the suite. PHX counts are per the !38 report and the `it()` count on main.
 
 ---
 
@@ -230,17 +233,17 @@ Expect: **74 passing / 0 failing**. Labs CI runners may be absent — Debu don't
 
 | Item | State |
 | --- | --- |
-| Localnet suite green on tip | Yes — cite `65c1ddf` / `92d414e` |
+| Localnet suite green on tip | Yes — DLV-039 snapshot 74/74 @ `65c1ddf` / `92d414e`. Latest reported full suite **108/108** @ `0ef2626` (launch-blocker pass; programs unchanged through `7f8e766`) |
 | Anytime sim path (D-017) | Yes — SIM-01…09; [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) |
 | Non-custodial / pause / admin delay | Covered by P0 + !17 nits |
 | Sell No / `merge_pair` | Green MP-* + client !33 |
-| Phoenix on-book sim E2E | **Done** (!38 / DLV-064) — `simTradeOnBook` + PHX-01…06; residual: full Phoenix.so market create on validator ([`phoenix-onbook-sim.md`](phoenix-onbook-sim.md)) |
+| Phoenix on-book sim E2E | **Done / Green** (!38 / DLV-064). `simTradeOnBook` + **PHX-01…06**: 6/6 PHX, 9/9 with the 3 compose unit cases per !38. PHX 6 green inside the 87/87 and 108/108 full-suite runs. Real Phoenix V1 books are also covered by the opt-in web E2E (hardening 10/10, account 4/4). Residual: Phoenix.so market create inside the Anchor mocha harness ([`phoenix-onbook-sim.md`](phoenix-onbook-sim.md)) |
 | Peak6 PRD demo **video** | **Open** (DLV-038) — distinct from this artifact |
 | Railway staging deploy | Deferred; fixtures browse OK locally |
 
 **Reviewers:** treat this file + tip SHAs as DLV-039 evidence for demo handoff. Continuous security / walkthrough video remain separate (DLV-037 / DLV-038).
 
-**Post-!38 suite note:** tip advanced with PHX-01…06 under the same mocha `tests/**/*.ts` glob; DLV-039 still cites **74/74** @ `65c1ddf`. Live census after !38 is TBD / re-run (eng reported PHX green separately).
+**Post-!38 suite note (refreshed):** PHX-01…06 are 6 `it()` cases in `tests/phoenix_onbook_e2e.ts`, plus 3 compose unit cases in `tests/unit/phoenix_compose.ts`. Both sit under the mocha `tests/**/*.ts` glob (`Anchor.toml`). Counts: 9/9 focused per !38; PHX 6 in the full-suite 87/87 and 108/108 runs recorded above. DLV-039's own snapshot stays **74/74** @ `65c1ddf`. Not re-run in this refresh.
 
 ---
 
@@ -263,3 +266,4 @@ Expect: **74 passing / 0 failing**. Labs CI runners may be absent — Debu don't
 | 2026-10-07 | Meridian Orchestrator / Reviewers | Demo table: Phoenix on-book → Done (!38 / DLV-064); residual Phoenix.so create; post-!38 PHX census TBD; tip note `bcf5d23` |
 | 2026-10-07 | Grok Bot (hardening executor) | Hardening pass section (21:05–22:45 CT): per-area results, E2E 10/10, fixes !52–!56 + !60, DLV-086–090, go/no-go |
 | 2026-10-07 | Grok Bot (launch-blocker executor) | Launch-blocker pass: Anchor 108/108 on main, automation 37/37, web 252, account E2E 4/4; !62 + !63 (DLV-081/087/088/089/090, DLV-068); go/no-go updated |
+| 2026-10-07 | Meridian Testers | Census refresh for PHX-01…06 (!38): PHX row in the layer rollup (6 PHX + 3 compose; 9/9 per !38; PHX 6 in 87/87 and 108/108), Phoenix on-book demo row → Done / Green, post-!38 note rewritten (TBD removed). No suite re-run. Requested by Meridian Reviewers |
