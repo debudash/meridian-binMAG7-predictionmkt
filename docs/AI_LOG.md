@@ -1,3 +1,17 @@
+## 2026-10-07T23:55:00-05:00 — Engineers: M2 fixtures need a loopback RPC (`custom` label no longer enough)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `fix/fixtures-custom-loopback` from `origin/main` @ `7aa1fe5` (!67) |
+| **Source** | `/workspace/meridian-review-mr52-61.md` **M2** (!59) |
+| **Decision** | TDD. `isFixtureCluster(cluster, rpcUrl)` / `fixturesAllowed(cluster, rpcUrl)` now require a fixture-style label (`localnet` / `localhost` / `custom`) **and** a loopback RPC (`127.0.0.1` / `localhost` / `[::1]`, shared `LOOPBACK_RPC` with the dev-wallet gate; look-alikes like `127.0.0.1.evil.com` / `localhost@evil.com` rejected). `rpcUrl` defaults to the raw `NEXT_PUBLIC_SOLANA_RPC_URL` (no devnet fallback, so unset = off). Applies to fixture markets, the fixture book, middleware fixture slugs (→ 404) and the demo portfolio. Kept `custom` for loopback validators on other ports. Existing localnet-mode tests now set a loopback RPC explicitly. |
+| **Evidence** | web vitest 320 passed / 14 skipped (new `fixtureRpcGate.test.ts` 12) · `tsc --noEmit` clean. Debu's `.env.local` (localnet + `127.0.0.1`) is unaffected. |
+| **Files** | `apps/web/src/lib/market/marketIdRoute.ts` · `lib/solana/config.ts` · `middleware.ts` · `lib/solana/localnetDevWallet.ts` · tests · `docs/RAILWAY_STAGING.md` |
+| **Related** | M2 · DLV-084 · DLV-081 · !59 |
+
+---
+
 ## 2026-10-07T23:45:00-05:00 — Engineers: Reviewer Mediums M1/M4/M5 + L8/L10/L11/L12/L13/L14 (web)
 
 | Field | Value |

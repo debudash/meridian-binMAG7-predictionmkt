@@ -17,7 +17,11 @@ export function middleware(req: NextRequest) {
     } catch {
       // malformed escape → implausible
     }
-    if (!isPlausibleMarketId(id, isFixtureCluster(process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet"))) {
+    const fixturesOk = isFixtureCluster(
+      process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet",
+      process.env.NEXT_PUBLIC_SOLANA_RPC_URL, // M2: loopback RPC required too
+    );
+    if (!isPlausibleMarketId(id, fixturesOk)) {
       return NextResponse.rewrite(new URL("/404-market", req.url));
     }
   }

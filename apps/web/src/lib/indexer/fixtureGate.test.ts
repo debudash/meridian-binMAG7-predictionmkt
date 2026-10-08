@@ -3,7 +3,7 @@
  * On devnet / mainnet a failed or empty chain read must surface an error / empty state,
  * never fixture markets.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, beforeAll, afterAll } from "vitest";
 
 const rpc = vi.hoisted(() => ({
   fetchMarketsViaRpc: vi.fn(),
@@ -21,6 +21,16 @@ vi.mock("./http", () => ({
 import { listMarkets, getMarket, resetMarketListCache } from "./index";
 import { fixturesAllowed } from "@/lib/solana/config";
 import { displayBook } from "@/lib/market/fixtures";
+
+// M2: fixtures need a loopback RPC as well as a localnet-style label — these cases model local dev.
+const savedRpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+beforeAll(() => {
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL = "http://127.0.0.1:8899";
+});
+afterAll(() => {
+  if (savedRpcUrl === undefined) delete process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+  else process.env.NEXT_PUBLIC_SOLANA_RPC_URL = savedRpcUrl;
+});
 
 const NOW = 1_791_400_000;
 const saved = process.env.NEXT_PUBLIC_SOLANA_CLUSTER;
