@@ -221,7 +221,7 @@ If 13.6–13.8 fail on a paused book, that's a **blocker for !73**: report it.
 **[B]** The operator pipeline settles the 20-min market (STAGING_TEST_PLAN 7.5 / 7.6). From expiry + 90 s it tries, in order:
 1. **Pyth pull settle**: the market's **sponsored** Pyth price account if it already holds the expiry price, otherwise the **Hermes** expiry price posted through the Pyth receiver (needs the Hermes API key). Signed by the low-balance **settler** key.
 2. The legacy permissionless settle against the sponsored account (settler).
-3. From expiry + 330 s, if still unsettled: **`admin_settle`** by the config authority at the **last published mainnet** AAPL Pyth price, read at about expiry + 330 s. That isn't the price at expiry, so the proof card's price can differ a little from the AAPL price at expiry (or the 4:00 PM ET close). That's expected on staging.
+3. From expiry + 330 s, if still unsettled: **`admin_settle`** by the config authority at the **Hermes AAPL price at expiry** (publish time within 10 min of expiry). If Hermes has no such price (off-hours, key not entitled), the pipeline **refuses** to settle on its own and waits for the operator to supply the real expiry price **with its source** (e.g. the official close); the source is logged. It never uses the stale shard-0 account price (Reviewers mr72-73 M3). Checked 2026-10-08: the current `PYTH_HERMES_API_KEY` gets HTTP 403 **"Not entitled … asset type 'equity'"** for the AAPL feed (crypto feeds return 200), so until the key's plan includes equities, both the Hermes pull settle and the Hermes fallback price refuse and the **operator price** path is what settles.
 
 **[A]** The operator closes the sim session and settles against the mock Pyth price (`docs/SIM_LIFECYCLE.md`).
 

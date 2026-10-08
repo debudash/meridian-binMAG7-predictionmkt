@@ -1,3 +1,18 @@
+## 2026-10-08T09:10:00-05:00 — Engineers: staging gates from review mr72-73 (M3 admin_settle price never stale; handoff repair for every book; pause lead 5 s)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `fix/staging-gates-m3` from `origin/main` @ `0f303de` |
+| **Source** | `/workspace/meridian-review-mr72-73.md` "Debu-only devnet staging: OK to proceed if" 1–3: M3 (the `run-staging.sh` admin_settle fallback used the ~55-day-old `pyth-read.py` shard-0 price, so the 20-min AAPL ≥ 300 outcome was fixed in advance), every book (incl. pre-!73 Friday books) on the pauser with `pause-status` showing it, `PHOENIX_PAUSE_LEAD_SECS=5` (L4). |
+| **Decision** | Option (a)+(b) of M3: fallback = the Hermes price **at expiry** (same `/v2/updates/price/{expiry}` route as pull settle), accepted only for the market feed, `|publish_time − expiry| ≤ 600 s`, price > 0, conf ≤ the config cap. Otherwise **refuse** (`[settle] ALERT`) and wait for an operator price that must carry its **source** and be **bound to the market** (so a leftover value can't settle another market); a valid Hermes price always wins. `pyth-read.py` is informational only, with an age guard. Handoff: idempotent repair over the whole state after each bootstrap phase + a key-less `--expect-pauser` gate. |
+| **Change** | `apps/automation/src/pyth/adminFallback.ts` (`decideAdminFallbackPrice`, `priceToE6`); `src/phoenix/handoff.ts` (`planHandoff` refuses pauser == current authority, `authorityReport`); `ops-cli.ts` (`admin-price` read-only, `pause-status --expect-pauser` → `[pause] ALERT` + exit 2, `handoff` via the planner with ALERT + exit 2 on foreign/failed, missing state = 0 books); `pyth/hermes.ts` (403 "Not entitled" named as a missing feed entitlement, not a bad key); `ops/run-staging.sh` (`handoff_repair` after phase 1 and phase 2 and in `DRY_RUN`, `admin_price` + `$ADMIN_PRICE_FILE` operator path, `mktemp` settle log, `AUTO` overridable); `ops/settle-test.cjs` + `ops/lib/admin-price.cjs` (no `ADMIN_PRICE_E6` without `ADMIN_PRICE_SOURCE`); `ops/pyth-read.py` (age guard, exit 2 on stale); docs (STAGING_TEST_PLAN 7.6 / settle chain, VISUAL_RUNBOOK 14, ops/README, DEPLOY, env examples lead 5). |
+| **Finding** | Live check 2026-10-08 ~08:58 CT: the box `PYTH_HERMES_API_KEY` gets **HTTP 403 "Not entitled … asset type 'equity'"** for AAPL (crypto BTC/USD → 200). Until the key's plan includes equities, Hermes pull settle and the Hermes fallback both refuse and the operator price is what settles the 20-min market. |
+| **Tests** | Red first: `test/staging-gates.test.ts` (20) + 1 in `pull-oracle.test.ts` → automation **93 passing + 11 pending**, `tsc` clean. Box `DRY_RUN=1` with a synthetic two-book pre-!73 state: handoff repair + gate ran read-only against devnet, exit 0, zero transactions. |
+| **Related** | DLV-101 · DLV-102 · DLV-103 · DLV-106 · DLV-097 · DLV-085 · review mr72-73 M3 / L4 |
+
+---
+
 ## 2026-10-08T08:45:00-05:00 — Engineers: paused Phoenix book = cancel/withdraw only (localnet proof + ticket copy) and Reviewer ops/web nits
 
 | Field | Value |

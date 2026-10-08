@@ -1,16 +1,25 @@
 /**
  * Operator CLI for the staging box (ops/run-staging.sh) — same tested code paths as the worker.
  *
- *   node dist/ops-cli.js pause-status [--state <staging-state.json>]      read-only: book status + SM authority
+ *   node dist/ops-cli.js pause-status [--state <staging-state.json>] [--expect-pauser <pubkey>]
+ *                                                                        read-only: book status + SM authority;
+ *                                                                        --expect-pauser: ALERT + exit 2 if any book's
+ *                                                                        SM authority isn't that pubkey (no key needed)
  *   node dist/ops-cli.js pause-once   [--state <file>]                    pause every due book once
  *   node dist/ops-cli.js pause-watch  [--state <file>] [--max-hours 96]   pause each book at its expiry, then exit
  *   node dist/ops-cli.js handoff      [--state <file>] [--phoenix <pk>]…  seat-manager authority → pauser (PSM 6 + 7)
  *   node dist/ops-cli.js pull-settle  --market <strikeMarket>             permissionless settle via Pyth pull oracle
+ *   node dist/ops-cli.js admin-price  --market <strikeMarket>             read-only: admin_settle fallback price (M3) =
+ *                                                                        Hermes price at expiry, else OPERATOR_PRICE_E6 +
+ *                                                                        OPERATOR_PRICE_SOURCE + OPERATOR_PRICE_MARKET,
+ *                                                                        else ADMIN_PRICE_REFUSED (exit 4). Never stale.
  *
  * Env (never printed): SOLANA_RPC_URL, PHOENIX_PAUSER_KEYPAIR (path or JSON array),
  *   SEAT_MANAGER_AUTHORITY_KEYPAIR (handoff only: the CURRENT seat-manager authority; box only, never Railway),
  *   SETTLER_KEYPAIR + PYTH_HERMES_API_KEY [+ PYTH_HERMES_URL] (pull-settle), MERIDIAN_IDL_PATH / MERIDIAN_PROGRAM_ID
- *   (chain listing / settle), PHOENIX_PAUSE_LEAD_SECS, PHOENIX_PAUSE_ALERT_SECS, DRY_RUN=1 (read-only, no tx).
+ *   (chain listing / settle), PHOENIX_PAUSE_LEAD_SECS, PHOENIX_PAUSE_ALERT_SECS, DRY_RUN=1 (read-only, no tx),
+ *   ADMIN_PRICE_MAX_SKEW_SECS (admin-price: max |publish_time − expiry|, default 600).
+ * A missing --state file means "no books yet" (fresh staging), not an error.
  * Without --state, books come from the chain (every StrikeMarket with a Phoenix book; needs the prod IDL).
  */
 import * as fs from "fs";
@@ -28,6 +37,9 @@ import {
   type PauseDeps,
 } from "./phoenix/pauseAtExpiry";
 import { PhoenixMarketStatus, seatManagerHandoffIxs } from "./phoenix/seatManager";
+import { authorityReport, planHandoff } from "./phoenix/handoff";
+import { fetchUpdateAt } from "./pyth/hermes";
+import { decideAdminFallbackPrice } from "./pyth/adminFallback";
 
 const DRY = process.env.DRY_RUN === "1";
 const log = (msg: string, extra?: unknown) => console.log(`[ops] ${extra === undefined ? msg : `${msg} ${JSON.stringify(extra)}`}`);
@@ -43,6 +55,7 @@ function args(name: string): string[] {
 }
 
 export function booksFromState(file: string): { books: BookAtExpiry[]; complete: boolean } {
+  if (!fs.existsSync(file)) return { books: [], complete: false }; // fresh staging: nothing bootstrapped yet
   const s = JSON.parse(fs.readFileSync(file, "utf8"));
   const books = (s.markets ?? [])
     .filter((m: any) => m.phoenixMarket)
@@ -87,6 +100,15 @@ async function main() {
         seatManagerAuthority: s?.seatManagerAuthority?.toBase58() ?? null,
       });
     }
+    const expect = arg("--expect-pauser");
+    if (expect) {
+      const r = authorityReport(books, st, new PublicKey(expect));
+      for (const m of r.mismatches) {
+        console.error(`[pause] ALERT book ${m.book.label ?? m.book.phoenixMarket.toBase58()} (phoenix ${m.book.phoenixMarket.toBase58()}) seat-manager authority ${m.authority?.toBase58() ?? "none"} != pauser ${expect} — run handoff`);
+      }
+      log(`pause-status: ${r.onPauser}/${books.length} books have the pauser ${expect} as seat-manager authority`);
+      if (!r.ok) process.exit(2);
+    }
     return;
   }
 
@@ -98,17 +120,25 @@ async function main() {
     const explicit = args("--phoenix").map((p) => ({ strikeMarket: PublicKey.default, phoenixMarket: new PublicKey(p), expiryTs: 0, label: p }));
     const books = explicit.length ? explicit : await listBooks();
     const st = await readBookStates(connection, books);
-    for (const b of books) {
-      const auth = st.get(b.phoenixMarket.toBase58())?.seatManagerAuthority ?? null;
-      if (!auth) { log(`handoff skip ${b.label}: no seat manager (book not under PSM)`); continue; }
-      if (auth.equals(pauser.publicKey)) { log(`handoff ok ${b.label}: pauser ${pauser.publicKey.toBase58()} already SM authority`); continue; }
-      if (!auth.equals(current.publicKey)) { log(`handoff skip ${b.label}: SM authority ${auth.toBase58()} is neither the given current key nor the pauser`); continue; }
+    log(`handoff: ${books.length} book(s), current ${current.publicKey.toBase58()} → pauser ${pauser.publicKey.toBase58()}${DRY ? " [DRY_RUN]" : ""}`);
+    let failed = 0;
+    for (const step of planHandoff(books, st, current.publicKey, pauser.publicKey)) {
+      const b = step.book;
+      if (step.action === "skip-no-psm") { log(`handoff skip ${b.label}: no seat manager (book not under PSM)`); continue; }
+      if (step.action === "ok") { log(`handoff ok ${b.label}: pauser ${pauser.publicKey.toBase58()} already SM authority`); continue; }
+      if (step.action === "skip-foreign") { console.error(`[pause] ALERT handoff skip ${b.label}: SM authority ${step.authority?.toBase58()} is neither the given current key nor the pauser`); failed++; continue; }
       if (DRY) { log(`[DRY_RUN] would hand off ${b.label}: ${current.publicKey.toBase58()} → ${pauser.publicKey.toBase58()}`); continue; }
-      const tx = new Transaction().add(...seatManagerHandoffIxs({ market: b.phoenixMarket, currentAuthority: current.publicKey, newAuthority: pauser.publicKey }));
-      tx.feePayer = current.publicKey;
-      const sig = await sendAndConfirmTransaction(connection, tx, [current, pauser], { commitment: "confirmed" });
-      log(`handoff ${b.label}: SM authority → pauser ${pauser.publicKey.toBase58()}`, { sig });
+      try {
+        const tx = new Transaction().add(...seatManagerHandoffIxs({ market: b.phoenixMarket, currentAuthority: current.publicKey, newAuthority: pauser.publicKey }));
+        tx.feePayer = current.publicKey;
+        const sig = await sendAndConfirmTransaction(connection, tx, [current, pauser], { commitment: "confirmed" });
+        log(`handoff ${b.label}: SM authority → pauser ${pauser.publicKey.toBase58()}`, { sig });
+      } catch (e) {
+        failed++;
+        console.error(`[pause] ALERT handoff FAILED for ${b.label}: ${String(e instanceof Error ? e.message : e).slice(0, 300)}`);
+      }
     }
+    if (failed) process.exit(2);
     return;
   }
 
@@ -163,6 +193,33 @@ async function main() {
     if (r.ok) return void log(`PULL_SETTLE_OK via=${r.via}`, { sigs: r.signatures });
     log(`PULL_SETTLE_FAILED reason=${r.reason}${r.needsApiKey ? " (needs PYTH_HERMES_API_KEY)" : ""}`);
     process.exit(3);
+  }
+
+  if (cmd === "admin-price") {
+    const m = arg("--market");
+    if (!m) throw new Error("--market <strikeMarket> required");
+    const { program } = createProgram(cfg, Keypair.generate()); // read-only
+    const market = new PublicKey(m);
+    const acc = await (program.account as any).strikeMarket.fetch(market);
+    const c = await (program.account as any).config.fetch(configPda(program.programId)[0]);
+    const expiryTs = Number(acc.expiryTs.toString());
+    const feedIdHex = Buffer.from(acc.pythFeedId).toString("hex");
+    const maxSkewSecs = Number(process.env.ADMIN_PRICE_MAX_SKEW_SECS ?? "600");
+    if (!Number.isFinite(maxSkewSecs) || maxSkewSecs < 0 || maxSkewSecs > 3600) throw new Error("ADMIN_PRICE_MAX_SKEW_SECS must be 0..3600");
+    let hermes: { parsed: any } | { error: string };
+    try {
+      hermes = await fetchUpdateAt({ baseUrl: cfg.pythHermesUrl, apiKey: cfg.pythHermesApiKey, feedIdHex, publishTime: expiryTs });
+    } catch (e) {
+      hermes = { error: String(e instanceof Error ? e.message : e).slice(0, 200) };
+    }
+    const d = decideAdminFallbackPrice({
+      market: market.toBase58(), expiryTs, feedIdHex, maxSkewSecs, maxConfBps: Number(c.settleMaxConfRatioBps), hermes,
+      operator: { priceE6: process.env.OPERATOR_PRICE_E6, source: process.env.OPERATOR_PRICE_SOURCE, market: process.env.OPERATOR_PRICE_MARKET },
+    });
+    log(`admin-price market=${market.toBase58()} expiryTs=${expiryTs} hermesKey=${cfg.pythHermesApiKey ? "set" : "MISSING"}`);
+    if (d.ok) return void console.log(`ADMIN_PRICE_OK price_e6=${d.priceE6} source=${d.source}`);
+    console.log(`ADMIN_PRICE_REFUSED reason=${d.reason}`);
+    process.exit(4);
   }
 
   throw new Error(`unknown command ${cmd ?? "(none)"} — see the header of src/ops-cli.ts`);
