@@ -9,6 +9,28 @@ import type { PlaceFailureReason } from "./types";
 /** Phoenix V1 `NewOrderError` — IOC could not reach min_base_lots_to_fill. */
 export const PHOENIX_NEW_ORDER_ERROR = 0xf;
 
+/**
+ * Books are paused at expiry (PSM ChangeMarketStatus(Paused), !73). Phoenix then refuses new
+ * orders / crosses but still allows cancel (reduce) and WithdrawFunds.
+ */
+export const PHOENIX_MARKET_PAUSED_MESSAGE = "Market paused, cancel or withdraw only";
+/** Phoenix MarketStatus::Paused (MarketHeader.status u64 @8). */
+export const PHOENIX_STATUS_PAUSED = 3;
+
+/**
+ * Phoenix V1 fails place/cross on a Paused book with ProgramError::InvalidAccountData and logs one of
+ *   "Post only order is not allowed, market status is Paused"   (PlaceLimitOrder: limit / post-only)
+ *   "FOK and IOC orders are not allowed, market status is Paused" (Swap: market IOC/FOK)
+ *   "Market is not active, market status is Paused"             (order packet that withdraws)
+ * (phoenix-v1 phoenix_checkers.rs / new_order.rs; asserted against the real program by
+ * apps/automation/test/phoenix-pause.localnet.test.ts).
+ */
+const PHOENIX_PAUSED_LOG = /market status is Paused\b/;
+
+export function isPhoenixMarketPausedError(text: string): boolean {
+  return PHOENIX_PAUSED_LOG.test(text);
+}
+
 const MERIDIAN_ERRORS: Record<number, string> = Object.fromEntries(
   ((meridianProd as { errors?: { code: number; msg?: string; name: string }[] }).errors ?? []).map((e) => [
     e.code,
@@ -39,6 +61,9 @@ export function explainPlaceError(
   msg: string,
   ctx: PlaceErrorContext,
 ): { reason: PlaceFailureReason; message: string } | null {
+  if (isPhoenixMarketPausedError(msg)) {
+    return { reason: "market-paused", message: PHOENIX_MARKET_PAUSED_MESSAGE };
+  }
   const code = customCode(msg);
   if (code == null) return null;
   if (code >= 6000) {

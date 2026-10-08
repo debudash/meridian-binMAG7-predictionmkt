@@ -37,6 +37,8 @@ export type PlaceFailureReason =
   | "sdk-error"
   | "no-fill"
   | "program-error"
+  /** Phoenix book Paused (at expiry, !73): new orders refused; cancel / withdraw still work */
+  | "market-paused"
   | "user-rejected";
 
 export interface MappedBookAction {

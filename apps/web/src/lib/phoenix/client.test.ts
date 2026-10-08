@@ -48,7 +48,8 @@ vi.mock("@/lib/solana/instructions", () => {
   };
 });
 
-import { placePhoenixOrder } from "./client";
+import { pausedCopyForFailedPlace, placePhoenixOrder } from "./client";
+import { PHOENIX_MARKET_PAUSED_MESSAGE } from "./errors";
 
 const user = Keypair.generate().publicKey;
 const pk = () => Keypair.generate().publicKey;
@@ -136,5 +137,79 @@ describe("placePhoenixOrder lot alignment (M1)", () => {
     expect(mintAmounts).toEqual(["290000"]);
     expect(Math.floor(sdk.iocCalls[0].sizeInBaseUnits * 100)).toBe(29);
     expect(Math.floor(sdk.iocCalls[0].minBaseUnitsToFill * 100)).toBe(29);
+  });
+});
+
+/** Phoenix MarketHeader: discriminant u64 @0, status u64 @8 (3 = Paused). */
+function header(status: number) {
+  const b = Buffer.alloc(16);
+  b.writeBigUInt64LE(BigInt(status), 8);
+  return { data: b };
+}
+const PAUSED_LOG = "Program log: FOK and IOC orders are not allowed, market status is Paused";
+const BARE = "Transaction simulation failed: Error processing Instruction 3: invalid account data for instruction";
+
+function failingCtx(err: unknown, status?: number) {
+  const { ctx: c } = ctx();
+  const getAccountInfo = vi.fn(async () => (status == null ? null : header(status)));
+  const sendTransaction = vi.fn(async () => {
+    throw err;
+  });
+  return {
+    getAccountInfo,
+    ctx: { ...c, sendTransaction, connection: { ...(c.connection as object), getAccountInfo } as never },
+  };
+}
+
+describe("placePhoenixOrder on a paused Phoenix book (!73 gap)", () => {
+  it("SendTransactionError carrying the Phoenix log in .logs → cancel/withdraw-only copy", async () => {
+    const err = Object.assign(new Error(BARE), { logs: ["Program PhoeNiX invoke [1]", PAUSED_LOG] });
+    const { ctx: c } = failingCtx(err);
+    const r = await placePhoenixOrder(req("buy-yes", 1, 1), c);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe("market-paused");
+    expect(r.message).toBe(PHOENIX_MARKET_PAUSED_MESSAGE);
+  });
+
+  it("wallet-adapter wrapper (logs on .error) → same copy, limit order too", async () => {
+    const err = Object.assign(new Error(BARE), {
+      error: { logs: ["Program log: Post only order is not allowed, market status is Paused"] },
+    });
+    const { ctx: c } = failingCtx(err);
+    const r = await placePhoenixOrder({ ...req("buy-no", 2, 1), orderType: "limit" as never }, c);
+    expect(r.reason).toBe("market-paused");
+    expect(r.message).toBe(PHOENIX_MARKET_PAUSED_MESSAGE);
+  });
+
+  it("no logs, bare InvalidAccountData: reads the book header — Paused → copy", async () => {
+    const { ctx: c, getAccountInfo } = failingCtx(new Error(BARE), 3);
+    const r = await placePhoenixOrder(req("sell-no", 1, 1), c);
+    expect(getAccountInfo).toHaveBeenCalled();
+    expect(r.reason).toBe("market-paused");
+    expect(r.message).toBe(PHOENIX_MARKET_PAUSED_MESSAGE);
+  });
+
+  it("no logs, bare InvalidAccountData on an Active book → raw sdk-error (not called paused)", async () => {
+    const { ctx: c } = failingCtx(new Error(BARE), 1);
+    const r = await placePhoenixOrder(req("buy-yes", 1, 1), c);
+    expect(r.reason).toBe("sdk-error");
+    expect(r.message).toBe(`Phoenix place failed: ${BARE}`);
+  });
+
+  it("pausedCopyForFailedPlace: on-chain InvalidAccountData after confirm (paused between sim and landing)", async () => {
+    const conn = { getAccountInfo: vi.fn(async () => header(3)) };
+    const mkt = pk().toBase58();
+    expect(await pausedCopyForFailedPlace(conn as never, mkt, '{"InstructionError":[4,"InvalidAccountData"]}')).toBe(
+      PHOENIX_MARKET_PAUSED_MESSAGE,
+    );
+    conn.getAccountInfo.mockResolvedValueOnce(header(1));
+    expect(await pausedCopyForFailedPlace(conn as never, mkt, '{"InstructionError":[4,"InvalidAccountData"]}')).toBeNull();
+    // other on-chain failures never trigger the lookup
+    conn.getAccountInfo.mockClear();
+    expect(await pausedCopyForFailedPlace(conn as never, mkt, '{"InstructionError":[4,{"Custom":15}]}')).toBeNull();
+    expect(conn.getAccountInfo).not.toHaveBeenCalled();
+    // RPC read failure → null (caller keeps its generic copy)
+    const broken = { getAccountInfo: vi.fn(async () => { throw new Error("rpc down"); }) };
+    expect(await pausedCopyForFailedPlace(broken as never, mkt, "InvalidAccountData")).toBeNull();
   });
 });

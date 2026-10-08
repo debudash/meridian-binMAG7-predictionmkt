@@ -31,7 +31,12 @@ import {
   effectiveYesLimitPrice,
   planIntentComposition,
 } from "./compose";
-import { explainPlaceError } from "./errors";
+import {
+  explainPlaceError,
+  isPhoenixMarketPausedError,
+  PHOENIX_MARKET_PAUSED_MESSAGE,
+  PHOENIX_STATUS_PAUSED,
+} from "./errors";
 import { buildClaimSeatInstructions } from "./seat";
 import { seatSweepIxs, type ManageMarketState } from "./manage";
 import {
@@ -337,17 +342,26 @@ export async function placePhoenixOrder(
       return { ok: false, reason: "invalid-size", message: e.message, mapped, plan };
     }
     const msg = e instanceof Error ? e.message : String(e);
+    const detail = withProgramLogs(msg, e);
+    // Paused first: simulation logs embedded in the message must never read as a wallet "cancel".
     const rejected =
-      /reject|denied|cancel/i.test(msg) || msg.includes("User rejected");
+      !isPhoenixMarketPausedError(detail) &&
+      (/reject|denied|cancel/i.test(msg) || msg.includes("User rejected"));
     if (rejected) {
       return { ok: false, reason: "user-rejected", message: "Wallet rejected the transaction.", mapped, plan };
     }
-    const explained = explainPlaceError(msg, {
+    const explained = explainPlaceError(detail, {
       intent: req.intent,
       orderType: plan.orderType,
       size: plan.size,
       worstPrice: req.worstPrice,
     });
+    // No program logs (some wallets drop them): a bare InvalidAccountData from a book that now reads
+    // Paused is the paused-at-expiry refusal.
+    const paused = explained ? null : await pausedCopyForFailedPlace(ctx.connection, req.phoenixMarket, msg);
+    if (paused) {
+      return { ok: false, reason: "market-paused", message: paused, mapped, plan };
+    }
     return {
       ok: false,
       reason: explained?.reason ?? "sdk-error",
@@ -355,6 +369,44 @@ export async function placePhoenixOrder(
       mapped,
       plan,
     };
+  }
+}
+
+/** Append program logs carried by SendTransactionError (`.logs`) or a wallet-adapter wrapper (`.error.logs`). */
+function withProgramLogs(msg: string, e: unknown): string {
+  const logs: string[] = [];
+  const collect = (o: unknown) => {
+    const l = (o as { logs?: unknown } | null | undefined)?.logs;
+    if (Array.isArray(l)) logs.push(...l.filter((x): x is string => typeof x === "string"));
+  };
+  collect(e);
+  collect((e as { error?: unknown } | null | undefined)?.error);
+  collect((e as { cause?: unknown } | null | undefined)?.cause);
+  return logs.length ? `${msg}\n${logs.join("\n")}` : msg;
+}
+
+/**
+ * Paused-book copy for a failed place when the error carries no Phoenix log: only for Phoenix's
+ * InvalidAccountData, and only if the book header now reads Paused (e.g. the expiry pause landed
+ * between simulation and confirmation). Null otherwise, or when the read fails.
+ */
+export async function pausedCopyForFailedPlace(
+  connection: Pick<Connection, "getAccountInfo"> | undefined,
+  phoenixMarket: string | undefined,
+  error: string,
+): Promise<string | null> {
+  if (!/invalid account data|InvalidAccountData/i.test(error)) return null;
+  if (!connection?.getAccountInfo || !hasPhoenixMarketPubkey(phoenixMarket)) return null;
+  try {
+    const info = await connection.getAccountInfo(new PublicKey(phoenixMarket!), {
+      commitment: "confirmed",
+      dataSlice: { offset: 0, length: 16 },
+    });
+    if (!info || info.data.length < 16) return null;
+    const status = Number(Buffer.from(info.data).readBigUInt64LE(8));
+    return status === PHOENIX_STATUS_PAUSED ? PHOENIX_MARKET_PAUSED_MESSAGE : null;
+  } catch {
+    return null;
   }
 }
 

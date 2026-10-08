@@ -15,6 +15,7 @@ import type { UnderlyingQuote } from "@/hooks/useUnderlyingPrice";
 import {
   isPhoenixPlacementEnabled,
   placePhoenixOrder,
+  pausedCopyForFailedPlace,
   PHOENIX_NOT_CONFIGURED_MESSAGE,
   SELL_NO_MERGE_CAVEAT,
   planIntentComposition,
@@ -330,15 +331,27 @@ export function TradeTicket({
         // L14: success only once the tx confirmed without error.
         push("info", "Submitted — confirming…");
         const outcome = await confirmSignature(connection, result.signature, result.blockhash);
-        const swept = result.swept ? sweepDisclosure(seatFree, "past") : null;
-        const t = toastForConfirm(outcome, swept ? `${result.message} ${swept}` : result.message, result.signature);
-        push(t.kind, t.message);
+        // The expiry pause can land between simulation and confirmation (!73).
+        const paused =
+          outcome.status === "failed"
+            ? await pausedCopyForFailedPlace(connection, market.phoenixMarket, outcome.error)
+            : null;
+        if (paused) {
+          push("error", paused);
+        } else {
+          const swept = result.swept ? sweepDisclosure(seatFree, "past") : null;
+          const t = toastForConfirm(outcome, swept ? `${result.message} ${swept}` : result.message, result.signature);
+          push(t.kind, t.message);
+        }
       } else if (result.reason === "invalid-size") {
         push("error", result.message);
       } else if (result.reason === "not-configured") {
         push("neutral", result.message);
       } else if (result.reason === "merge-schema-todo") {
         push("neutral", result.message);
+      } else if (result.reason === "market-paused") {
+        // Book paused at expiry: "Market paused, cancel or withdraw only" (cancel/withdraw live in Portfolio).
+        push("error", result.message);
       } else if (result.reason === "no-fill" || result.reason === "program-error") {
         // Plain copy from explainPlaceError (D-024) — nothing was traded.
         push("error", result.message);
