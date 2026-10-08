@@ -1,3 +1,17 @@
+## 2026-10-08T09:40:00-05:00 — Engineers: Track A fresh flat Localnet Dev Wallet (no reseed) + runbook/README notes
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers (approved by Grok Bot on Debu's behalf: Track A option (a)) |
+| **Branch** | `docs/trackA-fresh-dev-wallet` from `origin/main` @ `7e00a6b` |
+| **Source** | The localnet dev wallet `3qoP…9uJ6` held both sides on most :8899 markets, so VISUAL_RUNBOOK §5 "Start flat" couldn't be followed. Options (a) fresh key / (b) new market / (c) NVDA 140 workaround evaluated; (a) chosen. |
+| **Decision** | Swap the dev key instead of reseeding: new key (box-only, chmod 600, pubkey `HDwUimK1bZCwR1sUouJxWaDPubMx4CUHxyvCCgYn4981`), 20 SOL airdrop, fixture-USDC ATA + 100,000 USDC minted by the localnet admin, `.env.local` `LOCALNET_DEV_WALLET_KEYPAIR` only, `npm run dev -- -p 3000` on loopback. Validator, markets, books and maker untouched. Old key stays funded and is the §9.2 second key. Undo = restore the `.env.local` backup and restart. |
+| **Change** | `apps/web/README.md` "Fresh (flat) dev wallet without reseeding"; `docs/VISUAL_RUNBOOK.md` §5 [A] note and §9 [A] second-key note. Box: `/workspace/meridian-phoenix-local/reseed-localnet.sh` marked UNSAFE (header + refuse-unless-override guard; it would wipe the ledger and bind Next on 0.0.0.0, which the DLV-081 gate refuses). |
+| **Tests** | Docs only. Box run: `/api/localnet-dev-wallet` derives the new pubkey; headless 0.1 chip `localnet`, 0.2 connects as `HDwU..4981` with the DEV icon; 8 cards, 0 badges; 3.3 `No position. You can buy Yes or No.`; 5.1 on NVDA ≥ 140: `Market fills at best Yes 0.45 (up to 0.47).` → `Submitted — confirming…` → `Submitted phoenix-only (bid Yes @ 0.47 × 5)` → Yes 5, Fills (1) Buy Yes 0.45 × 5. Old key: 19.92 SOL, 99,860.85 USDC; signed simulations of an IOC Buy Yes 4 (NVDA 140) and a limit Sell Yes 4 (AAPL 230) succeed. Screenshots `/workspace/meridian-trackA-run/`. |
+| **Related** | DLV-113 · DLV-081 · VISUAL_RUNBOOK §5 / §9 |
+
+---
+
 ## 2026-10-08T10:15:00-05:00 — Engineers: Reviewers !77 / !78 / !79 follow-up (rotation runbook R-1/2/3, pause-watch N-1…N-5, !77 L-1/2/3, !79 design answers)
 
 | Field | Value |
