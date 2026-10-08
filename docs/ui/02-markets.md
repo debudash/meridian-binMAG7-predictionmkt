@@ -21,7 +21,7 @@ Mobile: search + filter sheet; card view only; ladder as accordion per underlyin
 | Ticker chip | AAPL |
 | Question | "AAPL ≥ $230.00 at close Oct 16" |
 | Prices | On the Buy buttons (see Actions), executable per `08`: Buy Yes = best Yes ask, Buy No = 1 − best Yes bid; "—" per `08` fallbacks. The old mid row "Yes 0.62 · No 0.38" is removed (`08` §4). |
-| Implied | "62% implied" (mid, always labeled; last-trade fallback per `08`) |
+| Implied | "62% implied Yes" (Yes-implied mid, always labeled with the side; tooltip "0.62 ≈ 62% implied Yes chance"; last-trade fallback per `08`; hidden on settled) |
 | Underlying | "AAPL $225.00 · needs +2.2%" / "is 0.8% above strike" (DLV-075; mock Pyth on localnet, "—" if no feed) |
 | Countdown | per `06` §3 compact ("2d 4h", "42:18", "Closed", "Settled: Yes") |
 | Stats | 24h vol, OI |
@@ -65,7 +65,7 @@ Top-of-book refresh: poll indexer 5s or subscribe to visible markets' Phoenix ac
 Short question form on cards ("AAPL ≥ $230.00 at close Oct 16"); full question on Trade. Times show absolute on hover.
 
 ## Acceptance criteria
-- [ ] Each market appears exactly once; Buy Yes / Buy No executable prices shown together plus a labeled `NN% implied`, per `08` (no unlabeled mid); No book levels derived as `1 − Yes` per `06` §1.2.
+- [ ] Each market appears exactly once; Buy Yes / Buy No executable prices shown together plus a labeled `NN% implied Yes`, per `08` (no unlabeled mid); No book levels derived as `1 − Yes` per `06` §1.2.
 - [ ] Default filter Open, sort Closing soonest; URL reflects state and is shareable.
 - [ ] Countdown on every card/row consistent with `06` §3.
 - [ ] Ladder groups strikes per underlying/expiry and highlights nearest strike.

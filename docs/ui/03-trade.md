@@ -15,7 +15,7 @@ Normative rules: `06-trading-intents-and-constraints.md` (intents §1, constrain
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
 │ A. Compact header: question + underlying/24h/OI · [Buy Yes 0.63]           │
-│    [Buy No 0.39] · 62% implied (pills = Yes/No toggle, `08`) · COUNTDOWN   │
+│    [Buy No 0.39] · 62% implied Yes (pills = Yes/No toggle, `08`) · COUNTDOWN   │
 ├──────────────────────────────────────────────────────┬─────────────────────┤
 │ B. Chart (stub: fixed ~240px)                        │ D. Order ticket     │
 ├──────────────────────────────────────────────────────┤    (fixed ~360px,   │
@@ -38,7 +38,7 @@ Normative rules: `06-trading-intents-and-constraints.md` (intents §1, constrain
 | Distance to strike | "−$1.86 (−0.8%) from strike" | derived |
 | Countdown | per `06` §3 — primary placement, right side of header, large tabular numerals | `tradingCloseTs`, `settleTs`, `status` |
 | Perspective toggle | Segmented `[Yes | No]`; persists in URL `?side=yes|no` and localStorage | client |
-| Prices | Pills show executable prices "Buy Yes 0.63" / "Buy No 0.39" (best Yes ask / 1 − best Yes bid), both always shown, selected perspective bold, then a separate muted "62% implied" label — never a bare mid (`08` §4) | live book via the `08` helper; no invented `0.50` fallback |
+| Prices | Pills show executable prices "Buy Yes 0.63" / "Buy No 0.39" (best Yes ask / 1 − best Yes bid), both always shown, selected perspective bold, then a separate muted "62% implied Yes" label (same in both perspectives) — never a bare mid (`08` §4) | live book via the `08` helper; no invented `0.50` fallback |
 | Stats | 24h volume (USDC), open interest (contracts), # traders (optional) | indexer |
 
 ## 4. Dual perspective on one book
@@ -67,7 +67,7 @@ Rules:
 
 ## 5. Zone C — Order book & trades
 - 12 levels each side (desktop), 6 (mobile). Columns: Price · Size (contracts) · Total (USDC = cumulative `size × price` in current perspective).
-- Spread row: "Spread 0.02 · 62% implied" (mid labeled per `08` rule 3).
+- Spread row: "Spread 0.02 · 62% implied Yes" (mid labeled per `08` rule 3). One side missing: "Spread —" (`08` Fallbacks); empty book: §11 empty state.
 - Trades tab: time, price (perspective), size, aggressor side. Last 50, live.
 - Live via Phoenix market account subscription; throttle render to 10 fps; flash changed levels 300ms.
 - Stale indicator if no websocket update for 10s and RPC slot advancing: "Book may be stale — reconnecting".
@@ -209,7 +209,7 @@ Shown at the top of the left column once a market is not Open (chart stub and or
 
 ## 13. Acceptance criteria
 - [ ] Yes/No toggle changes no subscriptions; book, mid, last, spread, depth, chart, ticket default intents transform exactly per §4 (unit tests with integer ticks).
-- [ ] Both Buy Yes and Buy No executable prices visible in the header in either perspective, plus a labeled `NN% implied`, per `08`; Buy Yes + Buy No = 1.00 + spread (only implied Yes + implied No = 100%).
+- [ ] Both Buy Yes and Buy No executable prices visible in the header in either perspective, plus a labeled `NN% implied Yes`, per `08`; Buy Yes + Buy No = 1.00 + spread (only implied Yes + implied No = 100%).
 - [ ] Four intents present, each mapped per `06` §1; CTA label states intent, size, and price.
 - [ ] Buy No disabled with §2.3 copy + "Sell N Yes" CTA when `yesExposure > 0` (and mirror); Sell held side always enabled when available > 0.
 - [ ] Open Buy orders and pending txs count toward exposure.
