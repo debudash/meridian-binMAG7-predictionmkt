@@ -20,12 +20,20 @@ def age_ok(publish_time, now, max_age_secs):
     return 0 <= now - publish_time <= max_age_secs
 
 
-def main(argv):
-    args = [a for a in argv if not a.startswith("--")]
-    max_age = int(argv[argv.index("--max-age-secs") + 1]) if "--max-age-secs" in argv else 900
+def parse_args(argv):
+    """(rpc, max_age_secs). The flag value is removed by position, so `--max-age-secs 0900` works."""
+    argv = list(argv)
+    max_age = 900
     if "--max-age-secs" in argv:
-        args.remove(str(max_age))
-    rpc = args[0] if args else os.environ["PYTH_PRICE_RPC"]
+        i = argv.index("--max-age-secs")
+        max_age = int(argv[i + 1])
+        del argv[i:i + 2]
+    args = [a for a in argv if not a.startswith("--")]
+    return (args[0] if args else os.environ["PYTH_PRICE_RPC"]), max_age
+
+
+def main(argv):
+    rpc, max_age = parse_args(argv)
     req = urllib.request.Request(rpc, data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "getMultipleAccounts",
                                  "params": [list(F.values()), {"encoding": "base64"}]}).encode(),
                                  headers={"content-type": "application/json"})

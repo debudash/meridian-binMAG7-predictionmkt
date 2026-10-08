@@ -29,6 +29,23 @@ export function priceToE6(price: bigint, expo: number): bigint {
   return (price + d / 2n) / d;
 }
 
+/**
+ * !77 L-1: max |publish_time − expiry| for the Hermes admin price. Defaults to 60 s, the on-chain Pyth publish window
+ * (check_publish_window, D-025); up to 300 s only as an explicit override that the caller logs; anything else throws.
+ */
+export const ADMIN_PRICE_DEFAULT_SKEW_SECS = 60;
+export const ADMIN_PRICE_MAX_OVERRIDE_SKEW_SECS = 300;
+export function adminPriceMaxSkewSecs(env: { ADMIN_PRICE_MAX_SKEW_SECS?: string }): { secs: number; override?: string } {
+  const raw = env.ADMIN_PRICE_MAX_SKEW_SECS;
+  if (raw === undefined || raw.trim() === "") return { secs: ADMIN_PRICE_DEFAULT_SKEW_SECS };
+  if (!/^\d+$/.test(raw.trim()) || Number(raw) > ADMIN_PRICE_MAX_OVERRIDE_SKEW_SECS) {
+    throw new Error(`ADMIN_PRICE_MAX_SKEW_SECS must be an integer 0..${ADMIN_PRICE_MAX_OVERRIDE_SKEW_SECS} (default ${ADMIN_PRICE_DEFAULT_SKEW_SECS}, the on-chain window)`);
+  }
+  const secs = Number(raw);
+  if (secs <= ADMIN_PRICE_DEFAULT_SKEW_SECS) return { secs };
+  return { secs, override: `ADMIN_PRICE_MAX_SKEW_SECS override: ${secs}s (> the ${ADMIN_PRICE_DEFAULT_SKEW_SECS}s on-chain publish window)` };
+}
+
 const OPERATOR_HINT =
   "supply the real expiry price: OPERATOR_PRICE_E6=<integer micro-USD> OPERATOR_PRICE_SOURCE=<where it came from> " +
   "OPERATOR_PRICE_MARKET=<strike market>";
