@@ -11,6 +11,7 @@ For a first-time tester who isn't the operator. Do the part for the track you're
 1. Ask the operator to **update the box to the latest `main`** and restart the local validator and the web app. Ask which commit (SHA) it's on and write it down.
 2. Open the **box desktop**: the operator's shared computer, which you can open from the Grok Bot app. The app at http://localhost:3000 and the **Localnet Dev Wallet** only exist there. `localhost:3000` on your own computer won't work.
 3. In the browser on the box desktop, open http://localhost:3000 and carry on with 0.1–0.2 below. There's nothing to install: the Localnet Dev Wallet signs by itself.
+4. **Existing positions on the current Localnet Dev Wallet (dev wallet 2).** It already holds **Yes 5** on **NVDA ≥ $140.00 at close Oct 14** and **MSFT ≥ $420.00 at close Oct 14** (card titles use that short form from `shortQuestion`; Portfolio shows the same). Those are leftover from earlier Track A runs — **don't count them as your fills** from this session. For a truly flat wallet, ask the operator for a fresh key ([`apps/web/README.md`](../apps/web/README.md) "Fresh (flat) dev wallet") or pick a market where the card has **no** `You: …` badge (e.g. AAPL / TSLA / META / AMZN / GOOGL on the current ledger).
 
 **Track B: devnet staging, Phantom**
 
@@ -22,7 +23,7 @@ For a first-time tester who isn't the operator. Do the part for the track you're
 6. Wait until the operator has funded them (the operator's side is [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) **1.4** for wallet A and **1.5** for wallet B). Expect about **2 SOL** on wallet A (at least 1) and about **0.5 SOL** on wallet B, plus **mUSDC** on both (wallet B gets 1,000). This is devnet: none of it has real value.
 7. Recognise **mUSDC**. Phantom may show it as an **unknown token** with no name or logo (look in the token list, including hidden tokens, if it isn't on the main screen). Open it and compare its mint / token address with `GEBRsT3Nc3PaEio2qf3x4JUgFtPSYXr7bmVitMuzMBXq`: it must **start with `GEBRsT3N`** and **end with `MXq`**. Any other token isn't the test token, so don't use it.
 
-**Ready when:** **[A]** the box is on the latest `main` and http://localhost:3000 opens on the box desktop · **[B]** Phantom is on Devnet, and wallets A and B each show SOL (A ≥ 1, B ~0.5) and mUSDC (`GEBRsT3N…MXq`).
+**Ready when:** **[A]** the box is on the latest `main`, http://localhost:3000 opens on the box desktop, and the header wallet button shows **Connect** (or a short address after you connect) · **[B]** Phantom is on Devnet, and wallets A and B each show SOL (A ≥ 1, B ~0.5) and mUSDC (`GEBRsT3N…MXq`).
 
 ---
 
@@ -30,7 +31,7 @@ For a first-time tester who isn't the operator. Do the part for the track you're
 | --- | --- |
 | **Owner** | Meridian Testers |
 | **For** | Debu, testing by hand. No terminal needed except where a step says **[operator]** |
-| **Written against** | main `7219ac1` (`7219ac1425c7d4197c3830045eadc1fcc52db693`, Merge !73 Phoenix pause at expiry, on top of !72 `578af22`). Every on-screen string below is copied from `apps/web/src` at that SHA. Updated for the !74 Reviewer nits at `fc862c2` (docs only, same code) |
+| **Written against** | main `7e8120d` (`7e8120d25a946c3ee9da4132886cdd37040e04c3`, Merge !84 Fills refresh + docs through !75). Every on-screen string below is checked against `apps/web/src` at that SHA. Wallet-adapter button labels (**Connect** / **Select Wallet**) come from `@solana/wallet-adapter-react-ui` (locked 0.9.40), not from app source |
 | **Track A** | **Localnet** at http://localhost:3000 with the **Localnet Dev Wallet**. Use it now: real localnet markets with Phoenix books and mock Pyth prices. The operator opens/closes sim sessions and settles from scripts (`docs/SIM_LIFECYCLE.md`) |
 | **Track B** | **Devnet staging** at https://web-production-77fbb.up.railway.app with **Phantom on devnet** (wallet A), plus **wallet B** for fills. Needs the program deployed and the markets bootstrapped (DLV-077). Full detail and operator steps: [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) |
 | **Not in scope** | Deploying, Railway changes, starting validators. This runbook is read-and-click |
@@ -48,8 +49,8 @@ For a first-time tester who isn't the operator. Do the part for the track you're
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
 | 0.1 | **[A]** Make sure the operator has the local validator and the web app running. Then open http://localhost:3000. | The landing page loads. The header chip reads **localnet**. | [ ] |
-| 0.2 | **[A]** Click **Select Wallet** (top right) → **Localnet Dev Wallet**. | The wallet button shows an amber **DEV** icon and a short address. No Phantom popup: the dev wallet signs by itself (localnet only). | [ ] |
-| 0.3 | **[B]** In Phantom → Settings → Developer Settings, turn on **Testnet Mode** and choose **Solana Devnet**. Open the staging URL. Click **Select Wallet** → **Phantom** → approve. | The header chip reads **devnet**. The button shows your short address. There is **no** "Localnet Dev Wallet" option. | [ ] |
+| 0.2 | **[A]** Click the header wallet button (top right). It usually says **Connect** (wallet-adapter `has-wallet` label). If it says **Select Wallet** instead (`no-wallet`, first visit), that's fine too — both open the same flow. In the modal, pick **Localnet Dev Wallet**. (Modal title `Connect a wallet on Solana to continue` is from the wallet-adapter library — **text may vary** with the package version.) | The button shows an amber **DEV** icon and a short address (e.g. `HDwU..4981`). No Phantom popup: the Localnet Dev Wallet signs by itself. After connect, the dropdown offers **Copy address**, **Change wallet**, **Disconnect** (library labels — **text may vary**). | [ ] |
+| 0.3 | **[B]** In Phantom → Settings → Developer Settings, turn on **Testnet Mode** and choose **Solana Devnet**. Open the staging URL. Click the header wallet button (**Connect**, or **Select Wallet** on a first visit) → **Phantom** → approve in the Phantom popup (**text may vary** — that copy is Phantom's, not Meridian's). | The header chip reads **devnet**. The button shows your short address. There is **no** "Localnet Dev Wallet" option (`AppProviders.tsx` registers it only on localnet). | [ ] |
 | 0.4 | **[B]** Check balances in Phantom for wallet A and wallet B. | At least ~0.5 SOL and some **mUSDC** (shows as an unknown token, mint `GEBRsT3N…MXq`) in each. If either is missing, ask the operator (STAGING_TEST_PLAN 1.4 / 1.5). | [ ] |
 
 ---
@@ -84,7 +85,7 @@ The rule (`app/globals.css`): whatever is selected gets a blue ring/tint, and to
 
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
-| 3.1 | Open a market with a book. Use a wide window (≥ 1024 px). | Top: `← Markets`, the question (e.g. `Will AAPL close at or above $305.00?`), an underlying line `AAPL $… · Pyth · Ns ago · 24h … · OI …` (**[A]** shows `mock Pyth`), **Yes / No** price buttons and the countdown `Closes in …`. Left column: **Chart (stub)**, then **Order book · Yes** (`Spread 0.xx · Mid 0.xx`, columns Price / Size / Total, footer `Live Phoenix V1 book (Yes/USDC) — refreshes every 4s.`), then the **Position / Open orders / Fills** tabs and **Rules & resolution**. Right column: **Order ticket** (it stays visible when you scroll). | [ ] |
+| 3.1 | Open a market with a book. Use a wide window (≥ 1024 px). | Top: `← Markets`, the question (e.g. `Will AAPL close at or above $305.00?`), an underlying line `AAPL $… · Pyth · Ns ago · 24h … · OI …` (**[A]** shows `mock Pyth`), **Yes / No** price buttons and the countdown `Closes in …`. Left column: **Chart (stub)**, then **Order book · Yes** (`Spread 0.xx · Mid 0.xx`, columns Price / Size / Total, footer `Live Phoenix V1 book (Yes/USDC) — refreshes every 6s.`), then the **Position / Open orders / Fills** tabs and **Rules & resolution**. Right column: **Order ticket** (it stays visible when you scroll). | [ ] |
 | 3.2 | Look at the ticket. | Buttons **Buy Yes / Sell Yes / Buy No / Sell No**, **Market / Limit**, `Size (contracts)`, a payoff box (§8), the submit button (e.g. `Buy Yes 10`, or `Connect wallet` when disconnected) and the line `Each contract pays 1.00 USDC if your side is right at settlement, and 0 if not.` When connected: `Wallet USDC <balance>`. | [ ] |
 | 3.3 | Flat wallet: the **Position** tab. | `No position. You can buy Yes or No.` | [ ] |
 | 3.4 | Scroll to **Rules & resolution**. | It ends with `marketId … · program 9Rb7nx… · phoenix <pubkey>`. `phoenix unset` means the market has no book: trading buttons read `Phoenix not configured — …`. | [ ] |
@@ -103,7 +104,7 @@ Reference shots: `meridian-orderbook-highlight.png`, `meridian-orderbook-highlig
 
 ## 5. Buy Yes, Sell Yes, Buy No, Sell No (Market and Limit)
 
-Start flat on a market with a book. Use size **5**. (The full table with exact balances is STAGING_TEST_PLAN §3.) **[A]** If the dev wallet already holds Yes or No (card badge `You: …`), ask the operator for a fresh dev wallet ([`apps/web/README.md`](../apps/web/README.md) "Fresh (flat) dev wallet"); no reseed needed.
+Start flat on a market with a book. Use size **5**. (The full table with exact balances is STAGING_TEST_PLAN §3.) **[A]** The current Localnet Dev Wallet (dev wallet 2) already shows card badges **`You: Yes 5`** on **NVDA ≥ $140.00 at close Oct 14** and **MSFT ≥ $420.00 at close Oct 14** — leftovers, not fills from this session. Use a market with **no** badge, or ask the operator for a fresh flat key ([`apps/web/README.md`](../apps/web/README.md) "Fresh (flat) dev wallet"); no reseed needed.
 
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
@@ -179,7 +180,7 @@ Reference shots: `meridian-payoff-line-ticket.png`, `meridian-payoff-line-sell-y
 
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
-| 11.1 | Hold something, then open **Portfolio**. | Tiles **Portfolio value**, **USDC in wallet**, **Positions (mark)**, **In Phoenix (withdrawable)**, **Redeemable now**. Footnote `On-chain: wallet token accounts + Phoenix trader accounts. Marks use the Yes mid.` It must **not** say `Localnet fixture mode — demo balances, not on-chain.` | [ ] |
+| 11.1 | Hold something, then open **Portfolio**. | Tiles **Portfolio value**, **USDC in wallet**, **Positions (mark)**, **In Phoenix (withdrawable)**, **Redeemable now**. Footnote `On-chain: wallet token accounts + Phoenix trader accounts. Marks use the Yes mid.` It must **not** say `Localnet fixture mode — demo balances, not on-chain.` **[A]** Expect leftover rows for **NVDA ≥ $140.00 at close Oct 14** and **MSFT ≥ $420.00 at close Oct 14** (Yes 5 each) even before you trade this session — don't treat them as new fills. | [ ] |
 | 11.2 | Click **Positions**, **Open orders**, **Phoenix balances**, **Redeemable**. | Positions: one card per market you hold (`YES 5` / `NO 5`, **Sell** / **Trade**). Open orders: your resting orders, or `No resting orders on Phoenix.` Phoenix balances: seats with leftovers, or the "no trader accounts" line. Redeemable: `Nothing to redeem.` until a market you won settles. | [ ] |
 | 11.3 | Disconnect the wallet and open Portfolio. | `Connect a wallet to see your positions.` | [ ] |
 | 11.4 | Open **History**. | `Reading your transactions…`, then rows with **Time, Type, Market, Intent / Outcome, Price, Size, USDC, Yes / No, Tx**. Tabs **All, Fills, Orders, Cancels, Withdraw / mint / merge, Settlements, Redemptions**. A brand-new wallet: `No Meridian activity for this wallet yet.` | [ ] |
