@@ -18,6 +18,7 @@ export default async function MarketsPage({
   const view = typeof searchParams?.view === "string" ? searchParams.view : "cards";
   const u = typeof searchParams?.u === "string" ? searchParams.u : "";
   const expiry = typeof searchParams?.expiry === "string" ? searchParams.expiry : "";
+  const days = typeof searchParams?.days === "string" ? searchParams.days : "";
 
   return (
     <div className="container">
@@ -44,6 +45,7 @@ export default async function MarketsPage({
         initialView={view}
         initialUnderlyings={u}
         initialExpiry={expiry}
+        initialDays={days}
         dataSource={source}
         fixtureBanner={usedFixtures ? message : undefined}
       />

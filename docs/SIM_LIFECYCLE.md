@@ -55,6 +55,23 @@ Optional: `PHOENIX_MARKETS`, `ADMIN_SETTLE_*` for fallback after settle failure.
 
 Calendar mode keeps the real **≥16:00 America/New_York** settle gate + Pyth quality. Sim must not weaken those prod invariants.
 
+## Today's-close MAG7 markets on a dev validator (DLV-118)
+
+SPEC §1/§3.3: 0DTE markets expire at **today's 16:00 America/New_York close**. Additive, idempotent, localnet only:
+
+```bash
+cd apps/automation && npm run build          # provides dist/marketDay.js (the shared expiry rule)
+RPC=http://127.0.0.1:8899 MERIDIAN_IDL=<localnet-test target/idl/meridian.json> \
+  node scripts/localnet/today-markets.cjs      # DRY_RUN=1 = plan only
+```
+
+- All 7 MAG7 (SYMBOLS to narrow), one ATM strike each from the localnet mock reference (REF_PRICES to override), a mock
+  Pyth feed, a Phoenix V1 book under the Seat Manager and a 5-level maker ladder.
+- Effective clock = SimClock (if the PDA exists and is enabled) else chain time — **read only**. D-017 anytime testing: set /
+  warp the SimClock into a session first on a validator where that's allowed; the script never touches it.
+- At/after that day's close it **refuses** (exit 3) — never rolls to tomorrow. Weekends/holidays refuse unless
+  `ALLOW_NON_TRADING_DAY=1`. Existing markets are never edited (only new PDAs + the Config `next_market_id`).
+
 ## Related
 
 - `docs/DEPLOY.md` §4 automation service

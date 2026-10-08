@@ -3,9 +3,10 @@
 # every key path, RPC, program id and secret comes from env (or an untracked env file), nothing is hardcoded.
 #
 #   wait for SOL → build prod .so from LATEST origin/main → deploy (or upgrade if the on-chain bytes differ) → dump the
-#   DEPLOYED program + assert no fixtures → bootstrap Friday markets + Debu wallet + wallet B + settler + pauser, Phoenix
+#   DEPLOYED program + assert no fixtures → bootstrap TODAY's 0DTE markets (expiry 16:00 ET today, ATM strikes from a fresh
+#   reference price; DLV-118) + Debu wallet + wallet B + settler + pauser, Phoenix
 #   books handed to the pauser (PSM NameSuccessor + ClaimSeatManagerAuthority) → pause watcher (books → Paused at expiry)
-#   → e2e Buy Yes/No → [wait for Debu's START signal] → 20-min AAPL ≥ 300 market WITH a Phoenix book → pause at expiry →
+#   → e2e Buy Yes/No → [wait for Debu's START signal] → 20-min AAPL ATM market WITH a Phoenix book → pause at expiry →
 #   permissionless Pyth pull settle (Hermes key, settler) → admin_settle fallback → redeem.
 #
 # ── CONFIG ───────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -16,7 +17,13 @@
 #   Railway), keeper.json (config authority), admin.json, maker.json, trader.json, usdc-mint.json, wallet-b.json,
 #   settler.json (permissionless settle), pauser.json (Phoenix seat-manager authority after the handoff), and the
 #   program keypair ($PROGRAM_KEYPAIR).
-# ── HOW DEBU STARTS THE 20-MINUTE AAPL ≥ 300 MARKET ───────────────────────────────────────────────────────────────────
+# ── TODAY'S MARKETS (DLV-118, SPEC §1 / §3.3) ───────────────────────────────────────────────────────────────────────
+#   `ops-cli market-day --strikes` → $RUN_TMP/today-plan.json: expiry = 16:00 America/New_York TODAY (DST-aware), one ATM
+#   strike per STRIKE_SYMBOLS (default MAG7) from a fresh reference: Hermes latest (if the key is entitled; equities are 403
+#   today, DLV-106) → a fresh sponsored Pyth account (PYTH_PRICE_FEEDS) → the operator file $STRIKE_PRICES_FILE (default
+#   $OPS_DIR/STRIKE_PRICES_TODAY.json: {"dateKey":"YYYY-MM-DD","source":"…","pricesE6":{"AAPL":"227310000",…}}).
+#   After the close / weekend / NYSE holiday it REFUSES (exit 7, nothing created) — never next-close books.
+# ── HOW DEBU STARTS THE 20-MINUTE AAPL ATM MARKET ─────────────────────────────────────────────────────────────────────
 #   After bootstrap + e2e the log says "waiting for START signal". Start it (up to START_WAIT_HOURS=24 later) with:
 #       touch $START_FILE (default $OPS_DIR/START_20M)   ← preferred; consumed (renamed) when used
 #       START_20M=now bash run-staging.sh   |   bash run-staging.sh --start-20m-now
@@ -32,7 +39,7 @@
 #       market=<20-min strike market>   price_e6=<integer micro-USD>   source=<where the price came from>
 #   The file is validated by the same ops-cli check (bound to the market, source required), logged, and consumed.
 # ── SEAT-MANAGER HANDOFF REPAIR ─────────────────────────────────────────────────────────────────────────────────────
-#   After each bootstrap phase every book in $STATE (incl. Friday books created before !73) goes through the
+#   After each bootstrap phase every book in $STATE (incl. books created before !73) goes through the
 #   idempotent `ops-cli handoff` (upgrade key → pauser, PSM 6 + 7), then `pause-status --expect-pauser` (no key) must
 #   show the pauser as SM authority for every book, else "[pause] ALERT".
 # ── DRY RUN ───────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -72,6 +79,7 @@ PULL_SETTLE_AFTER=${PULL_SETTLE_AFTER:-90}
 START_FILE=${START_FILE:-$OPS_DIR/START_20M}; START_WAIT_HOURS=${START_WAIT_HOURS:-24}
 WALLET_B_KEY=${WALLET_B_KEY:-$K/wallet-b.json}; SETTLER_KEY=${SETTLER_KEY:-$K/settler.json}; PAUSER_KEY=${PAUSER_KEY:-$K/pauser.json}
 PAUSE_LOG=${PAUSE_LOG:-${STATE%.json}-pause.log}
+STRIKE_PRICES_FILE=${STRIKE_PRICES_FILE:-$OPS_DIR/STRIKE_PRICES_TODAY.json}; TODAY_PLAN=$RUN_TMP/today-plan.json
 ADMIN_PRICE_FILE=${ADMIN_PRICE_FILE:-$OPS_DIR/ADMIN_PRICE_20M}; OPERATOR_PRICE_WAIT_HOURS=${OPERATOR_PRICE_WAIT_HOURS:-24}
 for a in "$@"; do case $a in --start-20m-now) START_20M=now;; --dry-run) DRY_RUN=1;; esac; done
 START_20M=${START_20M:-wait}; DRY_RUN=${DRY_RUN:-0}
@@ -95,6 +103,11 @@ ops_cli(){   # automation ops-cli with the pauser / settler keys passed as file 
 ops_cli_ro(){   # read-only ops-cli status reads: no pauser / settler key at all, not even inherited
   ( cd "$AUTO" && env -u PHOENIX_PAUSER_KEYPAIR -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG \
       MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json node dist/ops-cli.js "$@" )
+}
+# DLV-118: today's plan (session + ATM strikes from a fresh reference). Exit 5 from ops-cli = no same-day session.
+today_plan(){
+  ( cd "$AUTO" && env -u PHOENIX_PAUSER_KEYPAIR -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG \
+      MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json OPERATOR_STRIKE_PRICES_FILE=$STRIKE_PRICES_FILE node dist/ops-cli.js market-day --strikes ) >"$TODAY_PLAN"
 }
 # !77 L-3: EXPECTED_PAUSER_PUB (staging.env) pins the pauser pubkey; unset → WARNING only (pre-pin configs keep working).
 pauser_pin_ok(){
@@ -205,17 +218,20 @@ if [ "$DRY_RUN" = 1 ]; then
   log "1. build prod .so from origin/main in $BUILD (CARGO_BUILD_JOBS=$CARGO_BUILD_JOBS) + assert-prod-no-fixtures → deploy/upgrade $PROG; build apps/automation ops-cli"
   log "1b. dump DEPLOYED program (solana program dump $PROG $DEPLOYED_DUMP) → scripts/assert-prod-no-fixtures.sh on the dump → ABORT bootstrap on failure"
   log "1c. $(pin_web_cluster plan)"
-  log "2. bootstrap phase 1 (SHORT_PHASE=skip): Friday markets with NBOOKS=$NB books at balance $b; NBOOKS=$(nbooks "$MIN_SOL") at MIN_SOL=$MIN_SOL"
-  ( cd "$OPS_DIR" && DRY_RUN=1 SHORT_PHASE=all NBOOKS=$NB RPC=$RPC STATE=$STATE DEBU_WALLET=$DEBU node devnet-bootstrap.cjs ) || { log "dry run: bootstrap plan FAILED"; exit 9; }
+  ( cd "$AUTO" && node dist/ops-cli.js market-day ) >"$TODAY_PLAN"; tp_rc=$?   # session only (no RPC) in a dry run
+  log "1b. today's session (DLV-118): $(cat "$TODAY_PLAN") — a real run adds ATM strikes via 'ops-cli market-day --strikes' (operator file $STRIKE_PRICES_FILE); exit 5 → no markets (exit 7)"
+  [ $tp_rc = 0 ] || log "DRY_RUN: no same-day session right now — a real run would stop before the bootstrap (exit 7)"
+  log "2. bootstrap phase 1 (SHORT_PHASE=skip): today's markets (expiry 16:00 ET today) with NBOOKS=$NB books at balance $b; NBOOKS=$(nbooks "$MIN_SOL") at MIN_SOL=$MIN_SOL"
+  ( cd "$OPS_DIR" && DRY_RUN=1 TODAY_PLAN=$TODAY_PLAN SHORT_PHASE=all NBOOKS=$NB RPC=$RPC STATE=$STATE DEBU_WALLET=$DEBU node devnet-bootstrap.cjs ) || { log "dry run: bootstrap plan FAILED"; exit 9; }
   if [ -f "$AUTO/dist/ops-cli.js" ] && grep -q expect-pauser "$AUTO/dist/ops-cli.js"; then
     log "2a. handoff repair over every book in $STATE (DRY_RUN reads only; upgrade key → pauser $PAUSER_PUB) + read-only status gate (--expect-pauser):"
     handoff_repair 1 || log "2a. (dry run) gate reports books not yet on the pauser — a real run hands them off"
   else log "2a. handoff repair (ops-cli handoff --state, then the read-only status gate --expect-pauser $PAUSER_PUB) — runs after the build ($AUTO/dist predates it)"; fi
   log "2b. pause watcher: ops-cli pause-watch --state $STATE (pauser $PAUSER_PUB) → PSM ChangeMarketStatus(Paused) at each book's expiry, log $PAUSE_LOG"
-  log "3. e2e Buy Yes / Buy No (trader) on the Friday books, NEXT_PUBLIC_SOLANA_CLUSTER=$WEB_CLUSTER (WEB_SRC=${WEB_SRC:-unset → skipped})"
+  log "3. e2e Buy Yes / Buy No (trader) on today's books, NEXT_PUBLIC_SOLANA_CLUSTER=$WEB_CLUSTER (WEB_SRC=${WEB_SRC:-unset → skipped})"
   if [ "$START_20M" = now ]; then tr="START_20M=now (would start immediately)"; elif [ -e "$START_FILE" ]; then tr="$START_FILE PRESENT (would start immediately)"; else tr="waiting — touch $START_FILE to start"; fi
-  log "4. START trigger for the 20-min AAPL >= 300 market: $tr; timeout ${START_WAIT_HOURS}h → skip"
-  log "5. bootstrap phase 2 (SHORT_PHASE=only): AAPL >= 300 WITH Phoenix book + maker ladder + SM handoff to pauser, expiry = chain now + ${SHORT_MIN}m + ${SHORT_SETUP_SECS}s → handoff repair (all books) → 'SHORT MARKET READY'"
+  log "4. START trigger for the 20-min AAPL ATM market: $tr; timeout ${START_WAIT_HOURS}h → skip"
+  log "5. bootstrap phase 2 (SHORT_PHASE=only): AAPL ATM (fresh reference) WITH Phoenix book + maker ladder + SM handoff to pauser, expiry = chain now + ${SHORT_MIN}m + ${SHORT_SETUP_SECS}s → handoff repair (all books) → 'SHORT MARKET READY'"
   log "6. trader mints 5 pairs; at expiry: pause-once (book → Paused); expiry+${PULL_SETTLE_AFTER}s: permissionless Pyth pull settle (settler $SETTLER_PUB, PYTH_HERMES_API_KEY $HERMES); expiry+${SETTLE_AFTER}s: admin_settle fallback → redeem"
   log "6b. admin_settle fallback price (M3): ops-cli admin-price = Hermes price at expiry (|publish_time − expiry| <= ${ADMIN_PRICE_MAX_SKEW_SECS:-60}s); else REFUSE + '[settle] ALERT' + wait ${OPERATOR_PRICE_WAIT_HOURS}h for $ADMIN_PRICE_FILE (market= price_e6= source=). Never the stale shard-0 account price"
   log "DRY_RUN complete — 0 transactions sent"; exit 0
@@ -249,11 +265,16 @@ fi
 solana program show "$PROG" -u "$RPC" || { log "program not deployed — abort"; exit 4; }
 assert_deployed_no_fixtures || { log "deployed program FAILED the fixture assert — abort bootstrap"; exit 4; }
 pin_web_cluster apply | while read -r l; do log "$l"; done
-# 2. bootstrap phase 1: Friday markets + Debu wallet + wallet B + settler + pauser; books handed to the pauser
-b=$(bal); NB=$(nbooks "$b"); log "balance $b → NBOOKS=$NB (reserving ~1.7 SOL for the 20-min AAPL >= 300 book + 0.5 wallet-B fallback)"
-( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE NBOOKS=$NB SHORT_PHASE=skip DEBU_WALLET=$DEBU node devnet-bootstrap.cjs ) || { log "bootstrap failed"; exit 5; }
-summary "bootstrap done (Friday markets + wallets)"
-handoff_repair 0 || true   # every book (incl. pre-!73 Friday books) → pauser; ALERTs logged, pause watcher still starts
+# 2. bootstrap phase 1: TODAY's markets (DLV-118: expiry 16:00 ET today) + Debu wallet + wallet B + settler + pauser; books → pauser
+if ! today_plan; then
+  log "no same-day session (DLV-118): $(cat "$TODAY_PLAN") — no markets created (never next-close books); rerun on the next trading day after 09:30 ET"
+  exit 7
+fi
+log "today's plan: $(python3 -c 'import json,sys;p=json.load(open(sys.argv[1]));print(p["dateKey"],"close",p["closeTs"],[(m["symbol"],int(m["strikeE6"])/1e6,m["source"]) for m in p["markets"]],"refused",[r["symbol"] for r in p["refused"]])' "$TODAY_PLAN")"
+b=$(bal); NB=$(nbooks "$b"); log "balance $b → NBOOKS=$NB (reserving ~1.7 SOL for the 20-min AAPL ATM book + 0.5 wallet-B fallback)"
+( cd "$OPS_DIR" && TODAY_PLAN=$TODAY_PLAN RPC=$RPC STATE=$STATE NBOOKS=$NB SHORT_PHASE=skip DEBU_WALLET=$DEBU node devnet-bootstrap.cjs ) || { log "bootstrap failed"; exit 5; }
+summary "bootstrap done (today's markets + wallets)"
+handoff_repair 0 || true   # every book (incl. pre-!73 books) → pauser; ALERTs logged, pause watcher still starts
 # 2b. pause watcher: every book in $STATE → Paused at its expiry (re-reads the state, so the 20-min book is covered too)
 if [ -f "$PAUSER_KEY" ] && ! pauser_pin_ok; then
   log "[pause] ALERT pause watcher NOT started: $PAUSER_KEY is $PAUSER_PUB, not EXPECTED_PAUSER_PUB=$EXPECTED_PAUSER_PUB (staging.env)"
@@ -261,7 +282,7 @@ elif [ -f "$PAUSER_KEY" ]; then
   ( cd "$AUTO" && env -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet PHOENIX_PAUSER_KEYPAIR=$PAUSER_KEY PAUSER_MUST_DIFFER_FROM=$PAUSER_MUST_DIFFER_FROM nohup node dist/ops-cli.js pause-watch --state "$STATE" >>"$PAUSE_LOG" 2>&1 & echo $! >"$PAUSE_LOG.pid" )
   log "pause watcher started (pid $(cat "$PAUSE_LOG.pid"), pauser $PAUSER_PUB, log $PAUSE_LOG)"
 else log "WARNING no pauser key ($PAUSER_KEY) — Phoenix books will NOT be paused at expiry"; fi
-# 3. e2e Buy Yes / Buy No through the web order path (Friday books; cluster explicitly devnet)
+# 3. e2e Buy Yes / Buy No through the web order path (today's books; cluster explicitly devnet)
 if [ -n "$WEB_SRC" ] && [ -d "$WEB_SRC/node_modules" ]; then
   install -m 644 "$OPS_DIR/staging.e2e.test.ts" "$WEB_SRC/src/lib/phoenix/staging.e2e.test.ts"
   ( cd "$WEB_SRC" && STAGING_E2E=1 STAGING_STATE=$STATE VERIFY_WALLET=$K/trader.json RPC=$RPC CLUSTER=$WEB_CLUSTER NEXT_PUBLIC_SOLANA_CLUSTER=$WEB_CLUSTER \
@@ -272,7 +293,7 @@ SKIP_SHORT=0
 if python3 -c 'import json,sys;sys.exit(0 if json.load(open(sys.argv[1])).get("shortPlan") else 1)' "$STATE"; then
   log "20-min market already in state — resuming it (no START wait)"
 else
-  log "waiting for START signal for the 20-min AAPL >= 300 market: touch $START_FILE (or rerun with START_20M=now). Timeout ${START_WAIT_HOURS}h."
+  log "waiting for START signal for the 20-min AAPL ATM market: touch $START_FILE (or rerun with START_20M=now). Timeout ${START_WAIT_HOURS}h."
   sdl=$(( $(date +%s) + START_WAIT_HOURS*3600 )); n=0
   until [ "$START_20M" = now ] || [ -e "$START_FILE" ]; do
     [ "$(date +%s)" -gt $sdl ] && { log "no START signal within ${START_WAIT_HOURS}h — skipping the 20-min market"; SKIP_SHORT=1; state_set shortSkipped; break; }
@@ -281,12 +302,13 @@ else
   [ $SKIP_SHORT = 0 ] && log "START signal received — creating the 20-min market"
 fi
 if [ $SKIP_SHORT = 0 ]; then
-  # 5. bootstrap phase 2: 20-min AAPL >= 300 market with a Phoenix book + maker ladder + SM handoff to the pauser
-  ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE NBOOKS=$NB SHORT_PHASE=only DEBU_WALLET=$DEBU node devnet-bootstrap.cjs ) || { log "20-min market bootstrap failed"; exit 6; }
+  # 5. bootstrap phase 2: 20-min AAPL ATM market (strike from a fresh plan at START) with a Phoenix book + maker ladder + SM handoff
+  today_plan || { log "no same-day session at START (DLV-118): $(cat "$TODAY_PLAN") — 20-min market skipped"; exit 6; }
+  ( cd "$OPS_DIR" && TODAY_PLAN=$TODAY_PLAN RPC=$RPC STATE=$STATE NBOOKS=$NB SHORT_PHASE=only DEBU_WALLET=$DEBU node devnet-bootstrap.cjs ) || { log "20-min market bootstrap failed"; exit 6; }
   exp=$(python3 -c 'import json,sys;print([m for m in json.load(open(sys.argv[1]))["markets"] if m.get("short")][0]["expiryTs"])' "$STATE")
   SM=$(python3 -c 'import json,sys;print([m for m in json.load(open(sys.argv[1]))["markets"] if m.get("short")][0]["market"])' "$STATE")
   handoff_repair 0 || true   # the new 20-min book and every older book → pauser
-  log "SHORT MARKET READY: AAPL >= 300 — trade until $(ct "$exp") (~$(( (exp - $(date +%s)) / 60 )) min left; UI closes 5 s early; book PAUSED at expiry); pull settle from $(ct $((exp+PULL_SETTLE_AFTER))), admin_settle fallback ~$(ct $((exp+SETTLE_AFTER)))"
+  log "SHORT MARKET READY: $(python3 -c 'import json,sys;m=[m for m in json.load(open(sys.argv[1]))["markets"] if m.get("short")][0];print(m["symbol"],">=",m["strikeE6"]/1e6)' "$STATE") — trade until $(ct "$exp") (~$(( (exp - $(date +%s)) / 60 )) min left; UI closes 5 s early; book PAUSED at expiry); pull settle from $(ct $((exp+PULL_SETTLE_AFTER))), admin_settle fallback ~$(ct $((exp+SETTLE_AFTER)))"
   summary "20-min market live"
   # 6. short market: trader mints 5 pairs before expiry
   ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE node settle-test.cjs mint ) || log "[settle] ALERT trader mint failed on the 20-min market (settle/redeem proof will be incomplete)"

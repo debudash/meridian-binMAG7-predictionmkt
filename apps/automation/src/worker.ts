@@ -75,7 +75,7 @@ async function main() {
 
   console.log(
     `[worker] start cluster=${cfg.cluster} program=${cfg.programId.toBase58()} ` +
-      `idl=${cfg.idlPath} createHourEt=${cfg.createHourEt} settleHourEt=${cfg.settleHourEt}`
+      `idl=${cfg.idlPath} create=09:30 ET open → expiry 16:00 ET same day (DLV-118) settleHourEt=${cfg.settleHourEt} symbols=${cfg.symbols.join(",")}`
   );
 
   const state = createCalendarState();

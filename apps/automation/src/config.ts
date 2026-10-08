@@ -9,6 +9,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+import { MAG7 } from "./marketDay";
+
 export type AutomationMode = "calendar" | "sim";
 export type SolanaCluster = "localnet" | "devnet" | "mainnet-beta";
 
@@ -138,6 +140,19 @@ export interface AutomationConfig {
   pythHermesUrl: string;
   /** D-025: Hermes API key (Bearer). Required off-localnet for permissionless settle since 2026-08-26. */
   pythHermesApiKey: string | undefined;
+  /** DLV-118: strike rounding step (micro-USD); null → $5 at/above $100, else $1. */
+  strikeStepE6: bigint | null;
+  /** DLV-118: max age of a Hermes "latest" price used as the strike reference at creation. */
+  strikeRefMaxAgeSecs: number;
+  /**
+   * DLV-118: operator-sourced reference prices (JSON {dateKey, source, pricesE6:{SYM:"<micro-USD>"}}), inline or a file
+   * path read at use time. `strike` = strike reference at the 9:30 ET open; `close` = admin_settle price at the close.
+   * Used while Hermes is 403 for equity feeds (DLV-106); a valid Hermes price always wins.
+   */
+  operatorStrikePricesRaw: string;
+  operatorStrikePricesFile: string;
+  operatorClosePricesRaw: string;
+  operatorClosePricesFile: string;
 }
 
 function resolveIdlPath(raw: string): string {
@@ -218,7 +233,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
     pauseAlertSecs: intInRange("PHOENIX_PAUSE_ALERT_SECS", env.PHOENIX_PAUSE_ALERT_SECS, 120, 10, 86_400),
     pauseAlertRepeatSecs: intInRange("PHOENIX_PAUSE_ALERT_REPEAT_SECS", env.PHOENIX_PAUSE_ALERT_REPEAT_SECS, 3600, 60, 86_400),
     collateralMint: collateral ? new PublicKey(collateral) : null,
-    symbols: parseSymbols(env.STRIKE_SYMBOLS ?? "AAPL").map((s) => s.toUpperCase()),
+    symbols: parseSymbols(env.STRIKE_SYMBOLS ?? MAG7.join(",")).map((s) => s.toUpperCase()),
     priorCloseE6: BigInt(env.PRIOR_CLOSE_E6 ?? "180000000"),
     strikeOffsetsE6: parseIntList(env.STRIKE_OFFSETS_E6 ?? "-5000000,0,5000000", [
       -5_000_000, 0, 5_000_000,
@@ -242,6 +257,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
     logLevel: env.LOG_LEVEL ?? "info",
     pythHermesUrl: env.PYTH_HERMES_URL || "https://hermes.pyth.network",
     pythHermesApiKey: env.PYTH_HERMES_API_KEY || undefined,
+    strikeStepE6: env.STRIKE_STEP_E6 ? BigInt(env.STRIKE_STEP_E6) : null,
+    strikeRefMaxAgeSecs: intInRange("STRIKE_REF_MAX_AGE_SECS", env.STRIKE_REF_MAX_AGE_SECS, 300, 10, 3600),
+    operatorStrikePricesRaw: env.OPERATOR_STRIKE_PRICES ?? "",
+    operatorStrikePricesFile: env.OPERATOR_STRIKE_PRICES_FILE ?? "",
+    operatorClosePricesRaw: env.OPERATOR_CLOSE_PRICES ?? "",
+    operatorClosePricesFile: env.OPERATOR_CLOSE_PRICES_FILE ?? "",
   };
 }
 
