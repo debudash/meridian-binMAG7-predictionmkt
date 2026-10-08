@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import type { OpenOrdersSnapshot, PositionSnapshot } from "@/lib/intents/types";
 import { availabilityInputs } from "@/lib/portfolio/account";
 import { accountRefsFor, POLL_MS } from "@/lib/rpc/pollPolicy";
+import { walletPositionsLock, type BalancesLock } from "@/lib/intents/cardLock";
 import { useWalletAccount } from "./useWalletAccount";
 
 export interface LiveExposure extends PositionSnapshot {
@@ -16,14 +17,22 @@ export interface LiveExposure extends PositionSnapshot {
   openOrders?: OpenOrdersSnapshot;
 }
 
+export interface WalletPositions {
+  /** null while disconnected or before the first read lands */
+  positions: Map<string, LiveExposure> | null;
+  /** M5 on cards: connected wallet whose first read is pending / failed → Buy links locked */
+  lock: BalancesLock;
+}
+
 export function useWalletPositions(
   markets: Parameters<typeof accountRefsFor>[0],
   pollMs: number = POLL_MS.marketsAccount,
-): Map<string, LiveExposure> | null {
+): WalletPositions {
   // M4: Phoenix reads only for open markets (settled ones can't be traded); 30s (was 10s).
   const refs = useMemo(() => accountRefsFor(markets), [markets]);
-  const { account } = useWalletAccount(refs, pollMs);
-  return useMemo(() => {
+  const { account, connected, loading, error } = useWalletAccount(refs, pollMs);
+  const lock = walletPositionsLock({ connected, hasAccount: !!account, loading, error });
+  const positions = useMemo(() => {
     if (!account) return null;
     const out = new Map<string, LiveExposure>();
     for (const [id, state] of account.markets) {
@@ -32,4 +41,5 @@ export function useWalletPositions(
     }
     return out;
   }, [account]);
+  return { positions, lock };
 }

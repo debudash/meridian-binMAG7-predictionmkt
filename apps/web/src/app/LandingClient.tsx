@@ -15,7 +15,7 @@ export function LandingClient({
   strip?: boolean;
 }) {
   const lastViewed = useLastViewedMarket();
-  const livePositions = useWalletPositions(
+  const { positions: livePositions, lock: balancesLock } = useWalletPositions(
     strip && closingSoon ? closingSoon : featured ? [featured] : [],
   );
   if (strip && closingSoon) {
@@ -36,6 +36,7 @@ export function LandingClient({
             market={m}
             lastViewed={m.marketId === lastViewed}
             livePosition={livePositions?.get(m.marketId)}
+            balancesLock={balancesLock}
           />
         ))}
       </div>
@@ -57,6 +58,7 @@ export function LandingClient({
       market={featured}
       lastViewed={featured.marketId === lastViewed}
       livePosition={livePositions?.get(featured.marketId)}
+      balancesLock={balancesLock}
     />
   );
 }

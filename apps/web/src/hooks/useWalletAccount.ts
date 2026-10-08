@@ -7,7 +7,7 @@
  * Markets list don't each poll. Errors are logged (DLV-090) and the last good value kept.
  */
 import { useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { logChainReadError } from "@/lib/log/chainRead";
 import { readWalletAccount, type AccountMarketRef, type WalletAccount } from "@/lib/portfolio/readAccount";
@@ -34,7 +34,20 @@ export function marketsKeyOf(markets: readonly AccountMarketRef[]): string {
     .join("|");
 }
 
-export function useWalletAccount(markets: readonly AccountMarketRef[], pollMs = 10_000): UseWalletAccountResult {
+export interface UseWalletAccountOptions {
+  /**
+   * Keep showing the previous read while a changed market set loads. Only safe when the new set
+   * is a subset of the old one (Portfolio dropping settled Phoenix books); never for a market
+   * switch, where stale data would read as another market's balances.
+   */
+  keepPrevious?: boolean;
+}
+
+export function useWalletAccount(
+  markets: readonly AccountMarketRef[],
+  pollMs = 10_000,
+  opts: UseWalletAccountOptions = {},
+): UseWalletAccountResult {
   const { connection } = useConnection();
   const { publicKey } = useWallet();
   const owner = publicKey?.toBase58() ?? null;
@@ -57,6 +70,7 @@ export function useWalletAccount(markets: readonly AccountMarketRef[], pollMs = 
     refetchIntervalInBackground: false,
     staleTime: Math.min(pollMs, 5_000),
     retry: 1,
+    placeholderData: opts.keepPrevious ? keepPreviousData : undefined,
     queryFn: async () => {
       try {
         return await readWalletAccount(connection, publicKey!, refs, { usdcMint: getUsdcMint() });
@@ -69,10 +83,12 @@ export function useWalletAccount(markets: readonly AccountMarketRef[], pollMs = 
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: [WALLET_ACCOUNT_KEY] });
   }, [queryClient]);
+  // keepPrevious never leaks another wallet's read across a wallet switch
+  const account = owner && q.data?.owner === owner ? q.data : undefined;
   return {
-    account: owner ? q.data : undefined,
+    account,
     error: q.error ? (q.error instanceof Error ? q.error.message : String(q.error)) : null,
-    loading: owner != null && q.data === undefined && !q.error,
+    loading: owner != null && account === undefined && !q.error,
     connected: owner != null,
     refresh,
   };
