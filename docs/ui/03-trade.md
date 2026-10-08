@@ -2,7 +2,7 @@
 
 The core screen. One market = **one Phoenix book**. The user views it from a **Yes** or **No** perspective; the book is the same.
 
-Normative rules: `06-trading-intents-and-constraints.md` (intents §1, constraint §2, countdown §3, payoff §4).
+Normative rules: `06-trading-intents-and-constraints.md` (intents §1, constraint §2, countdown §3, payoff §4); price display: `08-price-display.md`.
 
 ## 1. Purpose & user jobs
 1. Understand the question, strike, underlying price, and time to close.
@@ -14,8 +14,8 @@ Normative rules: `06-trading-intents-and-constraints.md` (intents §1, constrain
 ## 2. Layout (DLV-072 — two-column, as built)
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
-│ A. Compact header (one row): question + underlying/24h/OI · [Yes 0.62][No  │
-│    0.38] (prices double as the perspective toggle) · SETTLEMENT COUNTDOWN  │
+│ A. Compact header: question + underlying/24h/OI · [Buy Yes 0.63]           │
+│    [Buy No 0.39] · 62% implied (pills = Yes/No toggle, `08`) · COUNTDOWN   │
 ├──────────────────────────────────────────────────────┬─────────────────────┤
 │ B. Chart (stub: fixed ~240px)                        │ D. Order ticket     │
 ├──────────────────────────────────────────────────────┤    (fixed ~360px,   │
@@ -38,7 +38,7 @@ Normative rules: `06-trading-intents-and-constraints.md` (intents §1, constrain
 | Distance to strike | "−$1.86 (−0.8%) from strike" | derived |
 | Countdown | per `06` §3 — primary placement, right side of header, large tabular numerals | `tradingCloseTs`, `settleTs`, `status` |
 | Perspective toggle | Segmented `[Yes | No]`; persists in URL `?side=yes|no` and localStorage | client |
-| Prices | "Yes 0.62 · No 0.38" both always shown; selected perspective bold | book mid / last |
+| Prices | Pills show executable prices "Buy Yes 0.63" / "Buy No 0.39" (best Yes ask / 1 − best Yes bid), both always shown, selected perspective bold, then a separate muted "62% implied" label — never a bare mid (`08` §4) | live book via the `08` helper; no invented `0.50` fallback |
 | Stats | 24h volume (USDC), open interest (contracts), # traders (optional) | indexer |
 
 ## 4. Dual perspective on one book
@@ -60,14 +60,14 @@ The toggle **changes presentation only**. Subscriptions, market ID, and the unde
 
 Rules:
 - Toggling must not reset entered size; price input converts (`p → 1 − p`) with a 1s inline note "Converted to No price".
-- Header always shows both prices so users understand they're complementary.
-- Helper under the toggle (first visit, dismissible): "Yes and No trade on the same order book. A No price is always 1.00 minus the Yes price."
+- Header always shows both Buy prices (executable, `08`); they add up to 1.00 + spread, not 1.00.
+- Helper under the toggle (first visit, dismissible): "Yes and No trade on the same order book: every No price is 1.00 minus a Yes price on the other side. Buy Yes + Buy No add up to a bit more than 1.00 — the difference is the spread." (`08` rule 7)
 - Clicking a book row prefills the ticket price. Clicking an **ask** selects the Buy intent of the current perspective; clicking a **bid** selects the Sell intent. If that intent is disabled by `06` §2, keep the current intent and only fill the price.
 - Book precision: price = tick (2 decimals default), group levels selector (0.01 / 0.05). Show "Your orders" marker on levels containing user orders (both perspectives, transformed).
 
 ## 5. Zone C — Order book & trades
 - 12 levels each side (desktop), 6 (mobile). Columns: Price · Size (contracts) · Total (USDC = cumulative `size × price` in current perspective).
-- Spread row: "Spread 0.02 · Mid 0.62".
+- Spread row: "Spread 0.02 · 62% implied" (mid labeled per `08` rule 3).
 - Trades tab: time, price (perspective), size, aggressor side. Last 50, live.
 - Live via Phoenix market account subscription; throttle render to 10 fps; flash changed levels 300ms.
 - Stale indicator if no websocket update for 10s and RPC slot advancing: "Book may be stale — reconnecting".
@@ -209,7 +209,7 @@ Shown at the top of the left column once a market is not Open (chart stub and or
 
 ## 13. Acceptance criteria
 - [ ] Yes/No toggle changes no subscriptions; book, mid, last, spread, depth, chart, ticket default intents transform exactly per §4 (unit tests with integer ticks).
-- [ ] Both Yes and No prices visible in header in either perspective; `Yes + No mid = 1.00`.
+- [ ] Both Buy Yes and Buy No executable prices visible in the header in either perspective, plus a labeled `NN% implied`, per `08`; Buy Yes + Buy No = 1.00 + spread (only implied Yes + implied No = 100%).
 - [ ] Four intents present, each mapped per `06` §1; CTA label states intent, size, and price.
 - [ ] Buy No disabled with §2.3 copy + "Sell N Yes" CTA when `yesExposure > 0` (and mirror); Sell held side always enabled when available > 0.
 - [ ] Open Buy orders and pending txs count toward exposure.

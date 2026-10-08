@@ -20,22 +20,22 @@ Mobile: search + filter sheet; card view only; ladder as accordion per underlyin
 |---|---|
 | Ticker chip | AAPL |
 | Question | "AAPL ≥ $230.00 at close Oct 16" |
-| Prices | "Yes 0.62 · No 0.38" (mid; fallback last; "—" if empty book) |
-| Implied | "62% implied Yes" |
+| Prices | On the Buy buttons (see Actions), executable per `08`: Buy Yes = best Yes ask, Buy No = 1 − best Yes bid; "—" per `08` fallbacks. The old mid row "Yes 0.62 · No 0.38" is removed (`08` §4). |
+| Implied | "62% implied" (mid, always labeled; last-trade fallback per `08`) |
 | Underlying | "AAPL $225.00 · needs +2.2%" / "is 0.8% above strike" (DLV-075; mock Pyth on localnet, "—" if no feed) |
 | Countdown | per `06` §3 compact ("2d 4h", "42:18", "Closed", "Settled: Yes") |
 | Stats | 24h vol, OI |
 | Your position badge (connected) | "You: Yes 40" / "You: No 25" |
-| Actions | [Buy Yes] [Buy No] (respecting `06` §2: if user holds Yes, Buy No shows disabled with tooltip "You hold Yes") → Trade deep link |
+| Actions | [Buy Yes 0.63] [Buy No 0.39] (executable prices per `08`; respecting `06` §2: if user holds Yes, Buy No shows disabled with tooltip "You hold Yes") → Trade deep link |
 
 **One book rule:** each market appears **once**; Yes and No are shown as two prices in the same card/row, never as separate list entries.
 
 ### Table columns
-Underlying · Question · Yes bid/ask · No bid/ask (derived) · Last · 24h vol · OI · Closes (countdown) · Status · Your position.
+Underlying · Question · Yes bid/ask · No bid/ask (derived) · Implied · Last · 24h vol · OI · Closes (countdown) · Status · Your position. Trade-cell Buy buttons show prices as on cards (`08` §4).
 
 ### Ladder view (one underlying + expiry)
 | Strike | Yes bid | Yes ask | No bid | No ask | Implied | Vol |
-Highlight row nearest current underlying price. Implied should be monotone decreasing in strike for "≥" markets; show no warning UI for non-monotonic (data, not error).
+Implied and trade-cell Buy prices come from the shared `08` helper. Highlight row nearest current underlying price. Implied should be monotone decreasing in strike for "≥" markets; show no warning UI for non-monotonic (data, not error).
 
 ## Data needed
 | Data | Source |
@@ -65,7 +65,7 @@ Top-of-book refresh: poll indexer 5s or subscribe to visible markets' Phoenix ac
 Short question form on cards ("AAPL ≥ $230.00 at close Oct 16"); full question on Trade. Times show absolute on hover.
 
 ## Acceptance criteria
-- [ ] Each market appears exactly once; Yes and No prices shown together; `No = 1 − Yes` derived.
+- [ ] Each market appears exactly once; Buy Yes / Buy No executable prices shown together plus a labeled `NN% implied`, per `08` (no unlabeled mid); No book levels derived as `1 − Yes` per `06` §1.2.
 - [ ] Default filter Open, sort Closing soonest; URL reflects state and is shareable.
 - [ ] Countdown on every card/row consistent with `06` §3.
 - [ ] Ladder groups strikes per underlying/expiry and highlights nearest strike.

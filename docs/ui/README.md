@@ -22,6 +22,7 @@ Repo of record: https://labs.gauntletai.com/debudash/peak6-meridian (files live 
 | [05-history.md](05-history.md) | Past fills, settlements, redemptions |
 | [06-trading-intents-and-constraints.md](06-trading-intents-and-constraints.md) | **Cross-cutting rules**: intents→order mapping, no Yes+No constraint, countdown states, payoff copy |
 | [07-ia-and-routes.md](07-ia-and-routes.md) | IA, Next.js routes, nav, global empty/error/wallet states |
+| [08-price-display.md](08-price-display.md) | **Price display (normative for 01/02/03)**: Buy Yes / Buy No buttons and pills show executable top-of-book prices; mid only as a labeled `NN% implied`; one-sided/empty fallbacks |
 | [wireframes/](wireframes/) | **SPEC freeze wireframes** (MR !20) — Landing/Markets/Trade/Portfolio/History |
 
 ## How screens relate
@@ -41,7 +42,7 @@ Repo of record: https://labs.gauntletai.com/debudash/peak6-meridian (files live 
 - `TODO(schema):` — needs a field/instruction decision from the Schema workstream.
 - `OPEN:` — product/PM decision needed.
 - Placeholders: `<PROGRAM_ID>`, `<PHOENIX_PROGRAM_ID>`, `<USDC_MINT>`, `<PYTH_FEED_ID>`, `<INDEXER_URL>`, `<RPC_URL>`.
-- Prices displayed in USDC with 2 decimals (`0.62`), optionally as implied % (`62%`). Sizes in whole contracts unless `market.lotSize` says otherwise.
+- Prices displayed in USDC with 2 decimals (`0.62`), optionally as implied % (`62%`). Which price goes where (executable vs labeled implied mid): `08`. Sizes in whole contracts unless `market.lotSize` says otherwise.
 
 ## Selection & active states (standing rule — D-022, DLV-073)
 
