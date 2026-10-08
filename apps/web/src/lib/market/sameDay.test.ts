@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
-import { etCloseTsFor, isTodaysClose, sameDayView } from "./sameDay";
+import { etCloseTsFor, heldMarketIds, isTodaysClose, sameDayView } from "./sameDay";
 
 const utc = (y: number, mo: number, d: number, h: number, mi = 0) => Math.floor(Date.UTC(y, mo - 1, d, h, mi) / 1000);
 const CLOSE_1008 = 1791489600; // 2026-10-08 16:00 EDT
@@ -53,12 +53,38 @@ describe("DLV-118 same-day close (web)", () => {
     expect(v.mode).toBe("none-today");
   });
 
+  it("L-7 (DLV-119): an other-expiry market where the wallet holds a position stays in the today view, marked", () => {
+    const list = [m("today1", CLOSE_1008), m("week", CLOSE_1008 + 6 * 86400), m("held", CLOSE_1008 - 86400)];
+    const v = sameDayView(list, utc(2026, 10, 8, 18, 47), { showOther: false, keepIds: new Set(["held"]) });
+    expect(v.visible.map((x: any) => x.marketId)).toEqual(["today1", "held"]);
+    expect(v.hiddenOther).toBe(1);
+    expect(v.mode).toBe("today");
+    expect(v.otherIds.has("held")).toBe(true);
+  });
+
+  it("L-7: heldMarketIds = markets with any Yes / No (incl. locked in orders)", () => {
+    const pos = new Map<string, any>([
+      ["a", { yesQty: 0, noQty: 0 }],
+      ["b", { yesQty: 2, noQty: 0 }],
+      ["c", { yesQty: 0, noQty: 0, noLockedInOrders: 1 }],
+    ]);
+    expect([...heldMarketIds(pos)].sort()).toEqual(["b", "c"]);
+    expect(heldMarketIds(null).size).toBe(0);
+  });
+
+  it("MarketsClient (DLV-119 L-7): filter only on Open / Closing soon, keeps held markets, marks every listed non-today market", () => {
+    const src = fs.readFileSync(path.resolve(__dirname, "../../app/markets/MarketsClient.tsx"), "utf8");
+    expect(src).toMatch(/keepIds: heldMarketIds\(livePositions\)/);
+    expect(src).toMatch(/status === "open" \|\| status === "closing-soon"/);
+    expect(src).not.toMatch(/sameDay\.mode !== "today" && sameDay\.otherIds\.has/);
+    expect(src).toMatch(/data-testid="not-today-close-row"/);
+  });
+
   it("MarketsClient applies the same-day view (not on the settled tab) with a toggle + marker", () => {
     const src = fs.readFileSync(path.resolve(__dirname, "../../app/markets/MarketsClient.tsx"), "utf8");
     expect(src).toMatch(/sameDayView\(/);
     expect(src).toMatch(/data-testid="same-day-notice"/);
     expect(src).toMatch(/data-testid="same-day-toggle"/);
-    expect(src).toMatch(/status === "settled"/);
     expect(src).toMatch(/Not today's close/);
   });
 });

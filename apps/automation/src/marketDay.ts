@@ -11,9 +11,10 @@
  *   - at/after that close → REJECT (`after_close`), never roll to the next day silently (SPEC: same-day only);
  *     the next trading day's run creates that day's markets;
  *   - weekends / NYSE full-day holidays → REJECT unless `allowNonTradingDay` (localnet override only);
- *   - a year missing from the holiday table → REJECT (`unknown_year`) so ops notices before a wrong expiry ships.
- * Early-close days (13:00 ET, e.g. 2026-11-27 / 2026-12-24) are NOT modelled: V1 keeps the SPEC 16:00 close and the
- * ≥16:00 ET settle gate (open item for PM).
+ *   - a year missing from the holiday table → REJECT (`unknown_year`) so ops notices before a wrong expiry ships;
+ *   - NYSE early-close days (13:00 ET, NYSE_EARLY_CLOSES) → REJECT (`early_close`) with an ALERT (DLV-119 / Reviewers
+ *     M-1): a 16:00 expiry would leave books trading ~3 h past the real close with no regular-session price. Proper
+ *     13:00 handling (closeTs = 13:00, per-market settle gate) is deferred to mainnet (TRACKER Todo).
  */
 import type { PullPrice } from "./pyth/pullOracle";
 
@@ -46,8 +47,26 @@ export const NYSE_HOLIDAYS: Record<string, string> = {
   "2027-09-06": "Labor Day",
   "2027-11-25": "Thanksgiving Day",
   "2027-12-24": "Christmas Day (observed)",
+  // 2028 (nyse.com): no New Year's Day holiday (Jan 1 is a Saturday).
+  "2028-01-17": "Martin Luther King Jr. Day",
+  "2028-02-21": "Washington's Birthday",
+  "2028-04-14": "Good Friday",
+  "2028-05-29": "Memorial Day",
+  "2028-06-19": "Juneteenth",
+  "2028-07-04": "Independence Day",
+  "2028-09-04": "Labor Day",
+  "2028-11-23": "Thanksgiving Day",
+  "2028-12-25": "Christmas Day",
 };
-export const CALENDAR_YEARS = new Set([2026, 2027]);
+/** NYSE 13:00 ET early closes (nyse.com footnotes). Refused for 0DTE creation until 13:00 handling ships (M-1). */
+export const NYSE_EARLY_CLOSES: Record<string, string> = {
+  "2026-11-27": "day after Thanksgiving (13:00 ET close)",
+  "2026-12-24": "Christmas Eve (13:00 ET close)",
+  "2027-11-26": "day after Thanksgiving (13:00 ET close)",
+  "2028-07-03": "day before Independence Day (13:00 ET close)",
+  "2028-11-24": "day after Thanksgiving (13:00 ET close)",
+};
+export const CALENDAR_YEARS = new Set([2026, 2027, 2028]);
 
 export interface EtWall {
   dateKey: string;
@@ -92,7 +111,8 @@ export function etWallClockToUnix(dateKey: string, hour: number, minute = 0): nu
   throw new Error(`no ET wall time ${dateKey} ${hour}:${minute} (DST gap?)`);
 }
 
-export type TradingDayCheck = { ok: true } | { ok: false; code: "weekend" | "holiday" | "unknown_year"; reason: string };
+export type NonTradingCode = "weekend" | "holiday" | "unknown_year" | "early_close";
+export type TradingDayCheck = { ok: true } | { ok: false; code: NonTradingCode; reason: string };
 
 export function isTradingDay(dateKey: string): TradingDayCheck {
   const [y, mo, d] = parseDateKey(dateKey);
@@ -101,7 +121,22 @@ export function isTradingDay(dateKey: string): TradingDayCheck {
   if (!CALENDAR_YEARS.has(y)) return { ok: false, code: "unknown_year", reason: `NYSE holiday table has no ${y}; extend NYSE_HOLIDAYS in apps/automation/src/marketDay.ts` };
   const h = NYSE_HOLIDAYS[dateKey];
   if (h) return { ok: false, code: "holiday", reason: `${dateKey} is an NYSE holiday (${h})` };
+  const e = NYSE_EARLY_CLOSES[dateKey];
+  if (e) return { ok: false, code: "early_close", reason: `ALERT ${dateKey} is an NYSE early-close day (${e}); 0DTE creation refused until 13:00 handling ships (M-1)` };
   return { ok: true };
+}
+
+/** Codes that page ops (logged with ALERT): calendar gaps and early closes. Weekends / holidays / after-close are routine. */
+export function isAlertCode(code: string): boolean {
+  return code === "early_close" || code === "unknown_year";
+}
+
+/** Nit (Reviewers !91): ALERT ≥ 30 days before the holiday table runs out, so a year is added before creation stops. */
+export function calendarHorizonAlert(nowSec: number, days = 30): string | null {
+  const y = Number(etWall(nowSec + days * 86400).dateKey.slice(0, 4));
+  return CALENDAR_YEARS.has(y)
+    ? null
+    : `ALERT NYSE holiday table has no ${y} and it is ≤ ${days} days away; add it to NYSE_HOLIDAYS / NYSE_EARLY_CLOSES (apps/automation/src/marketDay.ts + ops/lib/nyse-calendar.cjs)`;
 }
 
 function addDays(dateKey: string, n: number): string {
@@ -131,7 +166,7 @@ export interface SessionPlan {
 
 export type SameDayDecision =
   | { ok: true; plan: SessionPlan }
-  | { ok: false; code: "weekend" | "holiday" | "unknown_year" | "after_close" | "before_open"; reason: string; dateKey: string; nextDateKey?: string };
+  | { ok: false; code: NonTradingCode | "after_close" | "before_open"; reason: string; dateKey: string; nextDateKey?: string };
 
 /**
  * The same-day session for `nowSec` (effective clock: SimClock when enabled on localnet, else chain/wall time).
@@ -222,6 +257,8 @@ export function decideStrikeReference(opts: {
   /** Sponsored on-chain Pyth PriceUpdateV2 (PYTH_PRICE_FEEDS account; e.g. devnet shard-1), same freshness rule. */
   onchain?: { parsed: PullPrice; account: string } | { error: string };
   operator?: OperatorDayPrices;
+  /** Operator sanity band vs the last known Pyth price (default 2000 bps = ±20%). */
+  operatorBandBps?: number;
 }): StrikeReferenceDecision {
   const sym = opts.symbol.toUpperCase();
   const want = (opts.feedIdHex ?? "").replace(/^0x/, "").toLowerCase();
@@ -234,6 +271,14 @@ export function decideStrikeReference(opts: {
     return null;
   };
   const whys: string[] = [];
+  // Last known Pyth price (even stale) = sanity anchor for operator prices (Reviewers nit: ±OPERATOR_BAND_BPS).
+  let anchorE6: bigint | null = null;
+  for (const c of [opts.hermes, opts.onchain]) {
+    if (c && "parsed" in c && c.parsed.price > 0n && (!want || c.parsed.feedIdHex.replace(/^0x/, "").toLowerCase() === want)) {
+      anchorE6 = toE6(c.parsed.price, c.parsed.expo);
+      break;
+    }
+  }
   if (opts.hermes && "parsed" in opts.hermes) {
     const bad = fresh(opts.hermes.parsed, "Hermes");
     const p = opts.hermes.parsed;
@@ -254,5 +299,13 @@ export function decideStrikeReference(opts: {
   const raw = op.pricesE6?.[sym];
   if (raw === undefined) return { ok: false, reason: `${why}; operator strike prices have no ${sym}` };
   if (!/^[1-9][0-9]*$/.test(String(raw))) return { ok: false, reason: `${why}; operator ${sym} price must be a positive integer (micro-USD)` };
-  return { ok: true, priceE6: BigInt(raw), source: `operator: ${op.source.trim()}` };
+  const priceE6 = BigInt(raw);
+  const bandBps = BigInt(opts.operatorBandBps ?? 2000);
+  if (anchorE6 !== null) {
+    const diff = priceE6 > anchorE6 ? priceE6 - anchorE6 : anchorE6 - priceE6;
+    if (diff * 10_000n > anchorE6 * bandBps) {
+      return { ok: false, reason: `${why}; operator ${sym} ${priceE6} is outside the ±${Number(bandBps) / 100}% band of the last Pyth price ${anchorE6} — check the operator price` };
+    }
+  }
+  return { ok: true, priceE6, source: `operator: ${op.source.trim()}` };
 }
