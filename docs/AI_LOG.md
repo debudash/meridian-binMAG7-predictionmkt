@@ -1,3 +1,17 @@
+## 2026-10-08T11:49:00-05:00 — Engineers: Fills row appears after a confirmed trade without a reload
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers (item from Grok Bot, Debu's standing autonomy) |
+| **Branch** | `fix/fills-refresh-on-confirm` from `origin/main` @ `eef0a98` (Merge !83) |
+| **Source** | Runbook 5.1 on the local app (Buy Yes · Market · 5): Position updated after confirm, but the Fills row only showed after a manual reload (~10 s). |
+| **Decision** | Root cause: `TradeTicket` never invalidated or refetched any query after its own confirmed trade. Position caught up through the 10 s account poll. The `wallet-history` query behind Fills polls only while that tab is open (60 s, M4 budget) and is fresh for 30 s, and the hook stays mounted across tabs, so opening Fills didn't refetch. `getSignaturesForAddress` at `confirmed` can also briefly lag the confirmation. Fix: refresh after own tx with a short bounded retry until the signature is listed (at most 5 history scans per trade), instead of faster global polling. |
+| **Change** | `apps/web`: new `src/lib/rpc/refreshAfterOwnTx.ts` (`refreshAfterOwnTx`, `historyHasSig`, `shouldRefetchOnFillsOpen`, shared `WALLET_ACCOUNT_KEY` / `WALLET_HISTORY_KEY`, schedule 0/1.5/3/5/8 s). `TradeTicket` calls it after `confirmSignature` unless the outcome is `failed`. `TradeClient` refetches history once when the Fills tab opens and the read is older than 10 s (only on the tab change, so errors can't loop). `useWalletAccount` / `useWalletHistory` use the shared keys. |
+| **Tests** | Red first: `src/lib/rpc/refreshAfterOwnTx.test.ts` (9, real `QueryClient`): early stop, retry schedule, bound, no history query → no loop, account refetch, Fills-open rule, wiring. Web vitest **374 passed + 14 skipped** (was 365 + 14). `tsc --noEmit` clean, `next lint` clean. No live :3000 / :8899 check (another worker owns them). No Railway redeploy. |
+| **Related** | DLV-114 · MR !84 · M4 RPC budget (`pollPolicy.ts`) |
+
+---
+
 ## 2026-10-08T09:40:00-05:00 — Engineers: Track A fresh flat Localnet Dev Wallet (no reseed) + runbook/README notes
 
 | Field | Value |
