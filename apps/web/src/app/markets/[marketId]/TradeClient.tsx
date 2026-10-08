@@ -9,6 +9,7 @@ import { SettlementCountdown } from "@/components/market/SettlementCountdown";
 import { OrderBook } from "@/components/trade/OrderBook";
 import { TradeTicket } from "@/components/trade/TradeTicket";
 import { PositionPanel } from "@/components/trade/PositionPanel";
+import { SettleProofCard } from "@/components/market/SettleProofCard";
 import { fixtureBook } from "@/lib/market/fixtures";
 import { fetchPhoenixBook, isPhoenixPlacementEnabled } from "@/lib/phoenix";
 import { useConnection } from "@solana/wallet-adapter-react";
@@ -252,23 +253,32 @@ export function TradeClient({
           <1024px: one column — header, ticket, book, chart, position, rules (CSS order). */}
       <div className="trade-layout">
         <div className="trade-main">
-          <div className="card trade-chart">
-            <strong>Chart (stub)</strong>
-            <p className="muted" style={{ fontSize: "0.85rem", margin: "0.5rem 0 0" }}>
-              Chart stub — implied price series + Pyth overlay not wired (TODO(indexer)). Mid{" "}
-              {formatOutcomePrice(perspective === "yes" ? yes : no)} ({perspective}).
-            </p>
-          </div>
-          <div className="trade-book">
-            <OrderBook
-              book={book}
-              live={liveBook != null}
-              perspective={perspective}
-              tickSize={market.tickSize}
-              onSelectPrice={onSelectPrice}
-              selectedKey={highlightKey}
-            />
-          </div>
+          {market.status !== "open" && (
+            <div className="trade-proof">
+              <SettleProofCard market={market} />
+            </div>
+          )}
+          {market.status === "open" && (
+            <div className="card trade-chart">
+              <strong>Chart (stub)</strong>
+              <p className="muted" style={{ fontSize: "0.85rem", margin: "0.5rem 0 0" }}>
+                Chart stub — implied price series + Pyth overlay not wired (TODO(indexer)). Mid{" "}
+                {formatOutcomePrice(perspective === "yes" ? yes : no)} ({perspective}).
+              </p>
+            </div>
+          )}
+          {market.status === "open" && (
+            <div className="trade-book">
+              <OrderBook
+                book={book}
+                live={liveBook != null}
+                perspective={perspective}
+                tickSize={market.tickSize}
+                onSelectPrice={onSelectPrice}
+                selectedKey={highlightKey}
+              />
+            </div>
+          )}
           <section className="card trade-zone">
             <div
               role="tablist"
@@ -463,6 +473,7 @@ export function TradeClient({
           .trade-main { display: contents; }
           .trade-main > *, .trade-side { width: 100%; }
           .trade-header { padding: 0.65rem 0.8rem; }
+          .trade-proof { order: 0; }
           .trade-side { position: static; max-height: none; overflow: visible; order: 1; }
           .trade-book { order: 2; }
           .trade-chart { order: 3; height: auto; min-height: 120px; }

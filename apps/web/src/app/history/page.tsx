@@ -8,13 +8,13 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { buildDemoHistory, type DemoFill } from "@/lib/demo/portfolio";
 import { useChainClock } from "@/components/providers/AppProviders";
 import { truncateAddress } from "@/lib/format";
-import { getExplorerUrl } from "@/lib/solana/config";
+import { explorerTx } from "@/lib/solana/config";
 import { onTablistKeyDown, selectableRowProps, tabProps } from "@/components/ui/a11y";
 import { toggleSelection } from "@/lib/ui/selection";
 
 // re-export truncate for history; explorer helper lives in config
 function txUrl(sig: string): string {
-  return `${getExplorerUrl()}/tx/${sig}`;
+  return explorerTx(sig);
 }
 
 type HistType = "all" | "fills" | "settlements" | "redemptions" | "cancels";
