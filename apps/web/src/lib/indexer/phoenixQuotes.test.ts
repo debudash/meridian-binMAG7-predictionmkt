@@ -111,7 +111,8 @@ describe("attachPhoenixQuotes — per-book resilience", () => {
 
     const [g1, m, b, g2, nb] = views;
     expect([g1.yesBid, g1.yesAsk, g1.yesMid]).toEqual([0.4, 0.46, 0.43]);
-    expect([g2.yesBid, g2.yesAsk, g2.yesMid]).toEqual([0.7, undefined, 0.7]);
+    // DLV-116 (docs/ui/08): no one-sided mid — mid only when both sides exist.
+    expect([g2.yesBid, g2.yesAsk, g2.yesMid]).toEqual([0.7, undefined, undefined]);
     for (const v of [m, b, nb]) {
       expect(v.yesBid).toBeUndefined();
       expect(v.yesAsk).toBeUndefined();

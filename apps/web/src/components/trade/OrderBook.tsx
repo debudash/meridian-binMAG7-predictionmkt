@@ -3,6 +3,7 @@
 import { transformBook, type Perspective } from "@/lib/market/bookTransform";
 import type { OrderBookSnapshot } from "@/lib/market/types";
 import { formatOutcomePrice } from "@/lib/format";
+import { priceDisplay, spreadText } from "@/lib/market/priceDisplay";
 import { PHOENIX_STUB_NOTICE } from "@/lib/phoenix/stub";
 import { liveBookFooter } from "@/lib/rpc/pollPolicy";
 import { rowKey } from "@/lib/market/bookSelection";
@@ -40,10 +41,11 @@ export function OrderBook({
   const view = transformBook(book, perspective, tickSize);
   const bestBid = view.bids[0]?.price;
   const bestAsk = view.asks[0]?.price;
-  const mid =
-    bestBid != null && bestAsk != null ? (bestBid + bestAsk) / 2 : undefined;
-  const spread =
-    bestBid != null && bestAsk != null ? bestAsk - bestBid : undefined;
+  // DLV-116 (docs/ui/08): `Spread 0.02 · 42% implied` (Yes implied; spread is the same in both perspectives).
+  const spreadRow = spreadText(
+    priceDisplay({ bestBid: book.bids[0]?.price, bestAsk: book.asks[0]?.price, tickSize }),
+  );
+  const empty = bestBid == null && bestAsk == null;
 
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -58,9 +60,7 @@ export function OrderBook({
       >
         <strong>Order book · {perspective === "yes" ? "Yes" : "No"}</strong>
         <span className="muted tabular">
-          {spread != null && mid != null
-            ? `Spread ${formatOutcomePrice(spread)} · Mid ${formatOutcomePrice(mid)}`
-            : "No orders yet"}
+          {spreadRow ?? (empty ? "No orders yet" : "Spread —")}
         </span>
       </div>
       <div

@@ -37,6 +37,7 @@ import { sweepDisclosure } from "@/lib/phoenix/sweepCopy";
 import { marketWorstPrice } from "@/lib/phoenix/compose";
 import { confirmSignature, toastForConfirm } from "@/lib/solana/confirm";
 import { refreshAfterOwnTx } from "@/lib/rpc/refreshAfterOwnTx";
+import { marketPriceDisplay, ticketIntentPrices } from "@/lib/market/priceDisplay";
 
 const INTENTS: Intent[] = ["buy-yes", "sell-yes", "buy-no", "sell-no"];
 
@@ -108,6 +109,9 @@ export function TradeTicket({
   const cd = getCountdown(market, nowSec);
 
   const phoenixReady = isPhoenixPlacementEnabled(market.phoenixMarket);
+  // DLV-116 (docs/ui/08, 03 §6.1): executable price under each intent (same source as the header pills).
+  const intentDisplay = marketPriceDisplay(market, { book: liveBook, open: cd.tradingEnabled });
+  const intentPrices = ticketIntentPrices(intentDisplay);
 
   const defaultIntent: Intent =
     initialIntent ?? (perspective === "no" ? "buy-no" : "buy-yes");
@@ -414,9 +418,16 @@ export function TradeTicket({
               disabled={!enabled}
               aria-pressed={intent === i}
               onClick={() => setIntent(i)}
-              title={a.copy ?? (enabled ? undefined : "Unavailable")}
+              title={a.copy ?? (enabled ? intentPrices[i].title : "Unavailable")}
             >
-              {intentLabel(i)}
+              <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }}>
+                {intentLabel(i)}
+                {intentDisplay.open && (
+                  <span className="tabular" style={{ fontSize: "0.8rem" }} data-testid={`intent-price-${i}`}>
+                    {intentPrices[i].price}
+                  </span>
+                )}
+              </span>
             </button>
           );
         })}
