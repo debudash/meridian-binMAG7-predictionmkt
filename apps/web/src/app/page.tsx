@@ -9,7 +9,7 @@ export const fetchCache = "force-no-store";
 
 export default async function LandingPage() {
   const nowSec = Math.floor(Date.now() / 1000);
-  const { markets, usedFixtures, message } = await listMarkets(nowSec);
+  const { markets, usedFixtures, message, error } = await listMarkets(nowSec);
   const open = markets.filter((m) => m.status === "open");
   const featured = open.sort(
     (a, b) => (b.volume24hUsdc ?? 0) - (a.volume24hUsdc ?? 0),
@@ -23,6 +23,11 @@ export default async function LandingPage() {
       {usedFixtures && message && (
         <div className="banner" style={{ marginBottom: "1rem", borderRadius: 8 }}>
           {message}
+        </div>
+      )}
+      {error && (
+        <div className="banner" role="alert" style={{ marginBottom: "1rem", borderRadius: 8 }}>
+          {error}
         </div>
       )}
       <section

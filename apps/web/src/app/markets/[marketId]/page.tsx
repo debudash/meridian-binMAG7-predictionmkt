@@ -22,7 +22,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function TradePage({ params, searchParams }: Props) {
-  const { market, usedFixtures, source } = await getMarket(params.marketId);
+  const { market, usedFixtures, source, error } = await getMarket(params.marketId);
+  if (!market && error) {
+    return (
+      <div className="container">
+        <div className="card" role="alert" data-testid="market-unavailable">
+          <strong>Market unavailable</strong>
+          <p className="muted" style={{ margin: "0.5rem 0 0" }}>{error}</p>
+        </div>
+      </div>
+    );
+  }
   if (!market) notFound();
 
   const intent =

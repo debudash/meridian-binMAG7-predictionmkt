@@ -3,7 +3,8 @@
  */
 import type { MarketView } from "@/lib/market/types";
 
-export type IndexerSource = "indexer-http" | "rpc-gpa" | "fixtures";
+/** `unavailable` = live reads failed off-localnet; fixtures are never used there (DLV-084). */
+export type IndexerSource = "indexer-http" | "rpc-gpa" | "fixtures" | "unavailable";
 
 export interface MarketListResult {
   markets: MarketView[];
@@ -11,6 +12,8 @@ export interface MarketListResult {
   /** True when fixtures were used because live sources failed/empty */
   usedFixtures: boolean;
   message?: string;
+  /** Set when live reads failed and fixtures are not allowed (devnet/mainnet). */
+  error?: string;
 }
 
 export interface FillHint {
@@ -32,7 +35,7 @@ export interface MeridianIndexer {
   getMarket(
     marketId: string,
     nowSec?: number,
-  ): Promise<{ market: MarketView | null; source: IndexerSource; usedFixtures: boolean }>;
+  ): Promise<{ market: MarketView | null; source: IndexerSource; usedFixtures: boolean; error?: string }>;
   listFills?(wallet: string): Promise<FillHint[]>;
   getPortfolioHints?(wallet: string): Promise<PortfolioHints | null>;
 }

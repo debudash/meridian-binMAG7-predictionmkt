@@ -25,7 +25,7 @@ Debu asked for staging on 2026-10-07 and supplied a Railway workspace token (sto
 
 ### Blocker: devnet SOL
 
-The devnet program and books need ≈13 SOL (program ≈2.7 SOL rent + ≈2.7 transient buffer, ≈1.65 SOL rent per Phoenix book, 2 SOL for Debu's Phantom). Public `requestAirdrop` returns 429 "airdrop limit today" from both the ops box and Railway; the PoW faucet needs SOL for fees; web faucets need a GitHub login. Until the payer is funded, the program is not on devnet and **the web falls back to fixture markets** (banner shown). Fund `2DTwL4KoEoGgThD6xRKtms26invuVGgh6sL8hbonkzpa` (e.g. faucet.solana.com, 2 × 5 SOL with GitHub); a box pipeline (`run-staging.sh`) then deploys, bootstraps books, funds Debu's wallet, runs Buy Yes / Buy No and the short-expiry settle check without further Railway changes (all env is already final).
+The devnet program and books need ≈13 SOL (program ≈2.7 SOL rent + ≈2.7 transient buffer, ≈1.65 SOL rent per Phoenix book, 2 SOL for Debu's Phantom). Public `requestAirdrop` returns 429 "airdrop limit today" from both the ops box and Railway; the PoW faucet needs SOL for fees; web faucets need a GitHub login. Until the payer is funded, the program is not on devnet and the web shows an empty / "Markets unavailable" state (fixtures are localnet-only since DLV-084). Fund `2DTwL4KoEoGgThD6xRKtms26invuVGgh6sL8hbonkzpa` (e.g. faucet.solana.com, 2 × 5 SOL with GitHub); a box pipeline (`run-staging.sh`) then deploys, bootstraps books, funds Debu's wallet, runs Buy Yes / Buy No and the short-expiry settle check without further Railway changes (all env is already final).
 
 ### Findings from the dry run (prod `.so` on an isolated validator with devnet Phoenix/PSM and cloned devnet Pyth accounts)
 
@@ -33,7 +33,7 @@ The devnet program and books need ≈13 SOL (program ≈2.7 SOL rent + ≈2.7 tr
 - ✅ ~~Permissionless settle with real Pyth fails: `InvalidPythAccount`~~ — **fixed by D-025 / DLV-082**: prod `settle` now reads receiver `PriceUpdateV2` (owner `rec5EK…`, Full, feed-id match, first price at/after expiry within 60 s, conf ≤ bps). Covered by `tests/prod/settle_pull_oracle.ts` on the prod `.so` (LiteSVM), incl. real devnet/mainnet account bytes.
 - ⚠️ The D-019 shard-0 MAG7 accounts are **stale** on both clusters; devnet **shard-1** PDAs are fresh, mainnet has no fresh MAG7 account (SCHEMA §3.1.1). Either way the settler posts the expiry price: automation (DLV-083) fetches it from Hermes and posts it via the Pyth receiver — **needs `PYTH_HERMES_API_KEY`** (Hermes is key-gated since 2026-08-26; not configured on staging → DLV-085).
 - Until a Hermes key is set, staging settlement uses **admin_settle** (Policy A consistent price) after `admin_settle_delay_secs`; automation logs `needsApiKey: true` on each pull-settle attempt. `run-staging.sh` rebuilds the prod `.so` from latest `main` before the devnet deploy, so the devnet program includes the D-025 decoder.
-- ⚠️ Web falls back to fixtures whenever RPC GPA fails or is empty, on any cluster. For prod, disable the fixture fallback off-localnet.
+- ✅ ~~Web falls back to fixtures whenever RPC GPA fails or is empty, on any cluster~~ — **fixed by DLV-084**: fixture markets / fixture order book only on `localnet` / `localhost` / `custom`; on devnet/mainnet an RPC failure shows "Markets unavailable" and an empty read shows "No markets on Solana devnet yet." Staging shows that empty state until the program + markets exist.
 
 ### Box-side ops (not in git; keys `chmod 600` under `/workspace/meridian-staging-keys/`)
 
