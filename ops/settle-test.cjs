@@ -13,6 +13,7 @@ const fs = require("fs");
 const need = (k) => { const v = process.env[k]; if (!v) throw new Error(`${k} required (see header)`); return v; };
 const W = need("WEB_NODE_MODULES").replace(/\/?$/, "/");
 const { spawnSync } = require("child_process");
+const { pullSettlePlan } = require("./lib/pull-settle.cjs");
 const web3 = require(W + "@solana/web3.js"); const spl = require(W + "@solana/spl-token"); const anchor = require(W + "@coral-xyz/anchor");
 const { PublicKey, Keypair, Connection, Transaction, ComputeBudgetProgram } = web3;
 const RPC = need("RPC"), STATE = need("STATE"), KEYS = need("KEYS");
@@ -55,19 +56,21 @@ async function send(ixs, signers, label) {
   if (step === "settle") {
     // M3: permissionless settle is signed and paid by the separate low-balance settler (never the config authority).
     let settler = keeper;
+    const plan = pullSettlePlan({ hermesKeySet: !!process.env.PYTH_HERMES_API_KEY, automationDist: AUTOMATION_DIST,
+      opsCliExists: !!AUTOMATION_DIST && fs.existsSync(`${AUTOMATION_DIST}/ops-cli.js`), settlerKeyPath: SETTLER_KEY, settlerKeyExists: fs.existsSync(SETTLER_KEY) });
     if (fs.existsSync(SETTLER_KEY)) settler = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(SETTLER_KEY, "utf8"))));
-    else console.log(`  WARNING settler key ${SETTLER_KEY} missing — permissionless settle falls back to the authority (keeper)`);
+    for (const w of plan.warnings) console.log(`  ${w}`);
     if (settler.publicKey.equals(keeper.publicKey)) console.log("  WARNING settler == authority (keeper)");
     state.settleTest.settler = settler.publicKey.toBase58();
     // DLV-085: permissionless Pyth pull settle (Hermes key) via the automation's tested code path.
-    if (acc.status === 0 && process.env.PYTH_HERMES_API_KEY && AUTOMATION_DIST && fs.existsSync(`${AUTOMATION_DIST}/ops-cli.js`) && fs.existsSync(SETTLER_KEY)) {
+    if (acc.status === 0 && plan.run) {
       const r = spawnSync(process.execPath, [`${AUTOMATION_DIST}/ops-cli.js`, "pull-settle", "--market", sm.toBase58()], {
         cwd: `${AUTOMATION_DIST}/..`, encoding: "utf8",
         env: { ...process.env, SOLANA_RPC_URL: RPC, SOLANA_CLUSTER: "devnet", MERIDIAN_PROGRAM_ID: state.programId, MERIDIAN_IDL_PATH: IDL, SETTLER_KEYPAIR: SETTLER_KEY } });
       const out = `${r.stdout || ""}${r.stderr || ""}`.split("\n").filter(Boolean).map((l) => `  ${l}`).join("\n");
       console.log(out);
       state.settleTest.pullSettle = { ok: r.status === 0, at: new Date().toISOString() };
-    } else if (acc.status === 0) console.log(`  pull settle skipped: ${process.env.PYTH_HERMES_API_KEY ? "" : "PYTH_HERMES_API_KEY unset; "}${AUTOMATION_DIST ? "" : "AUTOMATION_DIST unset; "}— legacy settle / admin_settle fallback`);
+    } else if (acc.status === 0) console.log(`  ${plan.skipLine}`);
     const mid = await pk.account.strikeMarket.fetch(sm); // status u8: 0 Open, 2 SettledYes, 3 SettledNo
     const ix = await pk.methods.settle().accounts({ settler: settler.publicKey, config, strikeMarket: sm, pythPriceFeed: acc.pythPriceFeed, simClock: null }).instruction();
     if (mid.status === 0) state.settleTest.pythSettleSig = await send([ix], [settler], `permissionless settle (sponsored Pyth account; settler ${settler.publicKey.toBase58()})`);

@@ -2,6 +2,8 @@
  * M4 (Reviewers, !63): client RPC load must not grow with every market on every page, and must
  * back off when public devnet RPC answers 429.
  */
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { accountRefsFor, backoffInterval, is429, nextSettledPhoenixDone, POLL_MS } from "./pollPolicy";
 
@@ -94,5 +96,22 @@ describe("Portfolio: stop re-reading settled Phoenix books once the wallet's sea
     const acct = new Map([["b", state("b", leftovers)]]);
     const next = nextSettledPhoenixDone(new Set(), markets, acct as never);
     expect([...next]).toEqual([]); // 'c' absent from the read → still polled
+  });
+});
+
+describe("order-book footer matches the real book poll (Reviewer nit)", () => {
+  const src = (p: string) => readFileSync(path.join(__dirname, "../..", p), "utf8");
+
+  it("copy is derived from POLL_MS.tradeBook (6s today)", async () => {
+    const { liveBookFooter } = await import("./pollPolicy");
+    expect(liveBookFooter()).toBe(`Live Phoenix V1 book (Yes/USDC) — refreshes every ${POLL_MS.tradeBook / 1000}s.`);
+    expect(liveBookFooter()).toBe("Live Phoenix V1 book (Yes/USDC) — refreshes every 6s.");
+    expect(liveBookFooter(2_500)).toBe("Live Phoenix V1 book (Yes/USDC) — refreshes every 2.5s.");
+  });
+  it("OrderBook renders that copy (no hard-coded interval) and TradeClient polls on the same constant", () => {
+    const book = src("components/trade/OrderBook.tsx");
+    expect(book).toMatch(/liveBookFooter\(\)/);
+    expect(book).not.toMatch(/refreshes every \d/);
+    expect(src("app/markets/[marketId]/TradeClient.tsx")).toMatch(/\}, POLL_MS\.tradeBook\)/);
   });
 });

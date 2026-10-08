@@ -43,7 +43,7 @@ Mechanism (verified against `phoenix-seat-manager-v1` 31ad32a + `phoenix-v1` sou
 Manual tools (from `apps/automation` after `npm run build`; keys passed as file paths):
 
 ```
-SOLANA_RPC_URL=… PHOENIX_PAUSER_KEYPAIR=$KEYS_DIR/pauser.json node dist/ops-cli.js pause-status --state $STATE
+SOLANA_RPC_URL=… node dist/ops-cli.js pause-status --state $STATE   # read-only: no key needed
 SOLANA_RPC_URL=… PHOENIX_PAUSER_KEYPAIR=… SEAT_MANAGER_AUTHORITY_KEYPAIR=$KEYS_DIR/upgrade-authority.json DRY_RUN=1 node dist/ops-cli.js handoff --state $STATE
 ```
 

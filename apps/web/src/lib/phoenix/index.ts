@@ -18,7 +18,8 @@ export {
   ticketPhoenixOrderType,
   POST_ONLY_ENABLED,
 } from "./compose";
-export { placePhoenixOrder, fetchPhoenixBook } from "./client";
+export { placePhoenixOrder, fetchPhoenixBook, pausedCopyForFailedPlace } from "./client";
+export { PHOENIX_MARKET_PAUSED_MESSAGE, isPhoenixMarketPausedError } from "./errors";
 export { buildClaimSeatInstructions } from "./seat";
 export {
   contractsToRawAmounts,

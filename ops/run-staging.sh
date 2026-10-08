@@ -69,6 +69,10 @@ ops_cli(){   # automation ops-cli with the pauser / settler keys passed as file 
   ( cd "$AUTO" && SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json \
       PHOENIX_PAUSER_KEYPAIR=$PAUSER_KEY SETTLER_KEYPAIR=$SETTLER_KEY node dist/ops-cli.js "$@" )
 }
+ops_cli_ro(){   # read-only ops-cli status reads: no pauser / settler key at all, not even inherited
+  ( cd "$AUTO" && env -u PHOENIX_PAUSER_KEYPAIR -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG \
+      MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json node dist/ops-cli.js "$@" )
+}
 build_latest_main(){
   [ -e "$BUILD/.git" ] || git -C "$REPO" worktree add --detach "$BUILD" origin/main >/dev/null 2>&1 || { log "build: worktree add failed"; return 1; }
   git -C "$BUILD" fetch -q origin main && git -C "$BUILD" checkout -q --detach origin/main || { log "build: fetch/checkout origin/main failed"; return 1; }
@@ -206,7 +210,7 @@ if [ $SKIP_SHORT = 0 ]; then
   ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE node settle-test.cjs mint )
   # 6b. pause the 20-min book at expiry (foreground, deterministic; the background watcher is the backstop)
   while [ "$(date +%s)" -lt "$exp" ]; do sleep 5; done
-  [ -f "$PAUSER_KEY" ] && { ops_cli pause-once --state "$STATE"; ops_cli pause-status --state "$STATE" | grep -F '[20-min]'; }
+  [ -f "$PAUSER_KEY" ] && { ops_cli pause-once --state "$STATE"; ops_cli_ro pause-status --state "$STATE" | grep -F '[20-min]'; }
   # 7. settle: permissionless Pyth pull settle (settler + Hermes key) first, admin_settle at the last published Pyth price as fallback
   while [ "$(date +%s)" -lt $(( exp + PULL_SETTLE_AFTER )) ]; do sleep 10; done
   settled(){ grep -q "final status=[23]" /tmp/stg-settle.out 2>/dev/null; }
