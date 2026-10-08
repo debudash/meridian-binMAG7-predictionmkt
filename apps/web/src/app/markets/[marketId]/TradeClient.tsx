@@ -438,49 +438,6 @@ export function TradeClient({
           />
         </aside>
       </div>
-
-      <style>{`
-        .trade-header {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 0.75rem 1.25rem;
-          padding: 0.75rem 1rem;
-          margin-bottom: 16px;
-        }
-        .trade-header-right { display: flex; align-items: center; gap: 0.75rem 1.25rem; flex-wrap: wrap; }
-        .trade-persp { display: flex; gap: 6px; }
-        .trade-persp .btn { padding: 0.3rem 0.65rem; font-size: 0.85rem; }
-        .trade-layout {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) 360px;
-          gap: 16px;
-          align-items: start;
-        }
-        .trade-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-        .trade-main > *, .trade-side { min-width: 0; box-sizing: border-box; }
-        .trade-rules p { overflow-wrap: anywhere; }
-        .trade-chart { height: 240px; overflow: hidden; }
-        .trade-side {
-          position: sticky;
-          top: 72px;
-          align-self: start;
-          max-height: calc(100vh - 88px);
-          overflow-y: auto;
-        }
-        @media (max-width: 1023px) {
-          .trade-layout { display: flex; flex-direction: column; gap: 16px; }
-          .trade-main { display: contents; }
-          .trade-main > *, .trade-side { width: 100%; }
-          .trade-header { padding: 0.65rem 0.8rem; }
-          .trade-proof { order: 0; }
-          .trade-side { position: static; max-height: none; overflow: visible; order: 1; }
-          .trade-book { order: 2; }
-          .trade-chart { order: 3; height: auto; min-height: 120px; }
-          .trade-zone { order: 4; }
-          .trade-rules { order: 5; }
-        }
-      `}</style>
     </div>
   );
 }
