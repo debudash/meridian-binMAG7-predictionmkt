@@ -17,3 +17,6 @@ keys/*
 !keys/.gitkeep
 !keys/README.md
 **/*keypair*.json
+# ops/ box-only env + START trigger (paths/ids; never committed)
+ops/staging.env
+ops/START_20M*

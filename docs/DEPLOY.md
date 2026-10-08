@@ -129,6 +129,8 @@ Set per Railway environment (staging → devnet, prod → mainnet). **Secrets on
 | `COLLATERAL_MINT` | Devnet USDC (or test mint) | Mainnet USDC | no |
 | `AUTHORITY_KEYPAIR` / `AUTOMATION_KEYPAIR` | Base58 or JSON via Railway secret (config authority: create / `set_phoenix_market` / `admin_settle` only) | Railway secret | **YES** |
 | `SETTLER_KEYPAIR` | **M3:** separate low-balance key that signs + pays for permissionless `settle` / Pyth posts (≈0.05 SOL, top up as needed; never the authority). Unset → authority fallback with a warning | **Required** (worker refuses to start without it) | **YES** |
+| `PHOENIX_PAUSER_KEYPAIR` | Dedicated Phoenix pauser: each book's seat-manager authority after the PSM handoff (`ops/devnet-bootstrap.cjs`); pauses books at expiry (PSM `ChangeMarketStatus(Paused)`, cancel/withdraw still allowed). Must differ from the authority and the settler; ~0.02 SOL for fees. **Never the upgrade key** | **Required** (worker refuses to start without it) | **YES** |
+| `PHOENIX_PAUSE_LEAD_SECS` / `PHOENIX_PAUSE_ALERT_SECS` | Pause this many seconds before expiry (default 0) / `[pause] ALERT` when a due book isn't paused this long after expiry (default 120) | optional | no |
 | `DATABASE_URL` etc. | If app needs DB | | **YES** if credentialed |
 | `NEXT_PUBLIC_*` | Public RPC / program id / cluster for browser | | no private keys |
 

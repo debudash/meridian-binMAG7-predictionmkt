@@ -7,9 +7,10 @@
  * Optional HTTP /health for Railway healthcheckPath (HEALTH_PORT, default 8080).
  */
 import * as http from "http";
-import { loadConfig, loadKeypair, resolveSettler } from "./config";
+import { loadConfig, loadKeypair, resolvePauser, resolveSettler } from "./config";
 import { createProgram, idlHasSimFixtures } from "./solana/client";
 import { createCalendarState, runMorningCreate, runSettlePass } from "./modes/calendar";
+import { followUpDelayMs, livePauseDeps, runPausePass } from "./phoenix/pauseAtExpiry";
 
 function startHealthServer(port: number): http.Server {
   const server = http.createServer((req, res) => {
@@ -51,6 +52,17 @@ async function main() {
     console.log(`[worker] settler=${settler.keypair.publicKey.toBase58()} (authority kept for create / admin_settle)`);
   }
 
+  // Review dd46769: pause each Phoenix book at expiry with a dedicated pauser (the per-book
+  // seat-manager authority after the PSM handoff). Never the upgrade key / authority / settler.
+  const pauser = resolvePauser(cfg, authority, settler.separate ? settler.keypair : undefined);
+  if (!pauser) {
+    console.warn(
+      `[worker] WARNING: PHOENIX_PAUSER_KEYPAIR unset on ${cfg.cluster} — Phoenix books will NOT be paused at expiry`
+    );
+  } else {
+    console.log(`[worker] phoenix pauser=${pauser.publicKey.toBase58()} lead=${cfg.pauseLeadSecs}s alertAfter=${cfg.pauseAlertSecs}s`);
+  }
+
   if (cfg.cluster !== "localnet" && idlHasSimFixtures(idl)) {
     throw new Error("Prod worker loaded fixture IDL — aborting");
   }
@@ -67,7 +79,32 @@ async function main() {
 
   const state = createCalendarState();
 
+  const pauseDeps = pauser
+    ? livePauseDeps({ connection: (program.provider as any).connection, program, pauser, doneBooks: new Set<string>() })
+    : null;
+  let pausing = false;
+  let pauseTimer: NodeJS.Timeout | null = null;
+  const pausePass = async () => {
+    if (!pauser || !pauseDeps || pausing) return;
+    pausing = true;
+    try {
+      const r = await runPausePass(pauseDeps, pauser.publicKey, { leadSecs: cfg.pauseLeadSecs, alertAfterSecs: cfg.pauseAlertSecs });
+      const delay = followUpDelayMs(r.nextDelayMs, cfg.workerTickMs);
+      if (delay !== null && !pauseTimer) {
+        pauseTimer = setTimeout(() => {
+          pauseTimer = null;
+          void pausePass();
+        }, delay);
+      }
+    } catch (e) {
+      console.error(`[worker] pause pass error: ${e}`);
+    } finally {
+      pausing = false;
+    }
+  };
+
   const tick = async () => {
+    await pausePass();
     try {
       await runMorningCreate({ cfg, program, authority, state });
     } catch (e) {
