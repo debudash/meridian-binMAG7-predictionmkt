@@ -14,10 +14,15 @@ export function getCluster(): string {
 
 /**
  * Fixture (sample) markets / order books are a localnet + local-dev convenience only (DLV-084).
- * Devnet, testnet and mainnet must surface real chain state or a clear error/empty state.
+ * Devnet, testnet and mainnet must surface real chain state or a clear error/empty state, and so
+ * must a fixture-style label pointed at a non-loopback RPC (M2).
  */
-export function fixturesAllowed(cluster = getCluster()): boolean {
-  return isFixtureCluster(cluster);
+export function fixturesAllowed(
+  cluster = getCluster(),
+  rpcUrl: string | undefined = process.env.NEXT_PUBLIC_SOLANA_RPC_URL,
+): boolean {
+  // M2: label (localnet / localhost / custom) AND a loopback RPC.
+  return isFixtureCluster(cluster, rpcUrl);
 }
 
 export function getRpcUrl(): string {

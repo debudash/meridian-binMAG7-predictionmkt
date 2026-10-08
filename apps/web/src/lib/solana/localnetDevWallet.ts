@@ -32,7 +32,7 @@ import {
 export const LOCALNET_DEV_WALLET_NAME =
   "Localnet Dev Wallet" as WalletName<"Localnet Dev Wallet">;
 
-const LOOPBACK_RPC = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i;
+import { LOOPBACK_RPC } from "@/lib/market/marketIdRoute";
 
 /** Pure gate — safe on server and client. */
 export function isLocalnetDevWalletAllowed(env: {

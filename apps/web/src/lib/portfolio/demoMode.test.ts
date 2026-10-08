@@ -3,8 +3,18 @@
  * mode (the app is showing fixture markets on a localnet-style cluster). Never on devnet/mainnet,
  * and never for real markets on localnet.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { demoAccountAllowed, demoMarketAllowed, isFixtureMarketId } from "./demoMode";
+
+// M2: fixtures need a loopback RPC as well as a localnet-style label — these cases model local dev.
+const savedRpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+beforeAll(() => {
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL = "http://127.0.0.1:8899";
+});
+afterAll(() => {
+  if (savedRpcUrl === undefined) delete process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+  else process.env.NEXT_PUBLIC_SOLANA_RPC_URL = savedRpcUrl;
+});
 
 describe("demo mode gating", () => {
   it("fixture ids", () => {
