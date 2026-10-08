@@ -30,5 +30,9 @@ services:
       - "127.0.0.1:8900:18900"            # validator WebSocket
     ulimits:
       nofile: { soft: 1000000, hard: 1000000 }
+      memlock: { soft: -1, hard: -1 }
+    # Agave 4.x's validator needs io_uring, which Docker's default seccomp profile blocks. Local dev container only.
+    security_opt:
+      - seccomp:unconfined
 
 volumes: { data: {}, target: {}, nm-root: {}, nm-web: {}, nm-auto: {}, next: {}, cargo: {} }
