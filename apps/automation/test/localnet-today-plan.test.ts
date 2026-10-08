@@ -22,6 +22,11 @@ describe("DLV-118 localnet today-markets plan", () => {
     expect(by.AAPL.fairYes).to.equal(0.5);
   });
 
+  it("DLV-119 M-1: a SimClock on an NYSE early-close day (2026-11-27) refuses with early_close", () => {
+    const r = plan.planTodayMarkets(md, { nowSec: utc(2026, 11, 27, 15), symbols: [...md.MAG7] });
+    expect(r).to.include({ ok: false, code: "early_close" });
+  });
+
   it("SimClock time drives the day: a sim clock on 2026-11-02 (EST) plans that day's 21:00 UTC close", () => {
     const r = plan.planTodayMarkets(md, { nowSec: utc(2026, 11, 2, 15), symbols: ["AAPL"] });
     expect(r.ok && r.markets[0].expiryTs).to.equal(utc(2026, 11, 2, 21));

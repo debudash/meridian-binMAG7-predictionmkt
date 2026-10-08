@@ -15,7 +15,7 @@ RPC=http://127.0.0.1:8899 MERIDIAN_IDL=/path/to/localnet-test/target/idl/meridia
 | Env | Default | Meaning |
 | --- | --- | --- |
 | `MERIDIAN_IDL` | `target/idl/meridian.json` | localnet-test IDL |
-| `RPC` | `http://127.0.0.1:8899` | must be 127.0.0.1 / localhost (refuses otherwise) |
+| `RPC` | **required** (no default, DLV-119) | must be 127.0.0.1 / localhost (refuses otherwise) |
 | `AUTH` | `~/.config/solana/id.json` | Config authority (create_strike_market) |
 | `MAKER` | `/workspace/meridian-localnet-maker.json` | maker keypair |
 | `SYMBOLS` | MAG7 | comma list |
@@ -25,5 +25,5 @@ RPC=http://127.0.0.1:8899 MERIDIAN_IDL=/path/to/localnet-test/target/idl/meridia
 | `ALLOW_NON_TRADING_DAY=1` | off | localnet only: allow a weekend / holiday SimClock date |
 
 Clock: SimClock PDA (`["sim_clock"]`) if enabled, else chain time — read only. At/after that day's close the script
-**refuses (exit 3)** and never rolls to tomorrow; for D-017 anytime testing move the SimClock into a session first on a
+**refuses (exit 3)** and never rolls to tomorrow (NYSE early-close days refuse too, with an ALERT — DLV-119 M-1); for D-017 anytime testing move the SimClock into a session first on a
 validator where that's allowed. Requires the localnet-test build of the program (mock Pyth, SimClock) — never beyond localnet.

@@ -39,7 +39,9 @@ const md = require(path.join(process.env.AUTO_DIST || path.join(REPO, "apps/auto
 const { planTodayMarkets, parseRefPrices } = require("./lib/today-plan.cjs");
 const { PublicKey, Keypair, SystemProgram, Transaction, TransactionInstruction, ComputeBudgetProgram, Connection, LAMPORTS_PER_SOL } = web3;
 
-const RPC = process.env.RPC || "http://127.0.0.1:8899";
+// DLV-119 nit: no default — the operator names the validator explicitly (e.g. RPC=http://127.0.0.1:8699 for a temp one).
+const RPC = process.env.RPC;
+if (!RPC) throw new Error("RPC required (explicit local validator URL, e.g. RPC=http://127.0.0.1:8899) — no default");
 if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(RPC)) throw new Error(`today-markets is LOCALNET ONLY; refusing RPC ${RPC}`);
 const DRY_RUN = process.env.DRY_RUN === "1";
 const AUTH = process.env.AUTH || `${process.env.HOME}/.config/solana/id.json`;
@@ -109,7 +111,7 @@ async function main() {
     nowSec: clock.nowSec, symbols: SYMBOLS, refPricesE6: parseRefPrices(process.env.REF_PRICES), allowNonTradingDay: process.env.ALLOW_NON_TRADING_DAY === "1",
   });
   if (!plan.ok) {
-    console.error(`REFUSED (${plan.code}): ${plan.reason}${plan.nextDateKey ? ` — next trading day ${plan.nextDateKey}` : ""}`);
+    console.error(`${plan.code === "early_close" || plan.code === "unknown_year" ? "ALERT " : ""}REFUSED (${plan.code}): ${String(plan.reason).replace(/^ALERT /, "")}${plan.nextDateKey ? ` — next trading day ${plan.nextDateKey}` : ""}`);
     console.error("Same-day markets only (SPEC §1/§3.3). On a validator where it is allowed, set the SimClock into a session first.");
     process.exit(3);
   }
@@ -190,17 +192,36 @@ async function main() {
       continue;
     }
     // Phoenix book: InitializeMarket → Active → seat-manager authority (any wallet can ClaimSeat), then wire it.
-    const mk = Keypair.generate();
-    const lamports = await conn.getMinimumBalanceForRentExemption(MARKET_SPACE);
-    await send(conn, [SystemProgram.createAccount({ fromPubkey: authority.publicKey, newAccountPubkey: mk.publicKey, lamports, space: MARKET_SPACE, programId: PHX }),
-      initMarketIx(mk.publicKey, sm.yesMint, usdc, authority.publicKey)], [authority, mk], "phoenix InitializeMarket");
-    await send(conn, [authIx(103, Buffer.from([1]), mk.publicKey, authority.publicKey, true),
-      authIx(102, phx.getSeatManagerAddress(mk.publicKey).toBuffer(), mk.publicKey, authority.publicKey, false),
-      psmClaimMarketAuthorityIx(mk.publicKey, authority.publicKey)], [authority], "activate + seat-manager authority");
+    // DLV-119 nit: the book pubkey is recorded BEFORE InitializeMarket, so a crash before set_phoenix_market re-uses
+    // that book on the re-run instead of leaving it orphaned and making another one.
+    let mk = null;
+    const prior = rec.phoenixMarket && !rec.phoenixWired ? new PublicKey(rec.phoenixMarket) : null;
+    const priorAcct = prior ? await conn.getAccountInfo(prior) : null;
+    if (prior && priorAcct && priorAcct.owner.equals(PHX)) {
+      console.log(`  re-using unwired book from a previous run: ${prior.toBase58()}`);
+      await send(conn, [authIx(103, Buffer.from([1]), prior, authority.publicKey, true),
+        authIx(102, phx.getSeatManagerAddress(prior).toBuffer(), prior, authority.publicKey, false),
+        psmClaimMarketAuthorityIx(prior, authority.publicKey)], [authority], "activate + seat-manager authority (resume)").catch((e) =>
+        console.log(`  (activation already done: ${String(e.message || e).slice(0, 80)})`));
+      mk = { publicKey: prior };
+    } else {
+      const kpNew = Keypair.generate();
+      rec.phoenixMarket = kpNew.publicKey.toBase58(); rec.phoenixWired = false;
+      save();
+      const lamports = await conn.getMinimumBalanceForRentExemption(MARKET_SPACE);
+      await send(conn, [SystemProgram.createAccount({ fromPubkey: authority.publicKey, newAccountPubkey: kpNew.publicKey, lamports, space: MARKET_SPACE, programId: PHX }),
+        initMarketIx(kpNew.publicKey, sm.yesMint, usdc, authority.publicKey)], [authority, kpNew], "phoenix InitializeMarket");
+      await send(conn, [authIx(103, Buffer.from([1]), kpNew.publicKey, authority.publicKey, true),
+        authIx(102, phx.getSeatManagerAddress(kpNew.publicKey).toBuffer(), kpNew.publicKey, authority.publicKey, false),
+        psmClaimMarketAuthorityIx(kpNew.publicKey, authority.publicKey)], [authority], "activate + seat-manager authority");
+      mk = kpNew;
+    }
     rec.phoenixMarket = mk.publicKey.toBase58();
     save();
     await program.methods.setPhoenixMarket(mk.publicKey).accounts({ authority: authority.publicKey, config: configPda, strikeMarket }).rpc()
       .then((s) => console.log(`  set_phoenix_market: ${s}`));
+    rec.phoenixWired = true;
+    save();
     // Maker: ATAs + PSM seat, mint pairs (effective clock: pass the SimClock PDA when one exists), post-only ladder.
     const mYes = spl.getAssociatedTokenAddressSync(sm.yesMint, maker.publicKey);
     const mNo = spl.getAssociatedTokenAddressSync(sm.noMint, maker.publicKey);

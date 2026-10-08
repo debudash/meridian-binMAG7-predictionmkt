@@ -5,28 +5,29 @@
 import BN from "bn.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { Program } from "@coral-xyz/anchor";
-import { AutomationConfig } from "../config";
+import { AutomationConfig, isLoopbackRpc } from "../config";
 import * as fs from "fs";
 import { canSettleCalendar, getEtParts } from "../schedule";
 import { decodeEquitySymbol, encodeEquitySymbol, StrikeSpec } from "../strikes";
 import {
   atmStrikesE6,
+  calendarHorizonAlert,
   decideStrikeReference,
   defaultStrikeStepE6,
   etWall,
+  isAlertCode,
   OperatorDayPrices,
   sameDaySession,
   StrikeReferenceDecision,
 } from "../marketDay";
 import { decideAdminFallbackPrice } from "../pyth/adminFallback";
 import { fetchLatestPrice } from "../pyth/hermes";
-import { decodePriceUpdateV2, PullPrice } from "../pyth/pullOracle";
+import { decodePriceUpdateV2, PullPrice, PYTH_RECEIVER_PROGRAM_ID } from "../pyth/pullOracle";
 import {
   adminSettleMarket,
   createStrikeMarket,
   fetchOpenMarkets,
   MarketStatus,
-  setPhoenixMarket,
   settleMarket,
 } from "../solana/instructions";
 import { configPda } from "../solana/pdas";
@@ -44,7 +45,17 @@ export interface TrackedMarket {
 export interface CalendarState {
   tracked: TrackedMarket[];
   lastCreateDateKey: string | null;
+  /**
+   * DLV-119 L-3: the strikes chosen for the day (first successful reference per symbol). A retry after a failed
+   * create re-uses them, so a moved reference never makes a second set for that symbol.
+   */
+  dayPlan?: { dateKey: string; strikes: Record<string, string[]> };
+  /** ET day the once-a-day ALERTs (calendar horizon, ignored PHOENIX_MARKETS) were last logged. */
+  lastDailyAlertKey?: string | null;
 }
+
+/** On-chain account read seam: data + owner (DLV-119 L-6 verifies the owner). */
+export type ReadAccount = (pk: PublicKey) => Promise<{ data: Buffer; owner: PublicKey } | null>;
 
 export function createCalendarState(): CalendarState {
   return { tracked: [], lastCreateDateKey: null };
@@ -91,15 +102,22 @@ export async function strikeReferenceFor(
   nowSec: number,
   operator: OperatorDayPrices | null,
   hermesLatest?: (feedIdHex: string) => Promise<PullPrice>,
-  readAccount?: (pk: PublicKey) => Promise<Buffer | null>,
+  readAccount?: ReadAccount,
 ): Promise<StrikeReferenceDecision> {
   const feedIdHex = cfg.pythFeedIds[symbol]?.toString("hex");
   let onchain: { parsed: PullPrice; account: string } | { error: string } | undefined;
   const feedPk = cfg.pythPriceFeeds[symbol];
   if (readAccount && feedPk) {
     try {
-      const data = await readAccount(feedPk);
-      onchain = data ? { parsed: decodePriceUpdateV2(data), account: feedPk.toBase58() } : { error: `${feedPk.toBase58()} not found` };
+      const acct = await readAccount(feedPk);
+      if (!acct) onchain = { error: `${feedPk.toBase58()} not found` };
+      else if (!acct.owner.equals(PYTH_RECEIVER_PROGRAM_ID)) {
+        // L-6: only a Pyth receiver-owned PriceUpdateV2 is a price; anything else is ignored.
+        onchain = { error: `${feedPk.toBase58()} owner ${acct.owner.toBase58()} is not the Pyth receiver` };
+      } else {
+        const d = decodePriceUpdateV2(acct.data);
+        onchain = d.fullyVerified ? { parsed: d, account: feedPk.toBase58() } : { error: `${feedPk.toBase58()} is not Full-verified (partial Wormhole verification)` };
+      }
     } catch (e) {
       onchain = { error: String((e as Error)?.message ?? e).slice(0, 120) };
     }
@@ -128,7 +146,7 @@ export async function planDayForOps(
   cfg: AutomationConfig,
   nowSec: number,
   hermesLatest?: (feedIdHex: string) => Promise<PullPrice>,
-  readAccount?: (pk: PublicKey) => Promise<Buffer | null>,
+  readAccount?: ReadAccount,
 ): Promise<
   | { ok: true; dateKey: string; openTs: number; closeTs: number; markets: Array<{ symbol: string; strikeE6: string; refE6: string; source: string }>; refused: Array<{ symbol: string; reason: string }> }
   | { ok: false; code: string; reason: string; dateKey: string; nextDateKey?: string }
@@ -139,6 +157,11 @@ export async function planDayForOps(
   const markets: Array<{ symbol: string; strikeE6: string; refE6: string; source: string }> = [];
   const refused: Array<{ symbol: string; reason: string }> = [];
   for (const symbol of cfg.symbols) {
+    if (!cfg.pythFeedIds[symbol]) {
+      // L-6: a market without a feed id can never permissionless-settle (D-025), and the feed check needs it.
+      refused.push({ symbol, reason: `missing PYTH_FEED_IDS.${symbol} (required, D-025)` });
+      continue;
+    }
     const d = await strikeReferenceFor(cfg, symbol, s.plan.dateKey, nowSec, operator, hermesLatest, readAccount);
     if (!d.ok) {
       refused.push({ symbol, reason: d.reason });
@@ -173,7 +196,8 @@ export function planSameDayStrikes(
         strikePriceE6: new BN(strikeE6.toString()),
         expiryTs: new BN(s.plan.closeTs),
         pythFeedId: feedId,
-        phoenixMarket: cfg.phoenixMarkets[key] ?? PublicKey.default,
+        // L-8: never a static PHOENIX_MARKETS book for a new daily market (its base mint is another market's Yes).
+        phoenixMarket: PublicKey.default,
       });
     }
   }
@@ -183,9 +207,13 @@ export function planSameDayStrikes(
 /**
  * DLV-118: create each trading day's markets at the 9:30 ET open (window [09:30, 16:00) ET, weekends / NYSE
  * holidays skipped), expiry = that day's 16:00 ET close. Never after the close (no next-day roll).
- * Idempotent: once per ET day, and a symbol that already has an open market expiring today is skipped (restarts).
- * A symbol without a fresh reference price is skipped with an ALERT and the day stays un-done so the next tick
- * retries once the operator price lands. Name kept for worker/back-compat (was the ~08:00 "morning" create).
+ * DLV-119 (Reviewers !91):
+ *   - early-close days and calendar gaps are refused with an ALERT (M-1);
+ *   - the open-market scan must succeed, else nothing is created this tick (ALERT, retry) — no blind create (L-1);
+ *   - a failed create is an ALERT and the day stays open; the retry creates only the missing strikes of the day's
+ *     FIRST plan (L-3), so it is idempotent even when the reference moved;
+ *   - PHOENIX_MARKETS is ignored for daily markets (ALERT once a day if set) until the worker creates books (L-8).
+ * A symbol without a fresh reference price is skipped with an ALERT and the day stays un-done so the next tick retries.
  */
 export async function runMorningCreate(opts: {
   cfg: AutomationConfig;
@@ -196,14 +224,23 @@ export async function runMorningCreate(opts: {
   /** Test seams */
   listOpen?: () => Promise<Array<{ publicKey: PublicKey; account: any }>>;
   hermesLatest?: (feedIdHex: string) => Promise<PullPrice>;
-  readAccount?: (pk: PublicKey) => Promise<Buffer | null>;
+  readAccount?: ReadAccount;
   create?: (strike: StrikeSpec) => Promise<{ market: PublicKey; signature: string }>;
 }): Promise<TrackedMarket[]> {
   const now = opts.now ?? new Date();
   const nowSec = Math.floor(now.getTime() / 1000);
+  const today = etWall(nowSec).dateKey;
+  if (opts.state.lastDailyAlertKey !== today) {
+    const horizon = calendarHorizonAlert(nowSec);
+    if (horizon) log(horizon);
+    if (Object.keys(opts.cfg.phoenixMarkets).length) {
+      log(`ALERT PHOENIX_MARKETS is set but ignored for daily markets (L-8: a fixed book belongs to an older market's Yes mint); keep it empty until the worker creates books`);
+    }
+    opts.state.lastDailyAlertKey = today;
+  }
   const session = sameDaySession(nowSec, { requireOpen: true });
   if (!session.ok) {
-    log(`skip create — ${session.code}: ${session.reason}`);
+    log(`${isAlertCode(session.code) ? "ALERT " : ""}skip create — ${session.code}: ${session.reason.replace(/^ALERT /, "")}`);
     return [];
   }
   const { dateKey, closeTs } = session.plan;
@@ -214,27 +251,41 @@ export async function runMorningCreate(opts: {
   if (!opts.cfg.collateralMint) {
     throw new Error("COLLATERAL_MINT required for create_strike_market");
   }
+  if (opts.state.dayPlan?.dateKey !== dateKey) opts.state.dayPlan = { dateKey, strikes: {} };
+  const dayPlan = opts.state.dayPlan;
 
-  // Restart idempotency: symbols that already have an open market expiring at today's close.
-  const have = new Set<string>();
+  // Idempotency: what already exists on-chain for today's close (restarts, retries, another creator).
+  const haveStrike = new Set<string>();
+  const haveCount: Record<string, number> = {};
   try {
     const open = await (opts.listOpen ? opts.listOpen() : fetchOpenMarkets(opts.program));
     for (const m of open) {
       const exp = Number(m.account.expiryTs?.toString?.() ?? m.account.expiry_ts ?? 0);
-      if (exp === closeTs) have.add(decodeEquitySymbol(m.account.equitySymbol ?? m.account.equity_symbol ?? []));
+      if (exp !== closeTs) continue;
+      const sym = decodeEquitySymbol(m.account.equitySymbol ?? m.account.equity_symbol ?? []);
+      const strike = String(m.account.strikePriceE6?.toString?.() ?? m.account.strike_price_e6 ?? "");
+      haveStrike.add(`${sym}:${strike}`);
+      haveCount[sym] = (haveCount[sym] ?? 0) + 1;
     }
   } catch (e) {
-    log(`open-market scan failed (continuing; PDA collisions still prevent duplicates for equal strikes): ${String(e).slice(0, 160)}`);
+    log(`ALERT open-market scan failed — not creating this tick (no blind create, L-1); retrying: ${String(e).slice(0, 160)}`);
+    return [];
   }
 
+  const conn = (opts.program as any)?.provider?.connection;
+  const readAccount: ReadAccount | undefined =
+    opts.readAccount ??
+    (conn?.getAccountInfo
+      ? async (pk: PublicKey) => {
+          const a = await conn.getAccountInfo(pk, "confirmed");
+          return a ? { data: a.data as Buffer, owner: a.owner as PublicKey } : null;
+        }
+      : undefined);
   const operator = loadOperatorDayPrices(opts.cfg, "strike");
-  const refs: Record<string, bigint> = {};
+  const step = (ref: bigint) => opts.cfg.strikeStepE6 ?? defaultStrikeStepE6(ref);
+  const toCreate: StrikeSpec[] = [];
   let missingPrice = 0;
   for (const symbol of opts.cfg.symbols) {
-    if (have.has(symbol)) {
-      log(`skip ${symbol} — already has a market expiring ${dateKey} 16:00 ET`);
-      continue;
-    }
     // D-025: off-localnet a market with a zero feed id can never permissionless-settle.
     if (opts.cfg.cluster !== "localnet" && !opts.cfg.pythFeedIds[symbol]) {
       log(`skip ${symbol} — missing PYTH_FEED_IDS entry (required off-localnet, D-025)`);
@@ -244,59 +295,58 @@ export async function runMorningCreate(opts: {
       log(`skip ${symbol} — missing PYTH_PRICE_FEEDS entry`);
       continue;
     }
-    const conn = (opts.program as any)?.provider?.connection;
-    const readAccount =
-      opts.readAccount ?? (conn?.getAccountInfo ? async (pk: PublicKey) => (await conn.getAccountInfo(pk, "confirmed"))?.data ?? null : undefined);
-    const d = await strikeReferenceFor(opts.cfg, symbol, dateKey, nowSec, operator, opts.hermesLatest, readAccount);
-    if (!d.ok) {
-      missingPrice++;
-      log(`ALERT no fresh strike reference for ${symbol} on ${dateKey} — not created: ${d.reason}`);
-      continue;
+    let strikes = dayPlan.strikes[symbol];
+    if (!strikes) {
+      if (haveCount[symbol]) {
+        // Created before this process knew the plan (restart / other creator): never add a second set.
+        const n = haveCount[symbol];
+        log(`${n < opts.cfg.strikeOffsetsE6.length ? "ALERT " : ""}skip ${symbol} — already has ${n} market(s) expiring ${dateKey} 16:00 ET${n < opts.cfg.strikeOffsetsE6.length ? ` (fewer than the ${opts.cfg.strikeOffsetsE6.length} planned; not completing without the original plan)` : ""}`);
+        continue;
+      }
+      const d = await strikeReferenceFor(opts.cfg, symbol, dateKey, nowSec, operator, opts.hermesLatest, readAccount);
+      if (!d.ok) {
+        missingPrice++;
+        log(`ALERT no fresh strike reference for ${symbol} on ${dateKey} — not created: ${d.reason}`);
+        continue;
+      }
+      log(`strike reference ${symbol} ${d.priceE6} (${d.source})`);
+      strikes = atmStrikesE6(d.priceE6, opts.cfg.strikeOffsetsE6, step(d.priceE6)).map(String);
+      dayPlan.strikes[symbol] = strikes;
     }
-    log(`strike reference ${symbol} ${d.priceE6} (${d.source})`);
-    refs[symbol] = d.priceE6;
+    for (const strikeE6 of strikes) {
+      if (haveStrike.has(`${symbol}:${strikeE6}`)) continue;
+      toCreate.push({
+        symbol,
+        equitySymbol: encodeEquitySymbol(symbol),
+        strikePriceE6: new BN(strikeE6),
+        expiryTs: new BN(closeTs),
+        pythFeedId: opts.cfg.pythFeedIds[symbol] ?? Buffer.alloc(32, 0),
+        phoenixMarket: PublicKey.default, // L-8
+      });
+    }
   }
 
-  const plan = planSameDayStrikes(opts.cfg, nowSec, refs);
-  if (!plan.ok) {
-    log(`skip create — ${plan.code}: ${plan.reason}`);
-    return [];
-  }
   const created: TrackedMarket[] = [];
-  for (const strike of plan.strikes) {
+  let failed = 0;
+  for (const strike of toCreate) {
     const feed = opts.cfg.pythPriceFeeds[strike.symbol];
     try {
       const { market, signature } = opts.create
         ? await opts.create(strike)
         : await createStrikeMarket({ program: opts.program, authority: opts.authority, collateralMint: opts.cfg.collateralMint, pythPriceFeed: feed, strike });
       log(`created market`, { market: market.toBase58(), sig: signature, symbol: strike.symbol, strikeE6: strike.strikePriceE6.toString(), expiryTs: closeTs });
-
-      const phoenix = opts.cfg.phoenixMarkets[strike.symbol];
-      if (!opts.create && phoenix && !phoenix.equals(PublicKey.default)) {
-        // Phoenix market *create* stubbed — wiring only when pubkey provided.
-        const sig2 = await setPhoenixMarket({ program: opts.program, authority: opts.authority, market, phoenixMarket: phoenix });
-        log(`set_phoenix_market`, { market: market.toBase58(), phoenix: phoenix.toBase58(), sig: sig2 });
-      } else if (!opts.create) {
-        log(`phoenix create TODO — no PHOENIX_MARKETS.${strike.symbol}; skipped set_phoenix_market`);
-      }
-
-      const tracked: TrackedMarket = {
-        market,
-        symbol: strike.symbol,
-        pythPriceFeed: feed,
-        expiryTs: closeTs,
-        settleAttempts: 0,
-        createdDateKey: dateKey,
-      };
+      if (!opts.create) log(`phoenix book create TODO — no book bound for ${strike.symbol} (L-8: PHOENIX_MARKETS not used for daily markets)`);
+      const tracked: TrackedMarket = { market, symbol: strike.symbol, pythPriceFeed: feed, expiryTs: closeTs, settleAttempts: 0, createdDateKey: dateKey };
       opts.state.tracked.push(tracked);
       created.push(tracked);
     } catch (e) {
-      log(`create failed for ${strike.symbol}@${strike.strikePriceE6.toString()}: ${e}`);
+      failed++;
+      log(`ALERT create failed for ${strike.symbol}@${strike.strikePriceE6.toString()} (day stays open; retry next tick, L-3): ${String(e).split("\n")[0].slice(0, 200)}`);
     }
   }
 
-  // Missing operator price → leave the day open so the next tick retries once it lands.
-  if (missingPrice === 0) opts.state.lastCreateDateKey = dateKey;
+  // Missing price or failed create → leave the day open so the next tick retries (idempotent: existing strikes skip).
+  if (missingPrice === 0 && failed === 0) opts.state.lastCreateDateKey = dateKey;
   return created;
 }
 
@@ -445,7 +495,8 @@ export async function runSettlePass(opts: {
       let priceE6: bigint | null = null;
       let source = "";
       let outcomeYes: boolean | null = null;
-      if (opts.cfg.cluster === "localnet" && !day && opts.cfg.adminSettlePriceE6 !== null && opts.cfg.adminSettleOutcomeYes !== null) {
+      // L-5: localnet AND a loopback RPC (config also refuses localnet on a real RPC) — never an unsourced price on devnet.
+      if (opts.cfg.cluster === "localnet" && isLoopbackRpc(opts.cfg.rpcUrl) && !day && opts.cfg.adminSettlePriceE6 !== null && opts.cfg.adminSettleOutcomeYes !== null) {
         priceE6 = opts.cfg.adminSettlePriceE6;
         outcomeYes = opts.cfg.adminSettleOutcomeYes;
         source = "localnet static ADMIN_SETTLE_PRICE_E6 (deprecated)";

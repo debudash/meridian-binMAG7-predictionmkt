@@ -59,15 +59,18 @@ Covers ET settle gates, strike encoding, and prod-entry ↔ sim-module isolation
 - Phoenix **market create** is TODO (SDK-heavy); when `PHOENIX_MARKETS` provides a pubkey, automation calls `set_phoenix_market`.
 - **Same-day 0DTE (DLV-118, SPEC §1/§3.3):** calendar mode creates each trading day's markets at the **9:30 ET open**
   with `expiry_ts` = **that day's 16:00 America/New_York close** (`src/marketDay.ts`; DST via Intl; weekends + NYSE holidays
-  2026–2027 skipped; unknown year refuses). After the close it never creates (no next-day roll). Idempotent per ET day and
-  per symbol (open market already expiring today → skipped).
+  2026–2028 skipped; unknown year refuses, ALERT 30 days ahead). **NYSE early-close days (13:00 ET) are refused with an
+  ALERT** (DLV-119 M-1; 13:00 handling is a mainnet Todo). After the close it never creates (no next-day roll). Idempotent
+  per ET day: an open-market scan failure aborts the tick (L-1); a failed create is an ALERT and the day stays open, the
+  retry creates only the missing strikes of the day's first plan (L-3). `PHOENIX_MARKETS` is ignored for daily markets (L-8).
 - **Strike reference (fresh, at creation):** Hermes latest (needs an entitled `PYTH_HERMES_API_KEY`; equities return 403
-  today, DLV-106) → sponsored `PYTH_PRICE_FEEDS` account if fresh (≤ `STRIKE_REF_MAX_AGE_SECS`) → **operator prices for
+  today, DLV-106) → sponsored `PYTH_PRICE_FEEDS` account if Pyth-receiver-owned, Full-verified and fresh (≤ `STRIKE_REF_MAX_AGE_SECS`) → **operator prices for
   today** (`OPERATOR_STRIKE_PRICES(_FILE)`, JSON `{dateKey, source, pricesE6}`) → else skip + `ALERT` and retry next tick.
   ATM = reference rounded to `STRIKE_STEP_E6` (default $5 ≥ $100, else $1) + `STRIKE_OFFSETS_E6`. No hardcoded prior close.
 - **Settle at the close:** permissionless pull settle first; when Hermes can't (403), `admin_settle` after the on-chain delay at
   the **operator close price** (`OPERATOR_CLOSE_PRICES(_FILE)`, bound to the market's ET day + symbol, source required;
-  outcome = price ≥ strike). The static `ADMIN_SETTLE_PRICE_E6` is localnet-only now.
+  outcome = price ≥ strike). The static `ADMIN_SETTLE_PRICE_E6` is localnet-only, and `SOLANA_CLUSTER=localnet` refuses to
+  start on a non-loopback RPC (L-5). Staging operator prices: `node ops/operator-prices.cjs` (see docs/RAILWAY_STAGING.md §0b).
 - `node dist/ops-cli.js market-day [--now <unix>] [--strikes]` prints today's session / plan (used by `ops/run-staging.sh`).
 - Localnet: `scripts/localnet/today-markets.cjs` creates today's-close MAG7 markets with books (SimClock-aware, additive).
 

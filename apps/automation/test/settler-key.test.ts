@@ -11,7 +11,8 @@ import { loadConfig, resolveSettler } from "../src/config";
 
 const PROGRAM_ID = new PublicKey("9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6");
 const asEnv = (kp: Keypair) => JSON.stringify(Array.from(kp.secretKey));
-const base = (cluster: string) => ({ SOLANA_CLUSTER: cluster, SOLANA_RPC_URL: "http://x" }) as any;
+// DLV-119 L-5: localnet needs a loopback RPC.
+const base = (cluster: string) => ({ SOLANA_CLUSTER: cluster, SOLANA_RPC_URL: cluster === "localnet" ? "http://127.0.0.1:8899" : "http://x" }) as any;
 
 describe("M3 settler key: config", () => {
   it("SETTLER_KEYPAIR is read (raw, never logged)", () => {
