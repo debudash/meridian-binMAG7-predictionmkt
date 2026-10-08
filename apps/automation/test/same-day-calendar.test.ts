@@ -152,7 +152,7 @@ describe("DLV-118 calendar settle: operator-sourced close price while Hermes lac
   });
   function program(calls: any[], markets: any[]) {
     return {
-      programId: new PublicKey("9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6"),
+      programId: new PublicKey("3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj"),
       provider: { connection: {} },
       account: {
         strikeMarket: { all: async () => markets },

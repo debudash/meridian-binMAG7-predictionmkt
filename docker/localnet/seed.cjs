@@ -25,7 +25,7 @@ const RPC = "http://127.0.0.1:8899";
 const KEYS = "/data/keys";
 const STATE = "/data/state/local.json";
 const TODAY_STATE = "/data/state/today-markets.json";
-const PROGRAM_ID = new PublicKey("9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6");
+const PROGRAM_ID = new PublicKey("3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj");
 const kp = (n) => Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(`${KEYS}/${n}.json`, "utf8"))));
 
 async function airdropTo(conn, pk, sol) {

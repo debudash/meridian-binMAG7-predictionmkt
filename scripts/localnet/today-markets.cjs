@@ -17,7 +17,7 @@
  *   AUTH                config authority keypair (default ~/.config/solana/id.json; also the fixture USDC mint authority)
  *   MAKER               maker keypair (default /workspace/meridian-localnet-maker.json)
  *   MERIDIAN_IDL        FULL localnet IDL (localnet-test build; default <repo>/target/idl/meridian.json)
- *   MERIDIAN_PROGRAM_ID default 9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6
+ *   MERIDIAN_PROGRAM_ID default 3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj
  *   WEB_NODE_MODULES    dir with @solana/web3.js, @solana/spl-token, @coral-xyz/anchor, @ellipsis-labs/phoenix-sdk
  *                       (default <repo>/apps/web/node_modules)
  *   AUTO_DIST           apps/automation/dist (built; provides marketDay.js) (default <repo>/apps/automation/dist)
@@ -49,7 +49,7 @@ const DRY_RUN = process.env.DRY_RUN === "1";
 const AUTH = process.env.AUTH || `${process.env.HOME}/.config/solana/id.json`;
 const MAKER = process.env.MAKER || "/workspace/meridian-localnet-maker.json";
 const IDL = process.env.MERIDIAN_IDL || path.join(REPO, "target/idl/meridian.json");
-const PROGRAM_ID = new PublicKey(process.env.MERIDIAN_PROGRAM_ID || "9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6");
+const PROGRAM_ID = new PublicKey(process.env.MERIDIAN_PROGRAM_ID || "3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj");
 const SYMBOLS = (process.env.SYMBOLS || md.MAG7.join(",")).split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
 const PAIRS = Number(process.env.MAKER_PAIRS || 3000);
 const PHX = new PublicKey("PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY");

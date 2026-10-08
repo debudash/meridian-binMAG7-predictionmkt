@@ -51,7 +51,7 @@ if [ "${RESET:-0}" = "1" ]; then RESET_FLAG="--reset"; rm -f "$DATA/state/"*.jso
 log "starting solana-test-validator on :8899 ${RESET_FLAG}"
 solana-test-validator --ledger "$DATA/ledger" $RESET_FLAG \
   --rpc-port 8899 --bind-address 127.0.0.1 \
-  --bpf-program 9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6 target/deploy/meridian.so \
+  --bpf-program 3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj target/deploy/meridian.so \
   --bpf-program PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY "$DATA/programs/phoenix.so" \
   --bpf-program PSMxQbAoDWDbvd9ezQJgARyq6R9L5kJAasaLDVcZwf1 "$DATA/programs/seat_manager.so" \
   > "$DATA/validator.log" 2>&1 &
@@ -66,7 +66,7 @@ node docker/localnet/seed.cjs
 # 6. web
 USDC_MINT=$(node -e 'console.log(require("/data/state/local.json").usdcMint)')
 export NEXT_PUBLIC_SOLANA_CLUSTER=localnet NEXT_PUBLIC_SOLANA_RPC_URL=http://127.0.0.1:8899 \
-  NEXT_PUBLIC_MERIDIAN_PROGRAM_ID=9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6 NEXT_PUBLIC_USDC_MINT=$USDC_MINT \
+  NEXT_PUBLIC_MERIDIAN_PROGRAM_ID=3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj NEXT_PUBLIC_USDC_MINT=$USDC_MINT \
   NEXT_PUBLIC_PHOENIX_ENABLED=true NEXT_PUBLIC_PHOENIX_PROGRAM_ID=PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY \
   NEXT_PUBLIC_LOCALNET_DEV_WALLET=true LOCALNET_DEV_WALLET_KEYPAIR=$KEYS/devwallet.json \
   NEXT_PUBLIC_EXPLORER_URL="https://explorer.solana.com/?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899"

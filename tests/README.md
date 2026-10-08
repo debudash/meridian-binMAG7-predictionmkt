@@ -22,7 +22,7 @@
 
 | | |
 | --- | --- |
-| **Current** | `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6` |
+| **Current** | `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` |
 | **Revoked** | `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2` (was committed; treat as compromised) |
 
 Suite constant: `MERIDIAN_PROGRAM_ID` in [`helpers/fixtures.ts`](helpers/fixtures.ts). Harness `assertIdlHasInstructions` checks IDL `address` matches.

@@ -44,7 +44,7 @@ See [`docs/DEPLOY.md`](../../docs/DEPLOY.md) §3.3.
 - **Build:** `npm install && npm run build` (in this package, or monorepo equivalent)
 - **Start:** `node dist/worker.js`
 - Env table: `docs/DEPLOY.md` §5.2 + `.env.example`
-- Program id default: `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6`
+- Program id default: `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj`
 
 ## Tests
 

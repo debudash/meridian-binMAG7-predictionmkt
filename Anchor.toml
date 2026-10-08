@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-meridian = "9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6"
+meridian = "3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj"
 
 [registry]
 url = "https://api.apr.dev"
@@ -18,3 +18,7 @@ wallet = "~/.config/solana/id.json"
 [scripts]
 # Program must be built with localnet-test so fixture ixs exist for the suite.
 test = "yarn run mocha -r ts-node/register -t 240000 'tests/**/*.ts'"
+
+[test]
+# The first start writes genesis with the program preloaded; on a Docker bind mount that takes well over 5 s.
+startup_wait = 120000
