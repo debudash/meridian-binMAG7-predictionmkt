@@ -7,7 +7,7 @@
  * Optional HTTP /health for Railway healthcheckPath (HEALTH_PORT, default 8080).
  */
 import * as http from "http";
-import { loadConfig, loadKeypair } from "./config";
+import { loadConfig, loadKeypair, resolveSettler } from "./config";
 import { createProgram, idlHasSimFixtures } from "./solana/client";
 import { createCalendarState, runMorningCreate, runSettlePass } from "./modes/calendar";
 
@@ -40,6 +40,16 @@ async function main() {
 
   const authority = loadKeypair(cfg);
   const { program, idl } = createProgram(cfg, authority);
+  // M3: permissionless settle is signed + paid by a separate low-balance key, not the authority.
+  const settler = resolveSettler(cfg, authority);
+  const settlerProgram = settler.separate ? createProgram(cfg, settler.keypair).program : program;
+  if (!settler.separate) {
+    console.warn(
+      `[worker] WARNING: SETTLER_KEYPAIR unset on ${cfg.cluster} — settle falls back to the config authority (M3). Set a separate low-balance key.`
+    );
+  } else {
+    console.log(`[worker] settler=${settler.keypair.publicKey.toBase58()} (authority kept for create / admin_settle)`);
+  }
 
   if (cfg.cluster !== "localnet" && idlHasSimFixtures(idl)) {
     throw new Error("Prod worker loaded fixture IDL — aborting");
@@ -64,7 +74,7 @@ async function main() {
       console.error(`[worker] morning create error: ${e}`);
     }
     try {
-      await runSettlePass({ cfg, program, authority, state });
+      await runSettlePass({ cfg, program, authority, settler: { keypair: settler.keypair, program: settlerProgram }, state });
     } catch (e) {
       console.error(`[worker] settle pass error: ${e}`);
     }

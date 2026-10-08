@@ -127,7 +127,8 @@ Set per Railway environment (staging → devnet, prod → mainnet). **Secrets on
 | `PYTH_HERMES_URL` | `https://hermes.pyth.network` (default) or `https://pyth.dourolabs.app/hermes` | same | no |
 | `PHOENIX_MARKET_*` | Devnet Phoenix market pubkeys | Mainnet Phoenix | no |
 | `COLLATERAL_MINT` | Devnet USDC (or test mint) | Mainnet USDC | no |
-| `AUTHORITY_KEYPAIR` / `AUTOMATION_KEYPAIR` | Base58 or JSON via Railway secret | Railway secret | **YES** |
+| `AUTHORITY_KEYPAIR` / `AUTOMATION_KEYPAIR` | Base58 or JSON via Railway secret (config authority: create / `set_phoenix_market` / `admin_settle` only) | Railway secret | **YES** |
+| `SETTLER_KEYPAIR` | **M3:** separate low-balance key that signs + pays for permissionless `settle` / Pyth posts (≈0.05 SOL, top up as needed; never the authority). Unset → authority fallback with a warning | **Required** (worker refuses to start without it) | **YES** |
 | `DATABASE_URL` etc. | If app needs DB | | **YES** if credentialed |
 | `NEXT_PUBLIC_*` | Public RPC / program id / cluster for browser | | no private keys |
 

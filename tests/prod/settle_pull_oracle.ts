@@ -204,11 +204,13 @@ const haveSo = fs.existsSync(PROD_SO);
       });
     }
 
-    async function settle(feed: PublicKey): Promise<{ ok: boolean; logs: string[] }> {
+    async function settle(feed: PublicKey, as?: KeyPairSigner): Promise<{ ok: boolean; logs: string[] }> {
+      // `as` = a different settler that signs AND pays (M3: never the config authority).
+      const signer = as ?? payer;
       const ix: TransactionInstruction = await program.methods
         .settle()
         .accountsPartial({
-          settler: new PublicKey(payer.address),
+          settler: new PublicKey(signer.address),
           config: configPda,
           strikeMarket: market,
           pythPriceFeed: feed,
@@ -222,13 +224,13 @@ const haveSo = fs.existsSync(PROD_SO);
           role: k.isSigner
             ? k.isWritable ? AccountRole.WRITABLE_SIGNER : AccountRole.READONLY_SIGNER
             : k.isWritable ? AccountRole.WRITABLE : AccountRole.READONLY,
-          ...(k.isSigner && k.pubkey.toBase58() === payer.address ? { signer: payer } : {}),
+          ...(k.isSigner && k.pubkey.toBase58() === signer.address ? { signer } : {}),
         })),
         data: new Uint8Array(ix.data),
       };
       const msg = pipe(
         createTransactionMessage({ version: 0 }),
-        (m) => setTransactionMessageFeePayerSigner(payer, m),
+        (m) => setTransactionMessageFeePayerSigner(signer, m),
         (m) => svm.setTransactionMessageLifetimeUsingLatestBlockhash(m),
         (m) => appendTransactionMessageInstruction(kitIx as any, m)
       );
@@ -251,6 +253,20 @@ const haveSo = fs.existsSync(PROD_SO);
       expect(r.logs.join("\n")).to.contain(`Error Code: ${code}`);
       expect((await marketState()).status).to.equal(0);
     }
+
+    it("PULL-M3: a non-authority settler key signs and pays for settle (permissionless; no authority signature)", async () => {
+      await boot();
+      const settler = await generateKeyPairSigner();
+      svm.airdrop(settler.address, lamports(BigInt(LAMPORTS_PER_SOL / 100))); // low balance: 0.01 SOL
+      const cfg = program.coder.accounts.decode(
+        "config",
+        Buffer.from((svm.getAccount(address(configPda.toBase58())) as any).data),
+      ) as any;
+      expect(cfg.authority.toBase58()).to.not.equal(settler.address);
+      const r = await settle(putAccount(update()), settler);
+      expect(r.ok, r.logs.join("\n")).to.equal(true);
+      expect((await marketState()).status).to.equal(2); // SettledYes
+    });
 
     it("PULL-01: Full PriceUpdateV2, matching feed id, first update after expiry → SettledYes at Pyth price (e6)", async () => {
       await boot();

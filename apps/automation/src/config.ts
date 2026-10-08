@@ -99,6 +99,12 @@ export interface AutomationConfig {
   idlPath: string;
   /** Loaded lazily when needed for txs; may be undefined for dry unit tests. */
   keypairRaw: string;
+  /**
+   * M3: separate low-balance key that signs + pays for permissionless `settle` (and Pyth posts).
+   * Never the config authority. Required on mainnet-beta; devnet/localnet fall back to the
+   * authority with a warning when unset.
+   */
+  settlerKeypairRaw: string;
   collateralMint: PublicKey | null;
   symbols: string[];
   priorCloseE6: bigint;
@@ -193,6 +199,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
     programId: new PublicKey(env.MERIDIAN_PROGRAM_ID ?? DEFAULT_PROGRAM_ID),
     idlPath,
     keypairRaw: env.AUTOMATION_KEYPAIR ?? "",
+    settlerKeypairRaw: env.SETTLER_KEYPAIR ?? "",
     collateralMint: collateral ? new PublicKey(collateral) : null,
     symbols: parseSymbols(env.STRIKE_SYMBOLS ?? "AAPL").map((s) => s.toUpperCase()),
     priorCloseE6: BigInt(env.PRIOR_CLOSE_E6 ?? "180000000"),
@@ -223,4 +230,29 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
 
 export function loadKeypair(cfg: AutomationConfig): Keypair {
   return loadKeypairFromEnv(cfg.keypairRaw);
+}
+
+export interface ResolvedSettler {
+  keypair: Keypair;
+  /** false = authority fallback (SETTLER_KEYPAIR unset on devnet/localnet) */
+  separate: boolean;
+}
+
+/**
+ * M3 (Reviewers, !57): permissionless settle is signed and paid by SETTLER_KEYPAIR, a low-balance
+ * key that can't pause, update_config or admin_settle. `settle` has no authority constraint on
+ * chain (any signer), so this needs no program change.
+ */
+export function resolveSettler(cfg: AutomationConfig, authority: Keypair): ResolvedSettler {
+  if (!cfg.settlerKeypairRaw) {
+    if (cfg.cluster === "mainnet-beta") {
+      throw new Error("SETTLER_KEYPAIR required on mainnet-beta (M3: settle must not use the config authority)");
+    }
+    return { keypair: authority, separate: false };
+  }
+  const keypair = loadKeypairFromEnv(cfg.settlerKeypairRaw);
+  if (keypair.publicKey.equals(authority.publicKey)) {
+    throw new Error("SETTLER_KEYPAIR must differ from AUTOMATION_KEYPAIR (the config authority)");
+  }
+  return { keypair, separate: true };
 }

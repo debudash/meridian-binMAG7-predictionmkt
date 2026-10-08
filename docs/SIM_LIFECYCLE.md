@@ -28,6 +28,7 @@ See `apps/automation/.env.example` (sim section):
 | `SOLANA_RPC_URL` | `http://127.0.0.1:8899` (or validator URL) |
 | `MERIDIAN_IDL_PATH` | `idl/meridian.json` (full localnet IDL — **not** prod) |
 | `AUTOMATION_KEYPAIR` | JSON path / byte array (authority) |
+| `SETTLER_KEYPAIR` | optional — JSON path / byte array for the settle signer (M3); unset → authority |
 | `COLLATERAL_MINT` | localnet USDC/test mint |
 | `STRIKE_SYMBOLS` | e.g. `AAPL` |
 

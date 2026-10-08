@@ -149,11 +149,17 @@ export async function runSettlePass(opts: {
   cfg: AutomationConfig;
   program: Program;
   authority: Keypair;
+  /**
+   * M3: low-balance key (and a Program whose provider wallet is that key, so it is also the fee
+   * payer) for permissionless settle. Omitted → the authority (devnet/localnet fallback only).
+   */
+  settler?: { keypair: Keypair; program: Program };
   state: CalendarState;
   now?: Date;
   /** Test seam: override pull-oracle deps per market. */
-  pullDeps?: (market: PublicKey) => PullSettleDeps;
+  pullDeps?: (market: PublicKey, settler: Keypair, program: Program) => PullSettleDeps;
 }): Promise<void> {
+  const settler = opts.settler ?? { keypair: opts.authority, program: opts.program };
   const now = opts.now ?? new Date();
   try {
     assertSettleAllowedCalendar(now, opts.cfg.settleHourEt);
@@ -215,11 +221,11 @@ export async function runSettlePass(opts: {
     if (pull) {
       const feedIdHex = Buffer.from(m.account.pythFeedId ?? m.account.pyth_feed_id ?? []).toString("hex");
       const deps =
-        opts.pullDeps?.(tracked.market) ??
+        opts.pullDeps?.(tracked.market, settler.keypair, settler.program) ??
         livePullSettleDeps({
-          program: opts.program,
-          connection: (opts.program.provider as any).connection,
-          settler: opts.authority,
+          program: settler.program,
+          connection: (settler.program.provider as any).connection,
+          settler: settler.keypair,
           market: tracked.market,
           hermesUrl: opts.cfg.pythHermesUrl,
           hermesApiKey: opts.cfg.pythHermesApiKey,
@@ -247,8 +253,8 @@ export async function runSettlePass(opts: {
     } else {
       try {
         const sig = await settleMarket({
-          program: opts.program,
-          settler: opts.authority,
+          program: settler.program,
+          settler: settler.keypair,
           market: tracked.market,
           pythPriceFeed: tracked.pythPriceFeed,
         });

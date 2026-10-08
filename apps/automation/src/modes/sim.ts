@@ -121,6 +121,8 @@ export async function runSimLifecycle(opts: {
   cfg: AutomationConfig;
   program: Program;
   authority: Keypair;
+  /** M3: settle signer + fee payer (own Program/provider); omitted → authority (localnet only). */
+  settler?: { keypair: Keypair; program: Program };
 }): Promise<void> {
   if (opts.cfg.cluster !== "localnet") {
     throw new Error("runSimLifecycle refused: cluster must be localnet");
@@ -201,9 +203,10 @@ export async function runSimLifecycle(opts: {
 
   // Settle may require expiry via wall clock or session close semantics on-chain.
   try {
+    const settler = opts.settler ?? { keypair: opts.authority, program: opts.program };
     const sig = await settleMarket({
-      program: opts.program,
-      settler: opts.authority,
+      program: settler.program,
+      settler: settler.keypair,
       market,
       pythPriceFeed: pythFeed.publicKey,
     });
