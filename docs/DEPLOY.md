@@ -11,7 +11,7 @@ Parts:
 | Automation worker `apps/automation` (Node) | Railway service `automation` | `railway up` |
 | Operator scripts `ops/` | Operator box | Run by hand or by `ops/run-staging.sh` |
 
-**Program id:** see `Anchor.toml` and `declare_id!` in `programs/meridian/src/lib.rs`. The id is being rotated because the old program keypair was lost with the old build box (rotation tracked as DLV-124), so this guide never hard-codes it. Key policy: [`keys/README.md`](../keys/README.md).
+**Program id:** see `Anchor.toml` and `declare_id!` in `programs/meridian/src/lib.rs`. It was rotated on 2026-10-08 because the old program keypair was lost with the old build box (DLV-124); the staging value is in §5.3. Key policy: [`keys/README.md`](../keys/README.md).
 
 ---
 
@@ -151,22 +151,24 @@ The upgrade key never goes on Railway.
 
 ### 5.3 Staging environment (public values)
 
-Staging is being re-bootstrapped with new keys and a new program id (DLV-124). Fill this table at re-bootstrap; test plans refer to it instead of hard-coding addresses. Public keys only, never secret bytes.
+Staging was re-bootstrapped on 2026-10-08 with new keys and a new program id (DLV-124). Test plans refer to this table instead of hard-coding addresses. Public keys only, never secret bytes.
 
 | Role | Value |
 | --- | --- |
-| Program id | `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj`: pending (DLV-124); `declare_id!` on `main` is the old id until then |
+| Program id | `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` (deployed 2026-10-08, slot 508961032, built with Agave 4.3.0; deployed binary checked fixture-free) |
 | Upgrade authority / payer (`upgrade-authority.json`) | `Fm34E3zi5QBLxC2QFWvjGkcN2D4i3RmgUwvcFhjF9XVo` |
-| Keeper = config authority (`AUTOMATION_KEYPAIR`) | set at re-bootstrap |
-| Settler (`SETTLER_KEYPAIR`) | set at re-bootstrap |
-| Pauser (`PHOENIX_PAUSER_KEYPAIR`, = `EXPECTED_PAUSER_PUB`) | set at re-bootstrap |
-| Collateral: test mint "mUSDC", 6 decimals, mint authority on the box only | set at re-bootstrap |
-| Config values (`ops/devnet-bootstrap.cjs`) | fees 0 / 0 bps · `settle_max_staleness_slots` 150 · `settle_max_conf_ratio_bps` 200 · `admin_settle_delay_secs` 300 (staging only) |
+| Keeper = config authority (`AUTOMATION_KEYPAIR`) | `2eVbj2kCe9AanuqHUA6BWXnm74dSMxBisCdZtBDQXui9` |
+| Settler (`SETTLER_KEYPAIR`) | `HHudnrhF6XkfSZNAa3TnvuTKCqKhfGh8qA2JoFmVwNr7` |
+| Pauser (`PHOENIX_PAUSER_KEYPAIR`, = `EXPECTED_PAUSER_PUB`) | `97RhBfsbKVkRD6u8tdmnrTUPNSbyvqQASCBVBXJmL9AQ` |
+| Collateral: test mint "mUSDC", 6 decimals, mint authority (`admin`) on the operator PC only | `6U34yus6KeBUduvfdw8eR7QrKzpah3sqhMCc4R9ZJLHh` |
+| Config values (`ops/devnet-bootstrap.cjs`) | fees 0 / 0 bps · `settle_max_staleness_slots` 150 · `settle_max_conf_ratio_bps` 200 · `admin_settle_delay_secs` 60 (`ADMIN_SETTLE_DELAY_SECS`, the program's production minimum; DLV-123) |
 | Phoenix | V1 `PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY` + Seat Manager; tick $0.01, 1 lot = 1 contract, 0 bps |
 | Railway services | `web` (URL above), `automation` (no public domain); in the 2026-10-07 setup also a `devnet-faucet` helper that retried public `requestAirdrop` for the payer and exited when funded or timed out (confirm whether it still exists) |
-| Tester wallet funding | bootstrap sends the tester's Phantom wallet `DEBU_SOL` (default 2) SOL + 10,000 mUSDC; wallet B 0.5 SOL + 1,000 mUSDC |
+| Tester wallet funding | bootstrap sends the tester's Phantom wallet `DEBU_SOL` (default 2; 0.5 used) SOL + 10,000 mUSDC; wallet B `WALLET_B_SOL` (0.2 used) + 1,000 mUSDC |
+| Reference Pyth feeds | devnet shard-1 sponsored accounts (`PYTH_REF_SHARD=1`), fresh on devnet; display only, settle never trusts the address |
+| RPC | dedicated devnet RPC (Helius) on both services; the public endpoint rate-limits program deploys and polling (429) |
 
-**Devnet funding.** The payer needs about **13 SOL**: program rent ≈ 2.7 SOL + a transient upgrade buffer ≈ 2.7 SOL, ≈ 1.65 SOL rent per Phoenix book, and 2 SOL for the tester's wallet. `run-staging.sh` waits until the payer holds at least `MIN_SOL` (default **9**) before it starts and creates fewer books on a smaller balance. Public `requestAirdrop` is rate-limited (429); fund the payer from a faucet first.
+**Devnet funding.** The payer needs about **13 SOL**: program rent ≈ 2.7 SOL + a transient upgrade buffer ≈ 2.7 SOL, ≈ 1.18 SOL rent per Phoenix book (232,544-byte market account), and 2 SOL for the tester's wallet. `run-staging.sh` waits until the payer holds at least `MIN_SOL` (default **9**) before it starts and creates fewer books on a smaller balance. Public `requestAirdrop` is rate-limited (429); fund the payer from a faucet first.
 
 **Pyth accounts.** The D-019 shard-0 MAG7 push accounts are stale on both clusters; devnet shard-1 accounts were fresh when checked (SCHEMA §3.1.1). Settlement does not depend on them: the settler posts the expiry price (§6.3).
 

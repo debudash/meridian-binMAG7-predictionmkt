@@ -72,11 +72,11 @@ describe("parseSettleEventFromLogs", () => {
   it("finds Settled among other program logs", () => {
     const ev = parseSettleEventFromLogs(
       [
-        "Program 9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6 invoke [1]",
+        "Program 3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj invoke [1]",
         "Program log: Instruction: Settle",
         "Program data: AAAA", // junk / other event
         settledLog,
-        "Program 9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6 success",
+        "Program 3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj success",
       ],
       MARKET.toBase58(),
     )!;

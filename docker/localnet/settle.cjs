@@ -19,7 +19,7 @@ const anchor = require(W + "@coral-xyz/anchor");
 const { Connection, Keypair, PublicKey, SystemProgram } = web3;
 
 const RPC = "http://127.0.0.1:8899";
-const PROGRAM_ID = new PublicKey("9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6");
+const PROGRAM_ID = new PublicKey("3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj");
 const kp = (p) => Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(p, "utf8"))));
 
 function parseCloses(args) {

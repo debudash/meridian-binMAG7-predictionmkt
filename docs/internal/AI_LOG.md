@@ -1,3 +1,15 @@
+## 2026-10-08T20:30:00-05:00 — Engineers: program id rotation + devnet re-bootstrap (DLV-124, DLV-077, DLV-123)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers (Claude Code), Debu decisions |
+| **Branch** | `chore/program-id-rotation` from `origin/main` |
+| **Why** | The `9Rb7nx…` program keypair existed only on the old build box (gone), and the program had never been deployed to devnet. Debu chose a new id over recovering the old one. |
+| **Change** | New id `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` everywhere it was hard-coded (history left as is). `ops/devnet-bootstrap.cjs`: `ADMIN_SETTLE_DELAY_SECS` (default 300, staging 60, DLV-123) and `PYTH_REF_SHARD=1` (fresh devnet shard-1 reference feeds, SCHEMA §3.1.1). Anchor.toml `[test] startup_wait`. DEPLOY §5.3 filled with the live staging values. |
+| **Devnet** | Program deployed (slot 508961032) through a dedicated Helius devnet RPC after the public RPC rate-limited the upload (429); the half-written buffer was closed and refunded first. Deployed binary == build, fixture assert OK. Phase A bootstrap: Config (keeper authority, admin delay 60 s), mUSDC `6U34…ZJLHh`, keeper/maker/trader/settler/pauser/wallet B funded, Debu's Phantom 0.5 SOL + 10,000 mUSDC. Friday's markets are created by a scheduled ops job after 00:05 ET from Debu's Nasdaq official closes for 2026-10-08 (operator prior closes, D-026). Book count follows the payer balance (1.18 SOL rent per Phoenix book). |
+| **Tests** | Docker toolchain: Anchor localnet 87 passing / 23 pending / 0 failing (an earlier run with the ledger on the Windows bind mount timed out 7 tests; moved to a Linux volume), automation 263, web 418 + 14 skipped (3 `siteMeta` tests need >5 s on the bind mount), prod build + fixture assert + IDL sync OK. |
+| **Related** | DLV-124 · DLV-077 · DLV-123 · D-025 · D-026 |
+
 ## 2026-10-08T14:41:00-05:00 — Engineers: daily create by 08:00 ET on the prior close (D-026, DLV-120)
 
 | Field | Value |

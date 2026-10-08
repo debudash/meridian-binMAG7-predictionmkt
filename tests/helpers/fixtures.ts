@@ -16,7 +16,7 @@ import BN from "bn.js";
  * Revoked (do not use): GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2
  */
 export const MERIDIAN_PROGRAM_ID = new PublicKey(
-  "9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6"
+  "3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj"
 );
 
 export const PRICE_SCALE = 1_000_000;

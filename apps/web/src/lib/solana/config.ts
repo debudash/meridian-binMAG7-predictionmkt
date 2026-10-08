@@ -6,7 +6,7 @@ import { PublicKey } from "@solana/web3.js";
 import { isFixtureCluster } from "@/lib/market/marketIdRoute";
 
 export const DEFAULT_PROGRAM_ID =
-  "9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6";
+  "3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj";
 
 export function getCluster(): string {
   return process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet";

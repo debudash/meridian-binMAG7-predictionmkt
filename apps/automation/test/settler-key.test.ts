@@ -9,7 +9,7 @@ import { expect } from "chai";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { loadConfig, resolveSettler } from "../src/config";
 
-const PROGRAM_ID = new PublicKey("9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6");
+const PROGRAM_ID = new PublicKey("3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj");
 const asEnv = (kp: Keypair) => JSON.stringify(Array.from(kp.secretKey));
 // DLV-119 L-5: localnet needs a loopback RPC.
 const base = (cluster: string) => ({ SOLANA_CLUSTER: cluster, SOLANA_RPC_URL: cluster === "localnet" ? "http://127.0.0.1:8899" : "http://x" }) as any;

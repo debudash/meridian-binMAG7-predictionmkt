@@ -222,7 +222,7 @@ describe("DLV-078 calendar settle pass routes off-localnet markets through the p
     const seen: string[] = [];
     let legacyCalled = false;
     const program: any = {
-      programId: new PublicKey("9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6"),
+      programId: new PublicKey("3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj"),
       account: {
         strikeMarket: {
           all: async () => [
