@@ -1,3 +1,15 @@
+## 2026-10-07T23:35:00-05:00 — Testers: STAGING_TEST_PLAN reviewer fixes (!63/!65 notes) + TEST_RESULTS count nit
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Testers |
+| **Branch** | `test/staging-plan-review-fixes` from `origin/main` @ `ea84698` (!66) |
+| **Decision** | Address the Meridian Reviewers' requested doc changes on `docs/STAGING_TEST_PLAN.md` (MR !65 notes; `/workspace/meridian-review-mr63.md`), re-based on main `ea84698`. (1) **1.1b [operator]** deployed-binary check: `solana program dump -u devnet 9Rb7nx… /tmp/m.so && bash scripts/assert-prod-no-fixtures.sh /tmp/m.so idl/meridian.prod.json` → no fixture strings (prod `.so` only), plus an optional 1.1c `InstructionFallbackNotFound` negative. (2) **1.2b / 2.1** `NEXT_PUBLIC_SOLANA_CLUSTER=devnet` set explicitly; never `custom` until M2 (no URL cluster param exists; chip text is the env label). (3) **2.3b / 2.4b** `curl -I` + browser 404 checks for `/markets/fixture-anything` and `/api/localnet-dev-wallet`. (4) **Known limits** table: M1, M2, M3 (authority = keeper/settler), unreviewed box-only ops scripts, post-expiry window, M4/M5, L11/L14, Hermes/`admin_settle`. (5) **§3** whole-contracts caution, with what the ticket, `size.ts` and the Phoenix SDK do with fractions, plus optional 3.11. (6) **4.9–4.11** sweep next to a resting order (order still resting, seat free 0) and failed fill-or-kill atomicity (seat unchanged). (7) **§7** Phoenix books stay live between expiry and settle: what to expect and avoid, plus optional 7.3b. (8) **§11.1** "Absolute byte offsets (including the 8-byte discriminator)". The 20-min AAPL market now has a Phoenix book and wallet B is funded **per staging script** (box-only `run-staging.sh` / `devnet-bootstrap.cjs`, not in git), with fallback lines. TEST_RESULTS: per-prefix count rows fixed to sum to the headline 87 / 108 (`B 1` removed, S 15 → 14 = 10 + 4 `S-10` vectors, `U 3` compose added), sourced from the box mocha logs (`108 passing`; hardening 66 ✔ + 33 passing = 87 unique). Docs only: no deploy, no Railway, no validators, no code. |
+| **Files** | `docs/STAGING_TEST_PLAN.md` · `docs/TEST_RESULTS.md` · `docs/AI_LOG.md` |
+| **Related** | !63 · !65 · !66 · Reviewers M1/M2/M3/M4/M5, L11/L12/L14 · DLV-077 · DLV-085 · DLV-087 · D-024 · D-025 |
+
+---
+
 ## 2026-10-07T23:20:00-05:00 — Testers: devnet staging acceptance test plan (Phantom)
 
 | Field | Value |

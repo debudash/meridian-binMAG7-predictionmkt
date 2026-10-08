@@ -108,7 +108,7 @@ Run 21:05–22:45 CT by Grok Bot (executor) for Debu. Local green was the gate (
 
 | Area | Result | Notes |
 | --- | --- | --- |
-| Anchor localnet-test (P0/P1/P2, SIM, MP merge_pair, SC SimClock, PHX, INV, X) | **PASS 87/87** | Run on main before !57. Counts: A 5, M 11, MP 8, PHX 6, R 9, S 15, SC 3 + SC-IDL, SIM 9, V 8, X 7, INV 3, B 1. !57 brought its own `tests/prod/settle_pull_oracle.ts` suite; it was not re-run here because the box was loaded. |
+| Anchor localnet-test (P0/P1/P2, SIM, MP merge_pair, SC SimClock, PHX, INV, X) | **PASS 87/87** | Run on main before !57. Counts: A 5, INV 3, M 11, MP 8, PHX 6, R 9, S 14 (S-01…S-09 + S-11 = 10, plus 4 `S-10` vectors), SC 3 + SC-IDL 1, SIM 9, U 3 (`phoenix_compose` unit), V 8, X 7 = **87**. !57 brought its own `tests/prod/settle_pull_oracle.ts` suite; it was not re-run here because the box was loaded. |
 | Prod Anchor build + `assert-prod-no-fixtures` | **PASS** | No `sim_*` / `upsert_mock_pyth` / `test_drain_vault` in the prod `.so` or IDL |
 | Automation | **PASS 37/37** + tsc | On `1915bb7` (was 17/17 before !57) |
 | Web unit | **PASS 161 + 10 skipped** | Skipped tests are the opt-in E2E. tsc, `next lint`, and `next build` are green on `1915bb7` |
@@ -182,7 +182,7 @@ Run 22:20–23:30 CT by Grok Bot (executor). Local green was the gate (no CI). T
 
 | Area | Result | Notes |
 | --- | --- | --- |
-| Anchor localnet-test, full `tests/**/*.ts` | **PASS 108/108** (27 min) | On main `0ef2626` (programs unchanged through `7f8e766`). Counts: A 5, B 1, INV 3, M 11, MP 8, PHX 6, PULL 21 (`tests/prod/settle_pull_oracle.ts` on `target/prod/meridian.so`), R 9, S 15, SC 3 + SC-IDL 1, SIM 9, V 8, X 7 |
+| Anchor localnet-test, full `tests/**/*.ts` | **PASS 108/108** (27 min) | On main `0ef2626` (programs unchanged through `7f8e766`). Counts: A 5, INV 3, M 11, MP 8, PHX 6, PULL 21 (`tests/prod/settle_pull_oracle.ts` on `target/prod/meridian.so`), R 9, S 14 (10 + 4 `S-10` vectors), SC 3 + SC-IDL 1, SIM 9, U 3 (`phoenix_compose` unit), V 8, X 7 = **108** |
 | Automation | **PASS 37/37** + tsc | On `7f8e766` |
 | Web unit | **PASS 252 + 14 skipped** | The 14 skipped are the two opt-in real-Phoenix E2E files. tsc, `next lint`, and `next build` are green on the !63 head |
 | Real-Phoenix account E2E (`LOCALNET_E2E=1`, `src/lib/portfolio/localnet.account.e2e.test.ts`) | **PASS 4/4** | (1) Partial maker fill: seat holds 4 Yes, 6 still resting; `availabilityInputs` gives Yes held = wallet + 4 and resting Buy Yes = 6 → Buy No blocked; Cancel (UI path `submitPhoenixManage`) empties the seat, puts the 4 Yes in the wallet, and returns 6 × px USDC. (2) Withdraw-only moves seat Yes and keeps the order resting; seat Yes is sold by a market Sell Yes thanks to the prepended sweep. (3) A resting Sell No locks No. (4) History classifies trade / order / cancel / withdraw from chain |
@@ -267,3 +267,4 @@ Expect: **74 passing / 0 failing**. Labs CI runners may be absent — Debu don't
 | 2026-10-07 | Grok Bot (hardening executor) | Hardening pass section (21:05–22:45 CT): per-area results, E2E 10/10, fixes !52–!56 + !60, DLV-086–090, go/no-go |
 | 2026-10-07 | Grok Bot (launch-blocker executor) | Launch-blocker pass: Anchor 108/108 on main, automation 37/37, web 252, account E2E 4/4; !62 + !63 (DLV-081/087/088/089/090, DLV-068); go/no-go updated |
 | 2026-10-07 | Meridian Testers | Census refresh for PHX-01…06 (!38): PHX row in the layer rollup (6 PHX + 3 compose; 9/9 per !38; PHX 6 in 87/87 and 108/108), Phoenix on-book demo row → Done / Green, post-!38 note rewritten (TBD removed). No suite re-run. Requested by Meridian Reviewers |
+| 2026-10-07 | Meridian Testers | Count nit (Reviewers, !66 note): the per-prefix breakdowns in the hardening row and the launch-blocker row summed to 86 and 107, not the 87 and 108 they headline. **The headline totals are right.** The launch-blocker mocha log reports `108 passing (27m)`. The hardening run's two logs (66 ✔, then a re-run of settle → S-10 with `33 passing`) give 87 unique passing cases. The Reviewers' static `it()` census at `ea84698` also reconciles to 108, and 108 − PULL 21 = 87. The breakdowns were mis-bucketed: there's no `B`-prefixed case (`B 1` removed); S is 14, not 15 (S-01…S-09 + S-11 = 10, plus the 4 `S-10` loop vectors); and the 3 `tests/unit/phoenix_compose.ts` cases had no bucket (`U 3` added). Each row now adds up. No suite re-run |
