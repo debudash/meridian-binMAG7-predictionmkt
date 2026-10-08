@@ -13,7 +13,7 @@
  * program are configured, callers should use the web SDK place path instead.
  * This harness path is the **maximum viable localnet E2E** while full Phoenix
  * market create on solana-test-validator remains residual (see
- * docs/TEST_MATRIX.md (PHX cases)).
+ * docs/TEST_RESULTS.md §2 (PHX on-book sim)).
  *
  * Off-book Yes SPL transfer (`simTradeOffBook`) is demoted to non-prod fallback.
  */
@@ -180,7 +180,7 @@ export async function simTradeOnBook(
   if (mode === "phoenix") {
     throw new Error(
       "PHOENIX_ONBOOK_MODE=phoenix requires a live Phoenix market on this validator. " +
-        "Full Phoenix CLOB localnet create is not wired in this harness — see docs/TEST_MATRIX.md (PHX cases). " +
+        "Full Phoenix CLOB localnet create is not wired in this harness — see docs/TEST_RESULTS.md §2 (PHX on-book sim). " +
         "Use default PHOENIX_ONBOOK_MODE=book-sim for localnet E2E."
     );
   }

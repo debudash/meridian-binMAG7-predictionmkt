@@ -1,7 +1,7 @@
 # Meridian decisions index
 
 Short index of **locked** durable product/tech/orchestration decisions only.
-Narrative, open assumptions, tooling notes, and chronology live in [`AI_LOG.md`](internal/AI_LOG.md).
+Narrative, open assumptions, tooling notes, and chronology live in [`internal/AI_LOG.md`](internal/AI_LOG.md).
 Do not duplicate long rationale here — link the log.
 
 | ID | Topic | Decision | Owner | Date (America/Chicago) |

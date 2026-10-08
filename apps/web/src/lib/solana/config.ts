@@ -1,6 +1,6 @@
 /**
  * Public env config for Meridian web.
- * Matches docs/DEPLOY.md §4 NEXT_PUBLIC_* (no secrets).
+ * Matches docs/DEPLOY.md §5.2 NEXT_PUBLIC_* (no secrets).
  */
 import { PublicKey } from "@solana/web3.js";
 import { isFixtureCluster } from "@/lib/market/marketIdRoute";

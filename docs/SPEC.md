@@ -8,7 +8,7 @@
 | **Date** | 2026-10-06 (America/Chicago) |
 | **Forge** | https://labs.gauntletai.com/debudash/peak6-meridian (GitLab-only; D-001 / D-014) |
 
-**Canonical companions:** [`DECISIONS.md`](DECISIONS.md) · [`SCHEMA.md`](SCHEMA.md) · [`TRACKER.md`](internal/TRACKER.md) · [`TEST_MATRIX.md`](TEST_MATRIX.md) · [`DEPLOY.md`](DEPLOY.md) · [`ui/`](ui/) · [`ui/wireframes/`](ui/wireframes/) · [`sim-clock.md`](sim-clock.md)
+**Canonical companions:** [`DECISIONS.md`](DECISIONS.md) · [`SCHEMA.md`](SCHEMA.md) · [`internal/TRACKER.md`](internal/TRACKER.md) · [`TEST_MATRIX.md`](TEST_MATRIX.md) · [`DEPLOY.md`](DEPLOY.md) · [`ui/`](ui/) · [`ui/wireframes/`](ui/wireframes/) · [`sim-clock.md`](sim-clock.md)
 
 ---
 
@@ -187,7 +187,7 @@ Full ladder: [`DEPLOY.md`](DEPLOY.md).
 1. **MR !20** landed `docs/SPEC.md` + **UI wireframes** under [`ui/wireframes/`](ui/wireframes/) (same MR / branch — Debu: no separate wireframe MR).
 2. Meridian UI wireframe assets (Landing / Markets / Trade / Portfolio / History) are on this MR; **Debu approved all wireframes**.
 3. **Debu lock** — Debu authorized SPEC lock to Grok Bot (2026-10-06 CT) **without full review**. Status = **Locked**.
-4. After lock: material scope/stack changes require a new row (or amendment) in [`DECISIONS.md`](DECISIONS.md) and an [`AI_LOG.md`](internal/AI_LOG.md) entry.
-5. TRACKER / TASKS may continue to move work items; they do not silently expand V1 acceptance without Debu awareness.
+4. After lock: material scope/stack changes require a new row (or amendment) in [`DECISIONS.md`](DECISIONS.md) and an [`internal/AI_LOG.md`](internal/AI_LOG.md) entry.
+5. TRACKER / TASKS (TASKS retired 2026-10-08) may continue to move work items; they do not silently expand V1 acceptance without Debu awareness.
 
 **Status:** **Locked** (Debu-authorized, no full review required). Wireframes approved all and included on MR !20.

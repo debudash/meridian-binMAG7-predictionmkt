@@ -2,7 +2,7 @@
 
 What is tested, how to run it, and the latest recorded result per suite. Case catalogue: [`TEST_MATRIX.md`](TEST_MATRIX.md). Suite layout: [`tests/README.md`](../tests/README.md).
 
-**Gate:** local runs are the gate (the labs GitLab host has no CI runners). Counts below are the latest recorded runs, with the commit they ran on. Rows marked **to refresh** must be re-run on the final submission tip before hand-in; they are not re-run in this document.
+**Gate:** labs GitLab has no CI runners for this project; the merge gate is local (and now the Docker toolchain). Counts below are the latest recorded runs, with the commit they ran on. Rows marked **to refresh** must be re-run on the final submission tip before hand-in; they are not re-run in this document.
 
 ## 1. Summary
 
@@ -10,7 +10,7 @@ What is tested, how to run it, and the latest recorded result per suite. Case ca
 | --- | --- | --- | --- | --- |
 | Anchor localnet (`tests/**/*.ts`) | Program: mint, settle, admin_settle, redeem, merge_pair, pause, fees, $1 vault invariants, sim session, SimClock, Phoenix on-book sim, prod IDL gates, prod pull-oracle settle | **109 / 109** passing | `dd46769` | to refresh |
 | Prod pull-oracle settle (`tests/prod/settle_pull_oracle.ts`, LiteSVM on the prod `.so`) | D-025 accept / reject rules incl. real devnet and mainnet account bytes | **22 / 22** (included in the 109) | `ab3b57c` | to refresh |
-| Rust unit (`cargo test`) | Pyth parser helpers | **6 / 6** | DLV-082 branch | to refresh |
+| Rust unit (`cargo test`) | Pyth parser helpers | to refresh (5 `#[test]` in the repo) | — | to refresh |
 | Prod build + fixture assert (`yarn build:prod`) | No `sim_*` / `upsert_mock_pyth` / `test_drain_vault` / SimClock in the prod `.so` or IDL | **PASS** | `0ef2626` | to refresh |
 | Automation (`apps/automation`, mocha) | Market-day calendar (DST, holidays, early closes), strikes, operator prices, pull settle, settler / pauser keys, pause monitoring, sim/prod isolation, ops script guards | **228 passing + 13 pending** (pending = opt-in localnet) | MR !92 head (merged as `a5146d4`) | to refresh |
 | Automation opt-in localnet (`phoenix-pause.localnet.test.ts`, real Phoenix + Seat Manager) | Handoff, pause at expiry, paused book = cancel / withdraw only | **13 / 13** | DLV-109 (`7e00a6b`) | to refresh |
@@ -49,6 +49,8 @@ npm run typecheck --prefix apps/web && npm run lint --prefix apps/web && npm run
 cd apps/web && LOCALNET_E2E=1 npx vitest run src/lib/phoenix/localnet.hardening.e2e.test.ts
 cd apps/web && LOCALNET_E2E=1 npx vitest run src/lib/portfolio/localnet.account.e2e.test.ts
 ```
+
+**PHX on-book sim (Anchor harness).** `tests/phoenix_onbook_e2e.ts` (PHX-01…06) drives the four intents through `simTradeOnBook` (`tests/helpers/phoenix_onbook.ts`): compose, optional `mint`, a simulated Yes↔USDC book fill at the planned price, optional `merge_pair`. It never touches the vault outside Meridian instructions. Run only these with `yarn test:phoenix-onbook` (still needs the Anchor validator lifecycle) or the compose unit cases with `yarn test:phoenix-compose`. `PHOENIX_ONBOOK_MODE` selects the path: `book-sim` (default), `off-book-fallback` (refuses `simTradeOnBook`; call `simTradeOffBook`, the demoted V-08 twin, explicitly), or `phoenix` (reserved: throws, because creating a real Phoenix market is not wired into the Anchor harness; real books are covered by the web opt-in E2E).
 
 The program keypair is not in git. Restore or generate `keys/meridian-keypair.json` whose pubkey matches `declare_id!` ([`keys/README.md`](../keys/README.md)).
 

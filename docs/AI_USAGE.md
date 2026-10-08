@@ -8,7 +8,7 @@ How AI was used to build Meridian, who decided what, and how AI output was check
 | --- | --- | --- |
 | 2026-10-06 onward | **Grok Bot** (orchestrator agent) | Chief of staff: split work into slices, briefed specialist agents, enforced the land path and locks, owned completeness and security (D-008) |
 | 2026-10-06 onward | Specialist agents spawned by Grok Bot (D-009) | **PM** (SPEC, acceptance, tracker) · **Schema** (accounts, instructions, units, flows) · **UI** (page specs, wireframes) · **Engineers** (Anchor program, Next.js app, Node automation, ops scripts) · **Testers** (test matrix, failing suites first, test plans) · **Reviewers** (security and architecture reviews, demo readiness) |
-| 2026-10-08 onward | **Claude Code** (Anthropic) | Coding and docs agent working in git worktrees under the same rules (this deliverables refactor is one of its tasks) |
+| 2026-10-08 onward | **Claude Code** (Anthropic) | Coding and docs agent working in git worktrees under the same rules |
 | Throughout | **Debu Dash** (human owner) | Product and risk decisions, locks, approvals, merges, hands-on testing |
 
 All work landed through merge requests on the project's GitLab (D-001, D-014).
@@ -39,7 +39,7 @@ All work landed through merge requests on the project's GitLab (D-001, D-014).
 
 - **TDD:** failing tests first on every core path; suites must stay green before merge.
 - **Reviewer agents:** separate agents with a security brief reviewed MRs; findings tracked to closure (e.g. review "mr72-73" M1–M3, "!91" M-1 and L-1…L-9).
-- **Local gates:** the labs GitLab host has no CI runners, so the gate was a local run of every suite, `tsc`, lint, `next build` and the prod fixture assert, with counts recorded in the MR and the log.
+- **Local gates:** labs GitLab has no CI runners for this project; the merge gate is local (and now the Docker toolchain): a local run of every suite, `tsc`, lint, `next build` and the prod fixture assert, with counts recorded in the MR and the log.
 - **Real-system checks:** real Phoenix V1 and Seat Manager programs loaded into a local validator; prod `.so` tested in LiteSVM with real devnet and mainnet Pyth account bytes; a dry run of the prod build against cloned devnet accounts.
 - **Hardening passes:** end-to-end, UI smoke and security sweeps on 2026-10-07 ([`TEST_RESULTS.md`](TEST_RESULTS.md)).
 - **Human testing:** Debu clicked through the app on localnet; manual runbooks for localnet and devnet.
@@ -50,7 +50,7 @@ All work landed through merge requests on the project's GitLab (D-001, D-014).
 | --- | --- | --- |
 | Phoenix order size sent in atoms instead of whole tokens (10⁶× too large). A Reviewer agent had signed this off as correct | Placing real orders against Phoenix V1 on localnet after Debu could not trade | D-020 records the correction; `size.test.ts` rewritten (DLV-066) |
 | Prod settle decoded the legacy Pyth push layout, which real equity feeds no longer use (`InvalidPythAccount`) | Dry run of the prod `.so` against cloned devnet accounts | Pull-oracle settle (D-025), 21 then 22 LiteSVM cases on the prod binary |
-| A program keypair was committed to git | Reviewer agent report (High) | Key revoked, program id rotated, `keys/*` gitignored ([`keys/README.md`](../keys/README.md)) |
+| A program keypair was committed to git | Reviewer agent report (High) | Key revoked, program id rotated (`GwTvo…` → `9Rb7nx…`, 2026-10-06), `keys/*` gitignored ([`keys/README.md`](../keys/README.md)). A second rotation is pending because the replacement keypair was lost with the old build box (Debu, 2026-10-08; DLV-124) |
 | A production build with localnet env served the dev-wallet secret key; spoofed `Host` headers also reached it | Hardening security sweep | Dev wallet impossible in production builds; loopback-only checks, including a self-probe of the server's own interfaces (DLV-080, DLV-081) |
 | React hydration errors on every trade page load (inline `<style>` escaped by SSR) and on countdowns | Hardening UI smoke on a production build | CSS moved to `globals.css` with a guard test; server time passed to the clock provider (DLV-079, DLV-086) |
 | Buy No could mint and then under-fill, leaving the user with Yes + No; a 0-fill showed "Submitted" | Hardening real-Phoenix E2E | Market orders made fill-or-kill (D-024) |

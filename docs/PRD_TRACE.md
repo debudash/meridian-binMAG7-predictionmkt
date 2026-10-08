@@ -64,7 +64,7 @@ Last reviewed: 2026-10-08 against `main` @ `a5146d4`.
 | Rust, TypeScript, JavaScript | **Met** | `programs/meridian` (Rust), `apps/*` (TS), `ops/*.cjs` (JS) |
 | React, Next.js, Node.js, Anchor, Git | **Met** | `apps/web` (Next.js 14), `apps/automation` (Node), Anchor 0.31.1, GitLab |
 | Cloud hosting for the automation service | **Met** | Railway `automation` + `web` services ([`DEPLOY.md`](DEPLOY.md) §5) |
-| Solana | **Met** | Anchor program; devnet staging |
+| Solana | **Met** | Anchor program; devnet deploy pending (DLV-077) |
 | Price oracle integration | **Met** | Pyth pull oracle (D-025); MAG7 feed ids pinned (D-019, [`SCHEMA.md`](SCHEMA.md) §3.1) |
 | USDC integration | **Met** | SPL collateral mint; a test mint ("mUSDC") on devnet |
 | Central Limit Order Book | **Met** | Phoenix V1 (integrated, not built: D-002) |

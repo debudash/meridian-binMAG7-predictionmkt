@@ -8,9 +8,9 @@ For a first-time tester who isn't the operator. Do the part for the track you're
 
 **Track A: localnet, on the operator's box**
 
-1. Ask the operator to **update the box to the latest `main`** and restart the local validator and the web app. Ask which commit (SHA) it's on and write it down.
-2. Open the **box desktop**: the operator's shared computer, shared by the operator. The app at http://localhost:3000 and the **Localnet Dev Wallet** only exist there. `localhost:3000` on your own computer won't work.
-3. In the browser on the box desktop, open http://localhost:3000 and carry on with 0.1–0.2 below. There's nothing to install: the Localnet Dev Wallet signs by itself.
+1. Start the local instance on the latest `main` (`docker compose -f docker/compose.localnet.yml up --build`, see [`DEPLOY.md`](DEPLOY.md) §3), or use a machine where the operator runs it. Write down the commit (SHA).
+2. The app at http://localhost:3000 and the **Localnet Dev Wallet** exist only on the machine that runs the local instance.
+3. In a browser on that machine, open http://localhost:3000 and carry on with 0.1–0.2 below. There's nothing to install: the Localnet Dev Wallet signs by itself.
 4. **Existing positions on the current Localnet Dev Wallet (dev wallet 2).** It already holds **Yes 5** on **NVDA ≥ $140.00 at close Oct 14** and **MSFT ≥ $420.00 at close Oct 14** (card titles use that short form from `shortQuestion`; Portfolio shows the same). Those are leftover from earlier Track A runs — **don't count them as your fills** from this session. For a truly flat wallet, ask the operator for a fresh key ([`apps/web/README.md`](../apps/web/README.md) "Fresh (flat) dev wallet") or pick a market where the card has **no** `You: …` badge (e.g. AAPL / TSLA / META / AMZN / GOOGL on the current ledger).
 
 **Track B: devnet staging, Phantom**
@@ -21,15 +21,14 @@ For a first-time tester who isn't the operator. Do the part for the track you're
 4. This first account is **wallet A**. In Phantom's account menu, add a **second account** and name it **wallet B**.
 5. Copy each account's **public** Solana address (32–44 letters and digits) and send both to the operator, labelled **A** and **B**.
 6. Wait until the operator has funded them (the operator's side is [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) **1.4** for wallet A and **1.5** for wallet B). Expect about **2 SOL** on wallet A (at least 1) and about **0.5 SOL** on wallet B, plus **mUSDC** on both (wallet B gets 1,000). This is devnet: none of it has real value.
-7. Recognise **mUSDC**. Phantom may show it as an **unknown token** with no name or logo (look in the token list, including hidden tokens, if it isn't on the main screen). Open it and compare its mint / token address with `GEBRsT3Nc3PaEio2qf3x4JUgFtPSYXr7bmVitMuzMBXq`: it must **start with `GEBRsT3N`** and **end with `MXq`**. Any other token isn't the test token, so don't use it.
+7. Recognise **mUSDC**. Phantom may show it as an **unknown token** with no name or logo (look in the token list, including hidden tokens, if it isn't on the main screen). Open it and compare its mint / token address with the mUSDC mint in [`DEPLOY.md`](DEPLOY.md) §5.3 (the operator can confirm it): the start and end characters must match. Any other token isn't the test token, so don't use it.
 
-**Ready when:** **[A]** the box is on the latest `main`, http://localhost:3000 opens on the box desktop, and the header wallet button shows **Connect** (or a short address after you connect) · **[B]** Phantom is on Devnet, and wallets A and B each show SOL (A ≥ 1, B ~0.5) and mUSDC (`GEBRsT3N…MXq`).
+**Ready when:** **[A]** the local instance is on the latest `main`, http://localhost:3000 opens, and the header wallet button shows **Connect** (or a short address after you connect) · **[B]** Phantom is on Devnet, and wallets A and B each show SOL (A ≥ 1, B ~0.5) and mUSDC (`<mUSDC mint>`).
 
 ---
 
 | Field | Value |
 | --- | --- |
-| **Owner** | Meridian Testers |
 | **For** | Debu, testing by hand. No terminal needed except where a step says **[operator]** |
 | **Written against** | main `7e8120d` (`7e8120d25a946c3ee9da4132886cdd37040e04c3`, Merge !84 Fills refresh + docs through !75). Every on-screen string below is checked against `apps/web/src` at that SHA. Wallet-adapter button labels (**Connect** / **Select Wallet**) come from `@solana/wallet-adapter-react-ui` (locked 0.9.40), not from app source |
 | **Track A** | **Localnet** at http://localhost:3000 with the **Localnet Dev Wallet**. Use it now: real localnet markets with Phoenix books and mock Pyth prices. The operator opens/closes sim sessions and settles from scripts ([`DEPLOY.md`](DEPLOY.md) §3) |
@@ -51,7 +50,7 @@ For a first-time tester who isn't the operator. Do the part for the track you're
 | 0.1 | **[A]** Make sure the operator has the local validator and the web app running. Then open http://localhost:3000. | The landing page loads. The header chip reads **localnet**. | [ ] |
 | 0.2 | **[A]** Click the header wallet button (top right). It usually says **Connect** (wallet-adapter `has-wallet` label). If it says **Select Wallet** instead (`no-wallet`, first visit), that's fine too — both open the same flow. In the modal, pick **Localnet Dev Wallet** (listed first on localnet). From !86 (DLV-115) there's also a **Change wallet** button next to it (**Wallets** on a phone) that always opens this list; and if the button says **Connect** with a Phantom icon but Phantom isn't installed, clicking it opens the list with `Phantom isn't installed in this browser. Pick another wallet.` instead of going to phantom.app. (Modal title `Connect a wallet on Solana to continue` is from the wallet-adapter library — **text may vary** with the package version.) | The button shows an amber **DEV** icon and a short address (e.g. `HDwU..4981`). No Phantom popup: the Localnet Dev Wallet signs by itself. After connect, the dropdown offers **Copy address**, **Change wallet**, **Disconnect** (library labels — **text may vary**). | [ ] |
 | 0.3 | **[B]** In Phantom → Settings → Developer Settings, turn on **Testnet Mode** and choose **Solana Devnet**. Open the staging URL. Click the header wallet button (**Connect**, or **Select Wallet** on a first visit) → **Phantom** → approve in the Phantom popup (**text may vary** — that copy is Phantom's, not Meridian's). | The header chip reads **devnet**. The button shows your short address. There is **no** "Localnet Dev Wallet" option (`AppProviders.tsx` registers it only on localnet). | [ ] |
-| 0.4 | **[B]** Check balances in Phantom for wallet A and wallet B. | At least ~0.5 SOL and some **mUSDC** (shows as an unknown token, mint `GEBRsT3N…MXq`) in each. If either is missing, ask the operator (STAGING_TEST_PLAN 1.4 / 1.5). | [ ] |
+| 0.4 | **[B]** Check balances in Phantom for wallet A and wallet B. | At least ~0.5 SOL and some **mUSDC** (shows as an unknown token, mint `<mUSDC mint>`) in each. If either is missing, ask the operator (STAGING_TEST_PLAN 1.4 / 1.5). | [ ] |
 
 ---
 
@@ -212,7 +211,7 @@ On a market like **AAPL ≥ 305, Oct 9** (fees 0 on staging):
 | 13.8 | Click **Cancel all (2)** → approve. | `Cancelled 2 orders; funds returned to your wallet. · <sig>…`. mUSDC +0.87. `No resting orders on this market.` | [ ] |
 | 13.9 | Note anything that filled your orders after expiry. | Nothing should fill after the pause. A fill **between** expiry and the pause landing is the known short window; write down the time. | [ ] |
 
-If 13.6–13.8 fail on a paused book, that's a **blocker for !73**: report it.
+If 13.6–13.8 fail on a paused book, that's a release blocker: report it.
 
 ## 14. Settle (Pyth first, admin fallback)
 

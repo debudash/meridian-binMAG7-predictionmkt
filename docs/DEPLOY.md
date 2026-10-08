@@ -11,7 +11,7 @@ Parts:
 | Automation worker `apps/automation` (Node) | Railway service `automation` | `railway up` |
 | Operator scripts `ops/` | Operator box | Run by hand or by `ops/run-staging.sh` |
 
-**Program id:** see `Anchor.toml` and `declare_id!` in `programs/meridian/src/lib.rs`. The id is due to be rotated (the old program keypair was lost with the old build box), so this guide never hard-codes it. Key policy: [`keys/README.md`](../keys/README.md).
+**Program id:** see `Anchor.toml` and `declare_id!` in `programs/meridian/src/lib.rs`. The id is being rotated because the old program keypair was lost with the old build box (rotation tracked as DLV-124), so this guide never hard-codes it. Key policy: [`keys/README.md`](../keys/README.md).
 
 ---
 
@@ -49,7 +49,7 @@ Brings up a local validator with the localnet-test program and the web app, with
 
 ### 3.2 Manual
 
-Prerequisites: Rust, Solana CLI 2.1.x, Anchor 0.31.1 (`Anchor.toml`), Node ≥ 20, yarn.
+Use the Docker path (§3.1) unless you need to work on the toolchain itself. Prerequisites: Rust, Solana CLI 2.1.x, Anchor 0.31.1 (`Anchor.toml`), Node ≥ 20, yarn.
 
 ```bash
 yarn install
@@ -68,6 +68,7 @@ cp apps/web/.env.example apps/web/.env.local   # set the NEXT_PUBLIC_* values
 npm run web:dev                             # binds 127.0.0.1:3000
 ```
 
+- Before `today-markets.cjs`: the validator must have the Phoenix V1 and Seat Manager programs loaded (e.g. `--bpf-program` / `--clone` from mainnet dumps), `apps/web/node_modules` must be installed (the script uses its web3 / Phoenix SDK packages), and `MAKER` / `STATE_OUT` must be set, because their defaults point at `/workspace` paths on the old build box.
 - `today-markets.cjs` is additive and idempotent, localnet only, and refuses after that day's 16:00 ET close (exit 3). See [`scripts/localnet/README.md`](../scripts/localnet/README.md).
 - The Localnet Dev Wallet (sign without Phantom) is described in [`apps/web/README.md`](../apps/web/README.md). It is off in every production build and on any non-loopback server.
 
@@ -96,8 +97,8 @@ solana program deploy target/deploy/meridian.so \
 
 - The program keypair and the upgrade key live on the operator box only (`chmod 600`), never in git and never on Railway.
 - After deploy, check the deployed binary: `solana program dump -u devnet <program id> /tmp/m.so && bash scripts/assert-prod-no-fixtures.sh /tmp/m.so idl/meridian.prod.json`.
-- Then bootstrap (§5.3): Config, collateral mint, markets, Phoenix books. Never call mock / sim / drain instructions (they are not in the prod `.so`).
-- Devnet needs about 13 SOL for the program, its upgrade buffer and the Phoenix books. Public airdrops are rate-limited; fund the upgrade key from a faucet first.
+- Then bootstrap (§5.4): Config, collateral mint, markets, Phoenix books. Never call mock / sim / drain instructions (they are not in the prod `.so`).
+- Devnet funding: see §5.3.
 
 ## 5. Railway staging
 
@@ -109,7 +110,7 @@ solana program deploy target/deploy/meridian.so \
 | `automation` | `apps/automation` | [`apps/automation/railway.json`](../apps/automation/railway.json) | `npm install && npm run build:railway` | `node dist/worker.js` | `GET /health` (`HEALTH_PORT` / `PORT`, default 8080) |
 
 - Railway project `meridian-staging` (its default environment is named `production`; it is the staging environment). Web: https://web-production-77fbb.up.railway.app.
-- Railway has no GitLab integration here. Deploy with `railway up` from a `git archive` of the `main` commit you want, per service.
+- Railway has no GitLab integration here. Deploy with `railway up` from a `git archive` of the `main` commit you want, per service. Railway builds with Railpack and ignores the `NIXPACKS` hint.
 - `build:railway` leaves the sim entry out of `dist/`. Before deploying automation, bake the prod IDL into the package: `yarn build:prod-idl && yarn assert:idl-sync`.
 
 ### 5.2 Environment variables (names only)
@@ -147,7 +148,28 @@ No private key ever goes in a `NEXT_PUBLIC_*` variable. `NEXT_PUBLIC_LOCALNET_DE
 
 The upgrade key never goes on Railway.
 
-### 5.3 Bootstrap from the operator box
+### 5.3 Staging environment (public values)
+
+Staging is being re-bootstrapped with new keys and a new program id (DLV-124). Fill this table at re-bootstrap; test plans refer to it instead of hard-coding addresses. Public keys only, never secret bytes.
+
+| Role | Value |
+| --- | --- |
+| Program id | set at re-bootstrap (`declare_id!`) |
+| Upgrade authority / payer (`upgrade-authority.json`) | set at re-bootstrap |
+| Keeper = config authority (`AUTOMATION_KEYPAIR`) | set at re-bootstrap |
+| Settler (`SETTLER_KEYPAIR`) | set at re-bootstrap |
+| Pauser (`PHOENIX_PAUSER_KEYPAIR`, = `EXPECTED_PAUSER_PUB`) | set at re-bootstrap |
+| Collateral: test mint "mUSDC", 6 decimals, mint authority on the box only | set at re-bootstrap |
+| Config values (`ops/devnet-bootstrap.cjs`) | fees 0 / 0 bps · `settle_max_staleness_slots` 150 · `settle_max_conf_ratio_bps` 200 · `admin_settle_delay_secs` 300 (staging only) |
+| Phoenix | V1 `PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY` + Seat Manager; tick $0.01, 1 lot = 1 contract, 0 bps |
+| Railway services | `web` (URL above), `automation` (no public domain); in the 2026-10-07 setup also a `devnet-faucet` helper that retried public `requestAirdrop` for the payer and exited when funded or timed out (confirm whether it still exists) |
+| Tester wallet funding | bootstrap sends the tester's Phantom wallet `DEBU_SOL` (default 2) SOL + 10,000 mUSDC; wallet B 0.5 SOL + 1,000 mUSDC |
+
+**Devnet funding.** The payer needs about **13 SOL**: program rent ≈ 2.7 SOL + a transient upgrade buffer ≈ 2.7 SOL, ≈ 1.65 SOL rent per Phoenix book, and 2 SOL for the tester's wallet. `run-staging.sh` waits until the payer holds at least `MIN_SOL` (default **9**) before it starts and creates fewer books on a smaller balance. Public `requestAirdrop` is rate-limited (429); fund the payer from a faucet first.
+
+**Pyth accounts.** The D-019 shard-0 MAG7 push accounts are stale on both clusters; devnet shard-1 accounts were fresh when checked (SCHEMA §3.1.1). Settlement does not depend on them: the settler posts the expiry price (§6.3).
+
+### 5.4 Bootstrap from the operator box
 
 The operator scripts in [`ops/`](../ops/README.md) hold no keys or box paths; everything comes from env or an untracked `ops/staging.env` (template `ops/staging.env.example`).
 
@@ -217,4 +239,4 @@ Settle-by-16:05 ET on the operator path is not yet guaranteed (DLV-123, open).
 
 ## 8. CI
 
-[`.gitlab-ci.yml`](../.gitlab-ci.yml) defines `prod-build-no-fixtures` (`yarn build:prod` + fixture assert) and `localnet-anchor-test` (`anchor test -- --features localnet-test`). The labs GitLab host may have no shared runners; then jobs stay pending and the same commands are run locally as the gate (results in [`TEST_RESULTS.md`](TEST_RESULTS.md)).
+[`.gitlab-ci.yml`](../.gitlab-ci.yml) defines `prod-build-no-fixtures` (`yarn build:prod` + fixture assert) and `localnet-anchor-test` (`anchor test -- --features localnet-test`). Labs GitLab has no CI runners for this project; the merge gate is local (and now the Docker toolchain). Results: [`TEST_RESULTS.md`](TEST_RESULTS.md).
