@@ -1,6 +1,6 @@
 # Docker: toolchain + local test instance
 
-One image (`toolchain.Dockerfile`) holds everything the repo needs on Linux: Rust 1.85, Solana/Agave CLI 2.1.0,
+One image (`toolchain.Dockerfile`) holds everything the repo needs on Linux: Rust 1.85, Solana/Agave CLI 4.3.0,
 Anchor 0.31.1, Node 22, socat. It serves two jobs.
 
 | Job | Command (from the repo root) |

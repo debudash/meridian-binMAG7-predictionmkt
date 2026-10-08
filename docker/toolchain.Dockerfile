@@ -4,7 +4,9 @@
 FROM ubuntu:24.04
 
 ARG RUST_VERSION=1.85.0
-ARG SOLANA_VERSION=2.1.0
+# 2.1.0 (CI pin) ships SBF platform-tools with Cargo 1.79, which cannot parse edition-2024 crates now in Cargo.lock
+# (blake3 → digest 0.11, zeroize_derive 1.5). 4.3.0 builds the program as-is.
+ARG SOLANA_VERSION=4.3.0
 ARG ANCHOR_VERSION=0.31.1
 ARG NODE_MAJOR=22
 
