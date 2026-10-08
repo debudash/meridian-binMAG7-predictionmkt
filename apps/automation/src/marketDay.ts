@@ -2,7 +2,8 @@
  * DLV-118 (SPEC §1 / §3.3): same-day 0DTE MAG7 markets expire at TODAY's 16:00 America/New_York close.
  *
  * Pure helpers (no RPC), shared by:
- *   - the calendar worker (create at the 9:30 ET open → expiry = that day's 16:00 ET close),
+ *   - the calendar worker (D-026: create from CREATE_FROM_ET 07:00, done by CREATE_DEADLINE_ET 08:00 → expiry = that
+ *     day's 16:00 ET close; strikes ATM on the previous trading day's close),
  *   - ops/run-staging.sh + ops/devnet-bootstrap.cjs via `ops-cli market-day` (no more fixed next-close books),
  *   - scripts/localnet/today-markets.cjs (effective clock = SimClock when enabled, else chain time).
  *
@@ -24,6 +25,8 @@ export const MAG7 = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"] as
 export const OPEN_HOUR_ET = 9;
 export const OPEN_MINUTE_ET = 30;
 export const CLOSE_HOUR_ET = 16;
+/** NYSE early-close days close at 13:00 ET (used for the prior-close strike reference only, D-026). */
+export const EARLY_CLOSE_HOUR_ET = 13;
 
 /** NYSE full-day closures (nyse.com holidays & trading hours). Extend yearly; unknown years refuse. */
 export const NYSE_HOLIDAYS: Record<string, string> = {
@@ -155,6 +158,30 @@ export function nextTradingDay(dateKey: string): string {
   throw new Error(`no trading day within 14 days after ${dateKey}`);
 }
 
+/**
+ * D-026: previous NYSE session strictly before `dateKey` (the day whose close is the strike reference). Weekends and
+ * full-day holidays are skipped; an early-close day IS a session (it closed at 13:00 ET); an unknown year throws.
+ */
+export function prevTradingDay(dateKey: string): string {
+  let k = addDays(dateKey, -1);
+  for (let i = 0; i < 14; i++, k = addDays(k, -1)) {
+    const t = isTradingDay(k);
+    if (t.ok || t.code === "early_close") return k;
+    if (t.code === "unknown_year") throw new Error(t.reason);
+  }
+  throw new Error(`no trading day within 14 days before ${dateKey}`);
+}
+
+/**
+ * D-026: the prior session's close for market day `dateKey` = the strike reference time. 16:00 ET, or 13:00 ET when
+ * the previous session was an NYSE early close (NYSE_EARLY_CLOSES). Throws on an unknown year (via prevTradingDay).
+ */
+export function priorSessionClose(dateKey: string): { dateKey: string; closeTs: number; earlyClose: boolean } {
+  const prev = prevTradingDay(dateKey);
+  const earlyClose = prev in NYSE_EARLY_CLOSES;
+  return { dateKey: prev, closeTs: etWallClockToUnix(prev, earlyClose ? EARLY_CLOSE_HOUR_ET : CLOSE_HOUR_ET, 0), earlyClose };
+}
+
 export interface SessionPlan {
   /** ET calendar day (YYYY-MM-DD) */
   dateKey: string;
@@ -166,15 +193,17 @@ export interface SessionPlan {
 
 export type SameDayDecision =
   | { ok: true; plan: SessionPlan }
-  | { ok: false; code: NonTradingCode | "after_close" | "before_open"; reason: string; dateKey: string; nextDateKey?: string };
+  | { ok: false; code: NonTradingCode | "after_close" | "before_open" | "before_create_window"; reason: string; dateKey: string; nextDateKey?: string };
 
 /**
  * The same-day session for `nowSec` (effective clock: SimClock when enabled on localnet, else chain/wall time).
  * Expiry is always that ET day's 16:00 close; after the close this REJECTS (no roll-over).
+ * `notBeforeEt` (D-026, the calendar worker's CREATE_FROM_ET) rejects earlier ET wall times with `before_create_window`;
+ * `requireOpen` (09:30 ET) is kept for other callers.
  */
 export function sameDaySession(
   nowSec: number,
-  opts: { allowNonTradingDay?: boolean; requireOpen?: boolean } = {},
+  opts: { allowNonTradingDay?: boolean; requireOpen?: boolean; notBeforeEt?: { hour: number; minute: number } } = {},
 ): SameDayDecision {
   const w = etWall(nowSec);
   const dateKey = w.dateKey;
@@ -203,6 +232,10 @@ export function sameDaySession(
   if (opts.requireOpen && nowSec < openTs) {
     return { ok: false, code: "before_open", reason: `before the ${dateKey} 09:30 ET open`, dateKey };
   }
+  if (opts.notBeforeEt && nowSec < etWallClockToUnix(dateKey, opts.notBeforeEt.hour, opts.notBeforeEt.minute)) {
+    const hhmm = `${String(opts.notBeforeEt.hour).padStart(2, "0")}:${String(opts.notBeforeEt.minute).padStart(2, "0")}`;
+    return { ok: false, code: "before_create_window", reason: `before the ${dateKey} ${hhmm} ET create window`, dateKey };
+  }
   return { ok: true, plan: { dateKey, openTs, closeTs } };
 }
 
@@ -230,9 +263,14 @@ function toE6(price: bigint, expo: number): bigint {
   return (price + d / 2n) / d;
 }
 
-/** Operator-sourced reference prices for one ET day (OPERATOR_STRIKE_PRICES_FILE / env JSON). */
+/**
+ * Operator-sourced prices for one ET market day (OPERATOR_STRIKE_PRICES(_FILE) / OPERATOR_CLOSE_PRICES(_FILE) JSON).
+ * Strike kind (D-026): `dateKey` = the MARKET day, prices = the previous trading day's official closes; the optional
+ * `closeDateKey` names that previous day and, when present, must equal prevTradingDay(dateKey).
+ */
 export interface OperatorDayPrices {
   dateKey: string;
+  closeDateKey?: string;
   source: string;
   pricesE6: Record<string, string>;
 }
@@ -240,21 +278,26 @@ export interface OperatorDayPrices {
 export type StrikeReferenceDecision = { ok: true; priceE6: bigint; source: string } | { ok: false; reason: string };
 
 /**
- * Fresh reference price for strike creation (replaces the hardcoded PRIOR_CLOSE_E6 / AAPL ≥ 300 placeholders).
- *   1. Hermes latest for the market feed, ≤ maxAgeSecs old at creation, price > 0, conf ≤ maxConfBps;
- *   2. else an operator price for THIS ET day (dateKey must match) with a non-empty source;
- *   3. else REFUSE — the caller skips that symbol and ALERTs. Never a static/hardcoded fallback.
- * Hermes is currently 403 for equity feeds (DLV-106), so (2) is the working path today.
+ * D-026: strike reference = the PREVIOUS trading day's close (`prevClose` = priorSessionClose(dateKey); 13:00 ET after
+ * an early close). Order:
+ *   1. Hermes price AT the prior close (/v2/updates/price/{closeTs}: first update with publish_time >= closeTs), accepted
+ *      iff feed matches, closeTs <= publish_time <= closeTs + maxSkewSecs, price > 0, conf <= maxConfBps;
+ *   2. else the sponsored on-chain PriceUpdateV2, same window (usually not posted at the close — fine);
+ *   3. else an operator prior close for THIS market day (dateKey must match; closeDateKey, if set, must be the prior day)
+ *      with a non-empty source, within ±operatorBandBps of the last known Pyth price;
+ *   4. else REFUSE — the caller skips that symbol and ALERTs. Never a static/hardcoded fallback.
+ * Hermes is currently 403 for equity feeds (DLV-106), so (3) is the working path today.
  */
 export function decideStrikeReference(opts: {
   symbol: string;
+  /** Market day (ET) the strikes are for. */
   dateKey: string;
-  nowSec: number;
+  prevClose: { dateKey: string; closeTs: number };
   feedIdHex?: string;
-  maxAgeSecs: number;
+  maxSkewSecs: number;
   maxConfBps: number;
   hermes?: { parsed: PullPrice } | { error: string };
-  /** Sponsored on-chain Pyth PriceUpdateV2 (PYTH_PRICE_FEEDS account; e.g. devnet shard-1), same freshness rule. */
+  /** Sponsored on-chain Pyth PriceUpdateV2 (PYTH_PRICE_FEEDS account; e.g. devnet shard-1), same prior-close rule. */
   onchain?: { parsed: PullPrice; account: string } | { error: string };
   operator?: OperatorDayPrices;
   /** Operator sanity band vs the last known Pyth price (default 2000 bps = ±20%). */
@@ -262,16 +305,18 @@ export function decideStrikeReference(opts: {
 }): StrikeReferenceDecision {
   const sym = opts.symbol.toUpperCase();
   const want = (opts.feedIdHex ?? "").replace(/^0x/, "").toLowerCase();
-  const fresh = (p: PullPrice, label: string): string | null => {
-    const age = opts.nowSec - p.publishTime;
+  const { dateKey: prevKey, closeTs } = opts.prevClose;
+  const atClose = (p: PullPrice, label: string): string | null => {
+    const skew = p.publishTime - closeTs;
     if (want && p.feedIdHex.replace(/^0x/, "").toLowerCase() !== want) return `${label} feed ${p.feedIdHex} != ${want}`;
-    if (age > opts.maxAgeSecs || age < -60) return `${label} price is ${age}s old (> ${opts.maxAgeSecs}s)`;
+    if (skew < 0) return `${label} publish_time ${p.publishTime} is before the ${prevKey} close ${closeTs}`;
+    if (skew > opts.maxSkewSecs) return `${label} publish_time is ${skew}s after the ${prevKey} close (> ${opts.maxSkewSecs}s skew)`;
     if (p.price <= 0n) return `${label} price is non-positive`;
     if ((p.conf * 10_000n) / p.price > BigInt(opts.maxConfBps)) return `${label} conf ratio > ${opts.maxConfBps} bps`;
     return null;
   };
   const whys: string[] = [];
-  // Last known Pyth price (even stale) = sanity anchor for operator prices (Reviewers nit: ±OPERATOR_BAND_BPS).
+  // Last known Pyth price (any time) = sanity anchor for operator prices (Reviewers nit: ±OPERATOR_BAND_BPS).
   let anchorE6: bigint | null = null;
   for (const c of [opts.hermes, opts.onchain]) {
     if (c && "parsed" in c && c.parsed.price > 0n && (!want || c.parsed.feedIdHex.replace(/^0x/, "").toLowerCase() === want)) {
@@ -280,21 +325,24 @@ export function decideStrikeReference(opts: {
     }
   }
   if (opts.hermes && "parsed" in opts.hermes) {
-    const bad = fresh(opts.hermes.parsed, "Hermes");
     const p = opts.hermes.parsed;
-    if (!bad) return { ok: true, priceE6: toE6(p.price, p.expo), source: `hermes publish_time=${p.publishTime} (age ${opts.nowSec - p.publishTime}s)` };
+    const bad = atClose(p, "Hermes");
+    if (!bad) return { ok: true, priceE6: toE6(p.price, p.expo), source: `hermes prior close ${prevKey} publish_time=${p.publishTime} (+${p.publishTime - closeTs}s)` };
     whys.push(bad);
   } else whys.push(opts.hermes ? `Hermes unavailable: ${opts.hermes.error}` : "Hermes not tried");
   if (opts.onchain && "parsed" in opts.onchain) {
     const p = opts.onchain.parsed;
-    const bad = fresh(p, `Pyth account ${opts.onchain.account.slice(0, 8)}…`);
-    if (!bad) return { ok: true, priceE6: toE6(p.price, p.expo), source: `pyth account ${opts.onchain.account} publish_time=${p.publishTime} (age ${opts.nowSec - p.publishTime}s)` };
+    const bad = atClose(p, `Pyth account ${opts.onchain.account.slice(0, 8)}…`);
+    if (!bad) return { ok: true, priceE6: toE6(p.price, p.expo), source: `pyth account ${opts.onchain.account} prior close ${prevKey} publish_time=${p.publishTime} (+${p.publishTime - closeTs}s)` };
     whys.push(bad);
   } else if (opts.onchain) whys.push(`Pyth account unavailable: ${opts.onchain.error}`);
   const why = whys.join("; ");
   const op = opts.operator;
-  if (!op) return { ok: false, reason: `${why}; no operator strike prices — set OPERATOR_STRIKE_PRICES_FILE for ${opts.dateKey}` };
-  if (op.dateKey !== opts.dateKey) return { ok: false, reason: `${why}; operator strike prices are for ${op.dateKey}, not ${opts.dateKey}` };
+  if (!op) return { ok: false, reason: `${why}; no operator prior closes — set OPERATOR_STRIKE_PRICES(_FILE) {dateKey:"${opts.dateKey}", closeDateKey:"${prevKey}", …}` };
+  if (op.dateKey !== opts.dateKey) return { ok: false, reason: `${why}; operator strike prices are for market day ${op.dateKey}, not ${opts.dateKey}` };
+  if (op.closeDateKey !== undefined && op.closeDateKey !== prevKey) {
+    return { ok: false, reason: `${why}; operator closeDateKey ${op.closeDateKey} is not the previous trading day ${prevKey} of ${opts.dateKey}` };
+  }
   if (!op.source || !op.source.trim()) return { ok: false, reason: `${why}; operator strike prices need a source` };
   const raw = op.pricesE6?.[sym];
   if (raw === undefined) return { ok: false, reason: `${why}; operator strike prices have no ${sym}` };

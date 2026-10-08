@@ -124,7 +124,10 @@ export interface AutomationConfig {
   symbols: string[];
   priorCloseE6: bigint;
   strikeOffsetsE6: number[];
-  createHourEt: number;
+  /** D-026: earliest ET wall time the calendar worker creates the day's markets (CREATE_FROM_ET, default 07:00). */
+  createFromEt: EtHourMinute;
+  /** D-026: the day's markets must all exist by this ET time (CREATE_DEADLINE_ET, default 08:00) — else ALERT once. */
+  createDeadlineEt: EtHourMinute;
   settleHourEt: number;
   pythPriceFeeds: Record<string, PublicKey>;
   pythFeedIds: Record<string, Buffer>;
@@ -142,17 +145,34 @@ export interface AutomationConfig {
   pythHermesApiKey: string | undefined;
   /** DLV-118: strike rounding step (micro-USD); null → $5 at/above $100, else $1. */
   strikeStepE6: bigint | null;
-  /** DLV-118: max age of a Hermes "latest" price used as the strike reference at creation. */
-  strikeRefMaxAgeSecs: number;
   /**
-   * DLV-118: operator-sourced reference prices (JSON {dateKey, source, pricesE6:{SYM:"<micro-USD>"}}), inline or a file
-   * path read at use time. `strike` = strike reference at the 9:30 ET open; `close` = admin_settle price at the close.
+   * D-026: a Pyth price (Hermes or the sponsored PriceUpdateV2) is the strike reference only if its publish_time is in
+   * [prior close, prior close + PRIOR_CLOSE_MAX_SKEW_SECS] (default 300, range 10..900).
+   */
+  priorCloseMaxSkewSecs: number;
+  /**
+   * DLV-118 / D-026: operator-sourced prices (JSON {dateKey, source, pricesE6:{SYM:"<micro-USD>"}}), inline or a file
+   * path read at use time. `strike` = the previous trading day's official closes for market day `dateKey` (optional
+   * `closeDateKey` = that previous day); `close` = admin_settle price at the close.
    * Used while Hermes is 403 for equity feeds (DLV-106); a valid Hermes price always wins.
    */
   operatorStrikePricesRaw: string;
   operatorStrikePricesFile: string;
   operatorClosePricesRaw: string;
   operatorClosePricesFile: string;
+}
+
+export interface EtHourMinute {
+  hour: number;
+  minute: number;
+}
+
+/** D-026: "HH:MM" (24 h, ET wall clock) → { hour, minute }; throws with the variable name on anything else. */
+export function parseEtHhMm(name: string, raw: string | undefined, def: string): EtHourMinute {
+  const t = (raw === undefined || raw.trim() === "" ? def : raw).trim();
+  const m = /^([01][0-9]|2[0-3]):([0-5][0-9])$/.exec(t);
+  if (!m) throw new Error(`${name} must be HH:MM (24 h, America/New_York), e.g. ${def} (got ${JSON.stringify(raw)})`);
+  return { hour: Number(m[1]), minute: Number(m[2]) };
 }
 
 function resolveIdlPath(raw: string): string {
@@ -226,6 +246,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
   if (cluster === "localnet" && !isLoopbackRpc(rpcUrl)) {
     throw new Error(`SOLANA_CLUSTER=localnet requires a loopback SOLANA_RPC_URL (127.0.0.1 / localhost / ::1); got a non-loopback host`);
   }
+  // D-026: create window [CREATE_FROM_ET, 16:00) ET; deadline CREATE_DEADLINE_ET. from <= deadline < 16:00 ET close.
+  const createFromEt = parseEtHhMm("CREATE_FROM_ET", env.CREATE_FROM_ET, "07:00");
+  const createDeadlineEt = parseEtHhMm("CREATE_DEADLINE_ET", env.CREATE_DEADLINE_ET, "08:00");
+  const mins = (x: EtHourMinute) => x.hour * 60 + x.minute;
+  if (mins(createFromEt) >= 16 * 60) throw new Error("CREATE_FROM_ET must be before the 16:00 ET close");
+  if (mins(createDeadlineEt) >= 16 * 60) throw new Error("CREATE_DEADLINE_ET must be before the 16:00 ET close");
+  if (mins(createFromEt) > mins(createDeadlineEt)) throw new Error("CREATE_FROM_ET must not be after CREATE_DEADLINE_ET");
   // Nit (Reviewers !91): validate the strike step at load, not mid-create.
   let strikeStepE6: bigint | null = null;
   if (env.STRIKE_STEP_E6 !== undefined && env.STRIKE_STEP_E6.trim() !== "") {
@@ -251,7 +278,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
     strikeOffsetsE6: parseIntList(env.STRIKE_OFFSETS_E6 ?? "-5000000,0,5000000", [
       -5_000_000, 0, 5_000_000,
     ]),
-    createHourEt: Number(env.CREATE_HOUR_ET ?? "8"),
+    createFromEt,
+    createDeadlineEt,
     settleHourEt: Number(env.SETTLE_HOUR_ET ?? "16"),
     pythPriceFeeds,
     pythFeedIds,
@@ -271,7 +299,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
     pythHermesUrl: env.PYTH_HERMES_URL || "https://hermes.pyth.network",
     pythHermesApiKey: env.PYTH_HERMES_API_KEY || undefined,
     strikeStepE6,
-    strikeRefMaxAgeSecs: intInRange("STRIKE_REF_MAX_AGE_SECS", env.STRIKE_REF_MAX_AGE_SECS, 300, 10, 3600),
+    priorCloseMaxSkewSecs: intInRange("PRIOR_CLOSE_MAX_SKEW_SECS", env.PRIOR_CLOSE_MAX_SKEW_SECS, 300, 10, 900),
     operatorStrikePricesRaw: env.OPERATOR_STRIKE_PRICES ?? "",
     operatorStrikePricesFile: env.OPERATOR_STRIKE_PRICES_FILE ?? "",
     operatorClosePricesRaw: env.OPERATOR_CLOSE_PRICES ?? "",

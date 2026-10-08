@@ -1,3 +1,17 @@
+## 2026-10-08T14:41:00-05:00 — Engineers: daily create by 08:00 ET on the prior close (D-026, DLV-120)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers (Claude Code takeover from Grok Bot) |
+| **Branch** | `feat/create-0800-prior-close` from `origin/main` @ `a5146d4` (Merge DLV-119); committed locally, not pushed, no MR |
+| **Source** | Debu decision 2026-10-08 (D-026), driven by the Peak6 PRD: "Market creation by 8:00 AM ET", "markets created before market open daily", "oracle price staleness under 5 minutes". |
+
+- **Change:** the calendar worker creates in [`CREATE_FROM_ET` 07:00, 16:00) ET (`sameDaySession({ notBeforeEt })`, code `before_create_window`; `requireOpen` kept for other callers) and logs `ALERT create deadline 08:00 ET missed for <day>` once per day if the day is not done by `CREATE_DEADLINE_ET` (also on a late start); retries continue until the close. Expiry unchanged (16:00 ET same day).
+- **Strike reference = previous NYSE trading day's close:** `prevTradingDay` / `priorSessionClose` in `marketDay.ts` (holidays skipped; an early-close day counts, its reference close is **13:00 ET**; unknown year throws). Order: Hermes `/v2/updates/price/{prior close}` (accept iff publish_time in [close, close + `PRIOR_CLOSE_MAX_SKEW_SECS` 300], conf ≤ 500 bps, feed match) → sponsored `PriceUpdateV2` in the same window (owner + Full checks unchanged) → operator prior closes (`dateKey` = market day, optional `closeDateKey` must be the prior day, ±20 % band) → refuse + ALERT. `STRIKE_REF_MAX_AGE_SECS`, `CREATE_HOUR_ET` and `schedule.isCreateWindow` removed (nothing else used them). `ops-cli market-day --strikes` uses the same rule and reports `prevDateKey` / `prevCloseTs`.
+- **Ops:** `ops/operator-prices.cjs strike` = the previous day's official closes, allowed from that close until the market day's 08:00 ET (the evening before is fine; a weekend sets Monday on Friday's close); writes `closeDateKey`. `ops/lib/nyse-calendar.cjs` gains `prevTradingDay` / `sessionCloseTsFor` (parity test).
+- **TDD:** `d026-create-0800.test.ts` (22) written red first, plus updated `market-day`, `same-day-calendar`, `dlv119-review`, `operator-prices-cli`, `schedule` tests. Docs: D-026, SPEC §2/§3.3, TRACKER DLV-120…123, RAILWAY_STAGING, automation README / env examples, run-staging wording.
+- **Not done here:** Phoenix books are not yet gated to the 09:30 session (DLV-121) — markets now exist before the open; worker book creation (DLV-122); settle-by-16:05 on the operator path (DLV-123). No Railway, key or variable change.
+
 ## 2026-10-08T14:12:00-05:00 — Engineers: !91 merged; Railway redeploy; operator prices; one creator; Reviewers follow-up (DLV-119, MR !92)
 
 - **Merge:** !91 (DLV-118) merged pinned to `8f0f54e` → `4521ee0` after Meridian Reviewers' approval (report `/workspace/meridian-review-mr91.md`).

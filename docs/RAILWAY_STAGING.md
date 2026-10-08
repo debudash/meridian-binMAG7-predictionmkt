@@ -39,24 +39,28 @@ The devnet program and books need ≈13 SOL (program ≈2.7 SOL rent + ≈2.7 tr
 
 `/workspace/meridian-staging-ops/`: `devnet-bootstrap.cjs` (idempotent bootstrap), `settle-test.cjs` (mint / settle / redeem on the short market), `run-staging.sh` (wait for SOL → deploy → bootstrap → e2e → settle). State: `/workspace/meridian-staging-state.json`.
 
-## 0b. Daily 0DTE markets on staging (DLV-118 / DLV-119)
+## 0b. Daily 0DTE markets on staging (DLV-118 / DLV-119 / D-026)
 
-- **One creator:** the Railway `automation` worker creates each trading day's MAG7 markets at the 9:30 ET open (expiry
-  16:00 ET same day). The box bootstrap (`ops/run-staging.sh` → `devnet-bootstrap.cjs`) does **not**
+- **One creator:** the Railway `automation` worker creates each trading day's MAG7 markets from 07:00 ET, **by 08:00 ET**
+  (D-026; `ALERT create deadline 08:00 ET missed …` once a day if not; it keeps retrying until 16:00), expiry 16:00 ET
+  same day. The box bootstrap (`ops/run-staging.sh` → `devnet-bootstrap.cjs`) does **not**
   (`BOOTSTRAP_DAILY_MARKETS=0`, default); it still funds wallets / mUSDC / settler / pauser, inits Config and runs the
   20-min market on START (capped at today's close, L-4).
 - **Refused days:** weekends, NYSE holidays and NYSE **early-close** days (13:00 ET: 2026-11-27, 2026-12-24,
   2027-11-26, 2028-07-03, 2028-11-24) — the worker logs `ALERT skip create — early_close`. 13:00 handling is a
   mainnet Todo.
-- **Strike reference:** Hermes latest (first; it served AAPL on 2026-10-08) → a fresh receiver-owned, Full-verified
-  `PYTH_PRICE_FEEDS` account → the operator prices below → otherwise no market + `ALERT`.
+- **Strike reference (D-026) = the previous trading day's close** (13:00 ET after an early close): Hermes price at that
+  close (publish_time within `PRIOR_CLOSE_MAX_SKEW_SECS`, default 300 s) → a receiver-owned, Full-verified
+  `PYTH_PRICE_FEEDS` account posted at that close → the operator prior closes below → otherwise no market + `ALERT`.
 - **Operator prices** (Debu-approved while Hermes lacks equities) live in the `automation` variables
-  `OPERATOR_STRIKE_PRICES` / `OPERATOR_CLOSE_PRICES` (JSON `{dateKey, source, pricesE6}`; the source is logged). The worker
+  `OPERATOR_STRIKE_PRICES` / `OPERATOR_CLOSE_PRICES` (JSON `{dateKey, source, pricesE6}`; strike adds `closeDateKey` = the
+  previous trading day; the source is logged). The worker
   reads them **at start**, so the box command sets the variable and then redeploys `automation`:
 
   ```bash
-  # before the 09:30 ET open (08:30 CT) — all 7 tickers, real prices, where they came from:
-  node ops/operator-prices.cjs strike --source "Nasdaq pre-market last sale 09:15 ET" \
+  # strikes = the previous trading day's official closes; any time from that close until 08:00 ET (07:00 CT) on the
+  # market day — e.g. the evening before. All 7 tickers, real prices, where they came from:
+  node ops/operator-prices.cjs strike --source "Nasdaq official close 2026-10-07" \
     AAPL=… MSFT=… GOOGL=… AMZN=… NVDA=… META=… TSLA=…
   # at/after the 16:00 ET close (15:00 CT) — official closes, for admin_settle when pull settle can't:
   node ops/operator-prices.cjs close --source "Nasdaq official closing price" AAPL=… MSFT=… GOOGL=… AMZN=… NVDA=… META=… TSLA=…

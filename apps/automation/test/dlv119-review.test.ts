@@ -63,7 +63,7 @@ describe("DLV-119 M-1: NYSE early-close days (13:00 ET) are refused with an ALER
   });
 
   it("sameDaySession refuses an early-close day (even mid-morning) and nextTradingDay skips it", () => {
-    const r = sameDaySession(sec(utc(2026, 11, 27, 15)), { requireOpen: true });
+    const r = sameDaySession(sec(utc(2026, 11, 27, 15)), { notBeforeEt: { hour: 7, minute: 0 } });
     expect(r).to.include({ ok: false, code: "early_close", dateKey: "2026-11-27" });
     expect(nextTradingDay("2026-11-25")).to.equal("2026-11-30");
     expect(nextTradingDay("2026-12-23")).to.equal("2026-12-28");
@@ -74,7 +74,7 @@ describe("DLV-119 M-1: NYSE early-close days (13:00 ET) are refused with an ALER
     const state = createCalendarState();
     const { logs } = await captureLogs(() => runMorningCreate({
       cfg: devnetCfg({ OPERATOR_STRIKE_PRICES: op("2026-11-27") }), program: {} as any, authority: Keypair.generate(), state,
-      now: utc(2026, 11, 27, 15), listOpen: async () => [], hermesLatest: async () => { throw new Error("403"); },
+      now: utc(2026, 11, 27, 15), listOpen: async () => [], hermesAt: async () => { throw new Error("403"); },
       create: async (s) => (created.push(s.symbol), { market: Keypair.generate().publicKey, signature: "x" }),
     }));
     expect(created).to.deep.equal([]);
@@ -111,7 +111,7 @@ describe("DLV-119 nits: 2028 calendar, horizon ALERT, STRIKE_STEP_E6, operator s
   it("operator strike must be within ±20% of the last known Pyth price when one exists (stale is fine as a sanity anchor)", () => {
     const nowSec = sec(utc(2026, 10, 8, 13, 31));
     const stale = { feedIdHex: FEED_HEX, price: 22700000000n, conf: 1000000n, expo: -8, publishTime: nowSec - 86400, prevPublishTime: nowSec - 86401 };
-    const base = { symbol: "AAPL", dateKey: "2026-10-08", nowSec, feedIdHex: FEED_HEX, maxAgeSecs: 300, maxConfBps: 500, hermes: { error: "403" } as const, onchain: { parsed: stale, account: "Acct" } };
+    const base = { symbol: "AAPL", dateKey: "2026-10-08", prevClose: { dateKey: "2026-10-07", closeTs: CLOSE_1008 - 86400 }, feedIdHex: FEED_HEX, maxSkewSecs: 300, maxConfBps: 500, hermes: { error: "403" } as const, onchain: { parsed: stale, account: "Acct" } };
     const bad = decideStrikeReference({ ...base, operator: { dateKey: "2026-10-08", source: "op", pricesE6: { AAPL: "400000000" } } });
     expect(bad.ok).to.equal(false);
     expect(!bad.ok && bad.reason).to.match(/band|±20%/);
@@ -127,7 +127,7 @@ describe("DLV-119 L-1 / L-3: no blind create; failed create ALERTs and the day s
     const { logs } = await captureLogs(() => runMorningCreate({
       cfg: devnetCfg({ OPERATOR_STRIKE_PRICES: op("2026-10-08") }), program: {} as any, authority: Keypair.generate(), state,
       now: utc(2026, 10, 8, 13, 31), listOpen: async () => { throw new Error("429 Too Many Requests"); },
-      hermesLatest: async () => { throw new Error("403"); },
+      hermesAt: async () => { throw new Error("403"); },
       create: async (s) => (created.push(s.symbol), { market: Keypair.generate().publicKey, signature: "x" }),
     }));
     expect(created).to.deep.equal([]);
@@ -142,7 +142,7 @@ describe("DLV-119 L-1 / L-3: no blind create; failed create ALERTs and the day s
     const created: string[] = [];
     const runOnce = (prices: Record<string, string>) => captureLogs(() => runMorningCreate({
       cfg: devnetCfg({ OPERATOR_STRIKE_PRICES: op("2026-10-08", prices) }), program: {} as any, authority: Keypair.generate(), state,
-      now: utc(2026, 10, 8, 13, 31), listOpen: async () => onChain, hermesLatest: async () => { throw new Error("403"); },
+      now: utc(2026, 10, 8, 13, 31), listOpen: async () => onChain, hermesAt: async () => { throw new Error("403"); },
       create: async (s) => {
         if (s.symbol === "AAPL" && failAapl) throw new Error("Attempt to debit an account but found no record of a prior credit");
         created.push(`${s.symbol}:${s.strikePriceE6.toString()}`);
@@ -172,7 +172,7 @@ describe("DLV-119 L-5: localnet-only paths need a loopback RPC", () => {
 describe("DLV-119 L-6: on-chain strike reference = Pyth receiver owner + Full verification; --strikes needs a feed id", () => {
   const nowSec = sec(utc(2026, 10, 8, 13, 31));
   const ref = (acct: { data: Buffer; owner: PublicKey } | null) =>
-    strikeReferenceFor(devnetCfg(), "AAPL", "2026-10-08", nowSec, null, async () => { throw new Error("403"); }, async () => acct);
+    strikeReferenceFor(devnetCfg(), "AAPL", "2026-10-08", null, async () => { throw new Error("403"); }, async () => acct);
   it("wrong owner → not used", async () => {
     const r = await ref({ data: pxAccount(nowSec), owner: Keypair.generate().publicKey });
     expect(r.ok).to.equal(false);
@@ -183,8 +183,8 @@ describe("DLV-119 L-6: on-chain strike reference = Pyth receiver owner + Full ve
     expect(r.ok).to.equal(false);
     expect(!r.ok && r.reason).to.match(/Full|verif/);
   });
-  it("receiver-owned + Full + fresh → used", async () => {
-    const r = await ref({ data: pxAccount(nowSec), owner: PYTH_RECEIVER_PROGRAM_ID });
+  it("receiver-owned + Full + posted at the prior close → used", async () => {
+    const r = await ref({ data: pxAccount(CLOSE_1008 - 86400 + 60), owner: PYTH_RECEIVER_PROGRAM_ID });
     expect(r).to.include({ ok: true, priceE6: 414310000n });
   });
   it("planDayForOps refuses a symbol without a PYTH_FEED_IDS entry", async () => {
@@ -209,7 +209,7 @@ describe("DLV-119 L-8: no static PHOENIX_MARKETS binding for new daily markets",
     const specs: any[] = [];
     const { logs } = await captureLogs(() => runMorningCreate({
       cfg, program: {} as any, authority: Keypair.generate(), state: createCalendarState(), now: utc(2026, 10, 8, 13, 31),
-      listOpen: async () => [], hermesLatest: async () => { throw new Error("403"); },
+      listOpen: async () => [], hermesAt: async () => { throw new Error("403"); },
       create: async (s) => (specs.push(s), { market: Keypair.generate().publicKey, signature: "x" }),
     }));
     expect(specs.every((s) => s.phoenixMarket.equals(PublicKey.default))).to.equal(true);

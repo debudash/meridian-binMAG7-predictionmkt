@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 /**
- * Set TODAY's operator-sourced equity prices on Railway meridian-staging / automation (Debu-approved while Hermes
+ * Set operator-sourced equity prices on Railway meridian-staging / automation (Debu-approved while Hermes
  * returns 403 for equities, DLV-106). Never invents prices: the operator types real ones plus where they came from.
  *
- *   # strikes — before the 09:30 ET open (08:30 CT), all 7 MAG7, today's ET date:
- *   node ops/operator-prices.cjs strike --source "Nasdaq pre-market last sale 09:15 ET" \
+ *   # strikes (D-026) = the PREVIOUS trading day's official closes, all 7 MAG7. Allowed from that close (16:00 ET; 13:00
+ *   # after an early close) until the market day's 08:00 ET create deadline (07:00 CT) — e.g. the evening before:
+ *   node ops/operator-prices.cjs strike --source "Nasdaq official close 2026-10-07" \
  *     AAPL=227.31 MSFT=414.20 GOOGL=162.00 AMZN=186.05 NVDA=138.50 META=572.10 TSLA=248.75
- *   # closes — at/after the 16:00 ET close (15:00 CT):
+ *   # closes — at/after the 16:00 ET close (15:00 CT), today's ET date:
  *   node ops/operator-prices.cjs close --source "Nasdaq official closing price" AAPL=... (all 7)
  *
- * Flags: --dry-run (validate + show what would be set, no Railway call) · --date YYYY-MM-DD (must be today ET) ·
+ * Flags: --dry-run (validate + show what would be set, no Railway call) · --date YYYY-MM-DD (the market day: strike =
+ *        today before 08:00 ET, else the next session; close = today ET) ·
  *        --no-restart (set only; the worker reads env at START, so it only takes effect on the next redeploy) ·
  *        --clear <strike|close> (empty the variable).
  * Needs RAILWAY_PROJECT_TOKEN (meridian-staging) in the environment; RAILWAY_API_TOKEN is removed for the call.
@@ -23,7 +25,7 @@ const op = require("./lib/operator-prices.cjs");
 
 function usage(msg) {
   if (msg) console.error(`error: ${msg}`);
-  console.error("usage: operator-prices.cjs <strike|close> --source \"<where from>\" AAPL=… MSFT=… GOOGL=… AMZN=… NVDA=… META=… TSLA=… [--dry-run] [--date YYYY-MM-DD] [--no-restart]\n       operator-prices.cjs --clear <strike|close> [--no-restart]");
+  console.error("usage: operator-prices.cjs <strike|close> --source \"<where from, e.g. Nasdaq official close 2026-10-07>\" AAPL=… MSFT=… GOOGL=… AMZN=… NVDA=… META=… TSLA=… [--dry-run] [--date YYYY-MM-DD] [--no-restart]\n       operator-prices.cjs --clear <strike|close> [--no-restart]");
   process.exit(2);
 }
 
@@ -61,13 +63,13 @@ const kind = argv.shift();
 if (!kind) usage("kind missing");
 let r;
 try {
-  r = op.validateOperatorPrices({ kind, source, dateKey, prices: op.parsePriceArgs(argv), nowSec: Math.floor(Date.now() / 1000) });
+  r = op.validateOperatorPrices({ kind, source, dateKey, prices: op.parsePriceArgs(argv), nowSec: Math.floor(Date.now() / 1000), deadlineEt: process.env.CREATE_DEADLINE_ET || "08:00" });
 } catch (e) {
   console.error(String(e.message || e));
   process.exit(3);
 }
 const j = JSON.parse(r.json);
-console.log(`${r.varName} for ${r.dateKey} — source: ${j.source}`);
+console.log(`${r.varName} for ${r.dateKey}${j.closeDateKey ? ` (prior close ${j.closeDateKey})` : ""} — source: ${j.source}`);
 for (const [s, v] of Object.entries(j.pricesE6)) console.log(`  ${s.padEnd(5)} ${(Number(v) / 1e6).toFixed(6)}`);
 for (const w of r.warnings) console.log(`WARNING ${w}`);
 if (dry) { console.log("[dry-run] valid — nothing set"); process.exit(0); }

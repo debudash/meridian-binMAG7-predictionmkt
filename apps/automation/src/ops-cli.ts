@@ -31,8 +31,9 @@
  *   node dist/ops-cli.js market-day   [--now <unix>] [--strikes]          DLV-118, no RPC/keys: today's session JSON
  *                                                                        {dateKey, openTs, closeTs=16:00 ET}; exit 5 after the
  *                                                                        close / weekend / holiday (never rolls). --strikes adds
- *                                                                        one ATM strike per STRIKE_SYMBOLS from a fresh reference
- *                                                                        (Hermes latest, else OPERATOR_STRIKE_PRICES(_FILE)).
+ *                                                                        one ATM strike per STRIKE_SYMBOLS on the previous trading
+ *                                                                        day's close (D-026: Hermes at the prior close, else the
+ *                                                                        sponsored account, else OPERATOR_STRIKE_PRICES(_FILE)).
  * A missing --state file means "no books yet" (fresh staging), not an error.
  * Without --state, books come from the chain (every StrikeMarket with a Phoenix book; needs the prod IDL).
  */
