@@ -147,6 +147,20 @@ export function buildFixtureMarkets(nowSec = Math.floor(Date.now() / 1000)): Mar
   ];
 }
 
+/**
+ * Book to render: the live Phoenix ladder when we have one; otherwise the fixture ladder only
+ * where fixtures are allowed (localnet/dev, DLV-084), else an empty book.
+ */
+export function displayBook(
+  liveBook: OrderBookSnapshot | null,
+  market: MarketView,
+  allowFixtures: boolean,
+): OrderBookSnapshot {
+  if (liveBook) return liveBook;
+  if (allowFixtures) return fixtureBook(market);
+  return { bids: [], asks: [], sequence: 0, updatedAt: Date.now() };
+}
+
 export function fixtureBook(market: MarketView): OrderBookSnapshot {
   const mid = market.yesMid ?? 0.5;
   const tick = market.tickSize;

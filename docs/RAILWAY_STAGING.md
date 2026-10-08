@@ -25,7 +25,7 @@ Debu asked for staging on 2026-10-07 and supplied a Railway workspace token (sto
 
 ### Blocker: devnet SOL
 
-The devnet program and books need ≈13 SOL (program ≈2.7 SOL rent + ≈2.7 transient buffer, ≈1.65 SOL rent per Phoenix book, 2 SOL for Debu's Phantom). Public `requestAirdrop` returns 429 "airdrop limit today" from both the ops box and Railway; the PoW faucet needs SOL for fees; web faucets need a GitHub login. Until the payer is funded, the program is not on devnet and **the web falls back to fixture markets** (banner shown). Fund `2DTwL4KoEoGgThD6xRKtms26invuVGgh6sL8hbonkzpa` (e.g. faucet.solana.com, 2 × 5 SOL with GitHub); a box pipeline (`run-staging.sh`) then deploys, bootstraps books, funds Debu's wallet, runs Buy Yes / Buy No and the short-expiry settle check without further Railway changes (all env is already final).
+The devnet program and books need ≈13 SOL (program ≈2.7 SOL rent + ≈2.7 transient buffer, ≈1.65 SOL rent per Phoenix book, 2 SOL for Debu's Phantom). Public `requestAirdrop` returns 429 "airdrop limit today" from both the ops box and Railway; the PoW faucet needs SOL for fees; web faucets need a GitHub login. Until the payer is funded, the program is not on devnet and the web shows an empty / "Markets unavailable" state (fixtures are localnet-only since DLV-084). Fund `2DTwL4KoEoGgThD6xRKtms26invuVGgh6sL8hbonkzpa` (e.g. faucet.solana.com, 2 × 5 SOL with GitHub); a box pipeline (`run-staging.sh`) then deploys, bootstraps books, funds Debu's wallet, runs Buy Yes / Buy No and the short-expiry settle check without further Railway changes (all env is already final).
 
 ### Findings from the dry run (prod `.so` on an isolated validator with devnet Phoenix/PSM and cloned devnet Pyth accounts)
 
@@ -33,7 +33,7 @@ The devnet program and books need ≈13 SOL (program ≈2.7 SOL rent + ≈2.7 tr
 - ❌ **Permissionless settle with real Pyth fails: `InvalidPythAccount` (pyth.rs, prod decoder).** The prod build decodes the *legacy* Pyth `Price` layout (magic `0xa1b2c3d4`, ≥240 bytes) but the D-019 accounts are receiver `PriceUpdateV2` accounts (134 bytes). Prod/mainnet blocker — program fix needed (decode PriceUpdateV2 + owner check `rec5EK…` + feed-id compare + publish-time staleness).
 - ⚠️ The D-019 shard-0 MAG7 accounts are **stale** on both clusters (2026-10-07: devnet AAPL/MSFT/NVDA/GOOGL/AMZN/META ≈97 days, TSLA ≈35 h; mainnet ≈26–54 days). A settler must post fresh updates (Hermes `/v2/updates` is now API-key gated) or Pyth must re-sponsor; re-pin per SCHEMA §3.1 caveat.
 - Staging settlement therefore uses **admin_settle** (Policy A consistent price) after `admin_settle_delay_secs`; automation's real-Pyth settle attempts will log `InvalidPythAccount` until the program fix lands.
-- ⚠️ Web falls back to fixtures whenever RPC GPA fails or is empty, on any cluster. For prod, disable the fixture fallback off-localnet.
+- ✅ ~~Web falls back to fixtures whenever RPC GPA fails or is empty, on any cluster~~ — **fixed by DLV-084**: fixture markets / fixture order book only on `localnet` / `localhost` / `custom`; on devnet/mainnet an RPC failure shows "Markets unavailable" and an empty read shows "No markets on Solana devnet yet." Staging shows that empty state until the program + markets exist.
 
 ### Box-side ops (not in git; keys `chmod 600` under `/workspace/meridian-staging-keys/`)
 
