@@ -6,7 +6,12 @@
  * env (optional): NBOOKS (Phoenix books to create, default 3), SHORT_MIN (short-expiry minutes, default 20),
  *      DRYRUN_LABEL (free text tag written to state)
  *      DRY_RUN=1          print the plan (PDAs, books, wallet funding, short-market timing) and exit: no RPC, no transactions
- *      TODAY_PLAN         (required) JSON from `ops-cli market-day --strikes`: today's 16:00 ET close + ATM strikes (DLV-118)
+ *      TODAY_PLAN         JSON from `ops-cli market-day --strikes`: today's 16:00 ET close + ATM strikes (DLV-118). Needed for the
+ *                         20-min market (ATM strike, L-4 cap) and, when BOOTSTRAP_DAILY_MARKETS=1, the daily markets.
+ *      BOOTSTRAP_DAILY_MARKETS  0 (default) = ONE CREATOR: the Railway automation worker creates the daily markets and
+ *                         this bootstrap does not (wallets / mUSDC / settler / pauser / Config / 20-min market only).
+ *                         1 = also create today's markets + books (only when the worker is NOT creating). Read from the
+ *                         env, else from $STAGING_ENV_FILE / ./staging.env at run time (a running watcher honours it).
  *      SHORT_PHASE        all (default) | skip (today's markets + wallets only) | only (just the 20-min AAPL ATM market)
  *      SHORT_BOOK         1 (default) = give the 20-min AAPL ATM market a Phoenix book + maker ladder (STAGING_TEST_PLAN §1.7b)
  *      SHORT_SETUP_SECS   extra seconds added to the short expiry to cover book + ladder setup (default 180)
@@ -84,7 +89,16 @@ const FEEDS = {
 };
 // DLV-118 (SPEC §1/§3.3): markets expire at TODAY's 16:00 ET close with strikes from a fresh reference price.
 // TODAY_PLAN = JSON from `ops-cli market-day --strikes` (run-staging.sh writes it). No fixed next-close date, no AAPL ≥ 300.
-const { bootstrapPlanFromToday } = require("./lib/today-plan.cjs");
+const { bootstrapPlanFromToday, shortExpiryFor, sameDayDuplicates } = require("./lib/today-plan.cjs");
+function envOrStagingEnv(k) {
+  if (process.env[k] !== undefined) return process.env[k];
+  try {
+    const f = process.env.STAGING_ENV_FILE || require("path").join(__dirname, "staging.env");
+    const m = fs.readFileSync(f, "utf8").match(new RegExp("^\\s*(?:export\\s+)?" + k + "=(.*)$", "m"));
+    return m ? m[1].trim().replace(/^["']|["']$/g, "") : undefined;
+  } catch { return undefined; }
+}
+const DAILY_MARKETS = envOrStagingEnv("BOOTSTRAP_DAILY_MARKETS") === "1";
 const TODAY_PLAN = process.env.TODAY_PLAN;
 function todayPlan(nowSec) {
   if (!TODAY_PLAN) throw new Error("TODAY_PLAN required (run-staging.sh: ops-cli market-day --strikes > $TODAY_PLAN)");
@@ -221,9 +235,10 @@ function dryRun() {
     `${PAUSER_PAYER_FALLBACK ? ", payer transfer only if the faucet refuses" : ", NO payer fallback"}; every new/existing book: PSM NameSuccessor(payer → pauser) + ClaimSeatManagerAuthority right after the book is created`);
   else console.log(`  pauser: MISSING (${PAUSER_KEY}) — books would stay on the payer's seat-manager authority and could NOT be paused by automation`);
   let tp = null;
-  try { tp = todayPlan(Math.floor(Date.now() / 1000)); } catch (e) { console.log(`  today's markets: NONE — ${e.message}`); }
+  if (!DAILY_MARKETS) console.log("  daily markets: OFF (BOOTSTRAP_DAILY_MARKETS!=1) — the Railway worker is the only creator");
+  try { tp = todayPlan(Math.floor(Date.now() / 1000)); } catch (e) { console.log(`  today's plan: NONE — ${e.message}`); }
   if (tp) console.log(`  session ${tp.dateKey}: expiry = 16:00 ET today = ${ct(tp.closeTs)} (DLV-118; never a next-close date)`);
-  if (tp && SHORT_PHASE !== "only") tp.regular.forEach((p) => {
+  if (tp && DAILY_MARKETS && SHORT_PHASE !== "only") tp.regular.forEach((p) => {
     console.log(`  market ${p.symbol} ≥ ${p.strike} (ref ${Number(p.refE6) / 1e6}, ${p.refSource}) exp ${ct(p.expiry)} → ${smPda(p.symbol, p.expiry, p.strike).toBase58()}  book=${p.book}${p.book ? ` (Phoenix Yes/mUSDC, maker 3000 pairs, 5-level ladder @ fair ${p.fair})` : ""}`);
   });
   if (tp && SHORT_PHASE !== "skip") {
@@ -363,15 +378,29 @@ async function main() {
   // 3. Strike markets (+ short-expiry settle-test market)
   //    DLV-118: today's markets (expiry 16:00 ET today, ATM strikes from TODAY_PLAN). SHORT_PHASE=skip → today's markets only;
   //    =only → just the 20-min market (run-staging.sh starts it on Debu's START signal).
+  //    ONE CREATOR: daily markets only with BOOTSTRAP_DAILY_MARKETS=1 (default off — the Railway worker creates them).
   const nowChain = await conn.getBlockTime(await conn.getSlot());
-  const tp = todayPlan(nowChain);
-  state.todayPlan = { dateKey: tp.dateKey, closeTs: tp.closeTs }; save();
-  const plan = SHORT_PHASE === "only" ? [] : tp.regular.map((p) => ({ ...p }));
+  const needPlan = (SHORT_PHASE !== "only" && DAILY_MARKETS) || (SHORT_PHASE !== "skip" && !state.shortPlan);
+  const tp = needPlan ? todayPlan(nowChain) : null;
+  if (tp) { state.todayPlan = { dateKey: tp.dateKey, closeTs: tp.closeTs }; save(); }
+  if (SHORT_PHASE !== "only" && !DAILY_MARKETS) console.log("\ndaily markets: OFF (BOOTSTRAP_DAILY_MARKETS!=1) — the Railway worker is the only creator; no daily markets or books here");
+  const plan = SHORT_PHASE === "only" || !DAILY_MARKETS ? [] : tp.regular.map((p) => ({ ...p }));
+  if (plan.length) {
+    // L-2: never double a same-day market another creator (the Railway worker, an earlier run) already made.
+    const existing = (await pk.account.strikeMarket.all()).map((m) => ({
+      symbol: Buffer.from(m.account.equitySymbol).toString("utf8").replace(/[\s\0]+$/, ""), expiry: Number(m.account.expiryTs.toString()), market: m.publicKey.toBase58() }));
+    const withPda = plan.map((p) => ({ ...p, market: PublicKey.findProgramAddressSync([Buffer.from("strike_market"), Buffer.from(pad8(p.symbol)), i64(p.expiry), u64(BigInt(Math.round(p.strike * 1e6)))], PROGRAM_ID)[0].toBase58() }));
+    const dups = sameDayDuplicates(withPda, existing);
+    for (const d of dups) console.log(`  ALERT skip ${d.symbol}: same-day market(s) already exist ${d.existing.join(",")} (L-2: no duplicate set / book)`);
+    const skip = new Set(dups.map((d) => d.symbol));
+    for (let i = plan.length - 1; i >= 0; i--) if (skip.has(plan[i].symbol)) plan.splice(i, 1);
+  }
   if (SHORT_PHASE !== "skip") {
     if (!state.shortPlan) {
-      // Expiry is fixed at creation (it is a PDA seed): chain time now + SHORT_MIN + setup buffer for the book + ladder.
+      // Expiry is fixed at creation (it is a PDA seed): chain time now + SHORT_MIN + setup buffer for the book + ladder,
+      // capped at today's 16:00 ET close (L-4: refused when it would not fit).
       const s = await conn.getSlot(); const bt = await conn.getBlockTime(s);
-      state.shortPlan = { symbol: tp.short.symbol, strike: tp.short.strike, expiry: bt + SHORT_MIN * 60 + SHORT_SETUP_SECS, book: SHORT_BOOK, fair: 0.5, short: true, startedChainTs: bt };
+      state.shortPlan = { symbol: tp.short.symbol, strike: tp.short.strike, expiry: shortExpiryFor(tp, bt, SHORT_MIN, SHORT_SETUP_SECS), book: SHORT_BOOK, fair: 0.5, short: true, startedChainTs: bt };
       save();
     }
     plan.push(state.shortPlan);

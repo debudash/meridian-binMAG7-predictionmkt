@@ -30,4 +30,31 @@ function bootstrapPlanFromToday(today, { nbooks, feeds, nowSec }) {
   return { dateKey: today.dateKey, closeTs: today.closeTs, regular, short: { symbol: s.symbol, strike: Number(s.strikeE6) / 1e6 } };
 }
 
-module.exports = { bootstrapPlanFromToday };
+/**
+ * DLV-119 / Reviewers L-4: the 20-min settle-test market expires at now + shortMin + setup, but never after TODAY's
+ * 16:00 ET close (a later expiry has no regular-session Pyth update to settle on). Throws when it would not fit.
+ */
+function shortExpiryFor(today, nowSec, shortMin, setupSecs) {
+  if (!today || !Number.isInteger(today.closeTs)) throw new Error("today's close unknown — 20-min market refused");
+  const exp = nowSec + shortMin * 60 + setupSecs;
+  if (exp > today.closeTs) {
+    throw new Error(`20-min market would expire ${exp} after today's 16:00 ET close ${today.closeTs} (L-4) — refused; START at least ${shortMin} min + ${setupSecs}s before the close`);
+  }
+  return exp;
+}
+
+/**
+ * DLV-119 / Reviewers L-2: planned markets that would duplicate an existing same-day market (same symbol + expiry,
+ * different PDA — e.g. the Railway worker already created that symbol at another strike). Callers skip them.
+ * plan / existing: [{ symbol, expiry, market }]
+ */
+function sameDayDuplicates(plan, existing) {
+  const out = [];
+  for (const p of plan) {
+    const others = existing.filter((e) => e.symbol === p.symbol && Number(e.expiry) === Number(p.expiry) && e.market !== p.market).map((e) => e.market);
+    if (others.length) out.push({ symbol: p.symbol, planned: p.market, existing: others });
+  }
+  return out;
+}
+
+module.exports = { bootstrapPlanFromToday, shortExpiryFor, sameDayDuplicates };

@@ -80,6 +80,9 @@ START_FILE=${START_FILE:-$OPS_DIR/START_20M}; START_WAIT_HOURS=${START_WAIT_HOUR
 WALLET_B_KEY=${WALLET_B_KEY:-$K/wallet-b.json}; SETTLER_KEY=${SETTLER_KEY:-$K/settler.json}; PAUSER_KEY=${PAUSER_KEY:-$K/pauser.json}
 PAUSE_LOG=${PAUSE_LOG:-${STATE%.json}-pause.log}
 STRIKE_PRICES_FILE=${STRIKE_PRICES_FILE:-$OPS_DIR/STRIKE_PRICES_TODAY.json}; TODAY_PLAN=$RUN_TMP/today-plan.json
+# ONE CREATOR (DLV-119): the Railway automation worker creates the daily markets; this box run does not unless
+# BOOTSTRAP_DAILY_MARKETS=1 (staging.env). Wallets / mUSDC / settler / pauser / Config / the 20-min market are unaffected.
+BOOTSTRAP_DAILY_MARKETS=${BOOTSTRAP_DAILY_MARKETS:-0}; export BOOTSTRAP_DAILY_MARKETS
 ADMIN_PRICE_FILE=${ADMIN_PRICE_FILE:-$OPS_DIR/ADMIN_PRICE_20M}; OPERATOR_PRICE_WAIT_HOURS=${OPERATOR_PRICE_WAIT_HOURS:-24}
 for a in "$@"; do case $a in --start-20m-now) START_20M=now;; --dry-run) DRY_RUN=1;; esac; done
 START_20M=${START_20M:-wait}; DRY_RUN=${DRY_RUN:-0}
@@ -104,10 +107,15 @@ ops_cli_ro(){   # read-only ops-cli status reads: no pauser / settler key at all
   ( cd "$AUTO" && env -u PHOENIX_PAUSER_KEYPAIR -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG \
       MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json node dist/ops-cli.js "$@" )
 }
-# DLV-118: today's plan (session + ATM strikes from a fresh reference). Exit 5 from ops-cli = no same-day session.
+# DLV-118: today's plan (session + ATM strikes from a fresh reference). Exit 5 from ops-cli = no same-day session
+# (DLV-119 M-1: an early-close day is refused too — plan_refused logs it as an ALERT).
 today_plan(){
   ( cd "$AUTO" && env -u PHOENIX_PAUSER_KEYPAIR -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG \
       MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json OPERATOR_STRIKE_PRICES_FILE=$STRIKE_PRICES_FILE node dist/ops-cli.js market-day --strikes ) >"$TODAY_PLAN"
+}
+plan_refused(){   # $1 = context; logs the refusal, as an ALERT for early_close / unknown_year
+  local code; code=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("code",""))' "$TODAY_PLAN" 2>/dev/null)
+  case "$code" in early_close|unknown_year) log "[create] ALERT $1 refused ($code): $(cat "$TODAY_PLAN")";; *) log "$1 refused: $(cat "$TODAY_PLAN")";; esac
 }
 # !77 L-3: EXPECTED_PAUSER_PUB (staging.env) pins the pauser pubkey; unset → WARNING only (pre-pin configs keep working).
 pauser_pin_ok(){
@@ -266,11 +274,15 @@ solana program show "$PROG" -u "$RPC" || { log "program not deployed — abort";
 assert_deployed_no_fixtures || { log "deployed program FAILED the fixture assert — abort bootstrap"; exit 4; }
 pin_web_cluster apply | while read -r l; do log "$l"; done
 # 2. bootstrap phase 1: TODAY's markets (DLV-118: expiry 16:00 ET today) + Debu wallet + wallet B + settler + pauser; books → pauser
-if ! today_plan; then
-  log "no same-day session (DLV-118): $(cat "$TODAY_PLAN") — no markets created (never next-close books); rerun on the next trading day after 09:30 ET"
-  exit 7
+if [ "$BOOTSTRAP_DAILY_MARKETS" = 1 ]; then
+  if ! today_plan; then
+    plan_refused "today's markets (no same-day session; never next-close books — rerun on the next trading day after 09:30 ET)"
+    exit 7
+  fi
+  log "today's plan: $(python3 -c 'import json,sys;p=json.load(open(sys.argv[1]));print(p["dateKey"],"close",p["closeTs"],[(m["symbol"],int(m["strikeE6"])/1e6,m["source"]) for m in p["markets"]],"refused",[r["symbol"] for r in p["refused"]])' "$TODAY_PLAN")"
+else
+  log "daily markets: OFF (BOOTSTRAP_DAILY_MARKETS=0) — the Railway worker is the only creator; phase 1 = wallets / mUSDC / settler / pauser / Config"
 fi
-log "today's plan: $(python3 -c 'import json,sys;p=json.load(open(sys.argv[1]));print(p["dateKey"],"close",p["closeTs"],[(m["symbol"],int(m["strikeE6"])/1e6,m["source"]) for m in p["markets"]],"refused",[r["symbol"] for r in p["refused"]])' "$TODAY_PLAN")"
 b=$(bal); NB=$(nbooks "$b"); log "balance $b → NBOOKS=$NB (reserving ~1.7 SOL for the 20-min AAPL ATM book + 0.5 wallet-B fallback)"
 ( cd "$OPS_DIR" && TODAY_PLAN=$TODAY_PLAN RPC=$RPC STATE=$STATE NBOOKS=$NB SHORT_PHASE=skip DEBU_WALLET=$DEBU node devnet-bootstrap.cjs ) || { log "bootstrap failed"; exit 5; }
 summary "bootstrap done (today's markets + wallets)"
@@ -279,7 +291,7 @@ handoff_repair 0 || true   # every book (incl. pre-!73 books) → pauser; ALERTs
 if [ -f "$PAUSER_KEY" ] && ! pauser_pin_ok; then
   log "[pause] ALERT pause watcher NOT started: $PAUSER_KEY is $PAUSER_PUB, not EXPECTED_PAUSER_PUB=$EXPECTED_PAUSER_PUB (staging.env)"
 elif [ -f "$PAUSER_KEY" ]; then
-  ( cd "$AUTO" && env -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet PHOENIX_PAUSER_KEYPAIR=$PAUSER_KEY PAUSER_MUST_DIFFER_FROM=$PAUSER_MUST_DIFFER_FROM nohup node dist/ops-cli.js pause-watch --state "$STATE" >>"$PAUSE_LOG" 2>&1 & echo $! >"$PAUSE_LOG.pid" )
+  ( cd "$AUTO" && env -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet PHOENIX_PAUSER_KEYPAIR=$PAUSER_KEY PAUSER_MUST_DIFFER_FROM=$PAUSER_MUST_DIFFER_FROM PHOENIX_PAUSE_LEAD_SECS=${PHOENIX_PAUSE_LEAD_SECS:-5} nohup node dist/ops-cli.js pause-watch --state "$STATE" >>"$PAUSE_LOG" 2>&1 & echo $! >"$PAUSE_LOG.pid" )
   log "pause watcher started (pid $(cat "$PAUSE_LOG.pid"), pauser $PAUSER_PUB, log $PAUSE_LOG)"
 else log "WARNING no pauser key ($PAUSER_KEY) — Phoenix books will NOT be paused at expiry"; fi
 # 3. e2e Buy Yes / Buy No through the web order path (today's books; cluster explicitly devnet)
@@ -303,7 +315,7 @@ else
 fi
 if [ $SKIP_SHORT = 0 ]; then
   # 5. bootstrap phase 2: 20-min AAPL ATM market (strike from a fresh plan at START) with a Phoenix book + maker ladder + SM handoff
-  today_plan || { log "no same-day session at START (DLV-118): $(cat "$TODAY_PLAN") — 20-min market skipped"; exit 6; }
+  today_plan || { plan_refused "20-min market at START (no same-day session)"; exit 6; }
   ( cd "$OPS_DIR" && TODAY_PLAN=$TODAY_PLAN RPC=$RPC STATE=$STATE NBOOKS=$NB SHORT_PHASE=only DEBU_WALLET=$DEBU node devnet-bootstrap.cjs ) || { log "20-min market bootstrap failed"; exit 6; }
   exp=$(python3 -c 'import json,sys;print([m for m in json.load(open(sys.argv[1]))["markets"] if m.get("short")][0]["expiryTs"])' "$STATE")
   SM=$(python3 -c 'import json,sys;print([m for m in json.load(open(sys.argv[1]))["markets"] if m.get("short")][0]["market"])' "$STATE")

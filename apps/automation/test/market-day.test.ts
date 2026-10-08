@@ -45,12 +45,12 @@ describe("DLV-118 marketDay — same-day 16:00 ET close", () => {
     for (const d of ["2026-11-26", "2026-12-25", "2026-07-03", "2026-04-03", "2027-01-01", "2027-03-26", "2027-07-05"]) {
       expect(isTradingDay(d), d).to.include({ ok: false, code: "holiday" });
     }
-    expect(isTradingDay("2028-03-01")).to.include({ ok: false, code: "unknown_year" });
+    expect(isTradingDay("2029-03-01")).to.include({ ok: false, code: "unknown_year" }); // 2028 added in DLV-119
   });
 
   it("nextTradingDay skips weekends and holidays", () => {
     expect(nextTradingDay("2026-10-09")).to.equal("2026-10-12");
-    expect(nextTradingDay("2026-11-25")).to.equal("2026-11-27");
+    expect(nextTradingDay("2026-11-25")).to.equal("2026-11-30"); // 11-27 is an early close (DLV-119 M-1)
     expect(nextTradingDay("2026-12-31")).to.equal("2027-01-04");
   });
 

@@ -13,6 +13,7 @@ import BN from "bn.js";
 import { loadConfig } from "../src/config";
 import { createCalendarState, planSameDayStrikes, runMorningCreate, runSettlePass, loadOperatorDayPrices } from "../src/modes/calendar";
 import { encodeEquitySymbol } from "../src/strikes";
+import { PYTH_RECEIVER_PROGRAM_ID } from "../src/pyth/pullOracle";
 
 const utc = (y: number, mo: number, d: number, h: number, mi = 0) => new Date(Date.UTC(y, mo - 1, d, h, mi));
 const CLOSE_1008 = 1791489600; // 2026-10-08 16:00 EDT
@@ -231,7 +232,7 @@ describe("DLV-118 ops plan (ops-cli market-day --strikes → devnet-bootstrap TO
     await runMorningCreate({
       cfg: devnetCfg(), program: {} as any, authority: Keypair.generate(), state: createCalendarState(), now,
       listOpen: async () => [], hermesLatest: async () => { throw new Error("403"); },
-      readAccount: async () => acct,
+      readAccount: async () => ({ data: acct, owner: PYTH_RECEIVER_PROGRAM_ID }), // L-6: receiver-owned
       create: async (s) => (created.push(`${s.symbol}:${s.strikePriceE6.toString()}:${s.expiryTs.toNumber()}`), { market: Keypair.generate().publicKey, signature: "x" }),
     });
     expect(created).to.deep.equal([`AAPL:415000000:${CLOSE_1008}`, `MSFT:415000000:${CLOSE_1008}`]);

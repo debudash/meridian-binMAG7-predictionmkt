@@ -9,7 +9,7 @@ import type { MarketView } from "@/lib/market/types";
 import { getCountdown } from "@/lib/market/countdown";
 import { useChainClock } from "@/components/providers/AppProviders";
 import { expiryChipLabel, expiryKey } from "@/lib/market/fixtures";
-import { sameDayView } from "@/lib/market/sameDay";
+import { heldMarketIds, sameDayView } from "@/lib/market/sameDay";
 import { formatOutcomePrice } from "@/lib/format";
 import { noPriceFromYes } from "@/lib/market/bookTransform";
 import { impliedText, impliedTooltip, marketPriceDisplay } from "@/lib/market/priceDisplay";
@@ -122,10 +122,14 @@ export function MarketsClient({
     syncUrl({ u: next });
   }
 
-  // Not on the Settled tab (history spans days) and not when an explicit Expiry chip is picked.
+  // Only on the live tabs (Open / Closing soon) — Closed / Settled / All span days — and not when an explicit Expiry
+  // chip is picked. DLV-119 L-7: markets the wallet holds stay listed (marked) even in the today view.
   const sameDay = useMemo(
-    () => (status === "settled" || expiry ? null : sameDayView(markets, nowSec, { showOther })),
-    [markets, nowSec, showOther, status, expiry],
+    () =>
+      (status === "open" || status === "closing-soon") && !expiry
+        ? sameDayView(markets, nowSec, { showOther, keepIds: heldMarketIds(livePositions) })
+        : null,
+    [markets, nowSec, showOther, status, expiry, livePositions],
   );
 
   const filtered = useMemo(() => {
@@ -404,7 +408,7 @@ export function MarketsClient({
           }}
         >
           {filtered.map((m) =>
-            sameDay && sameDay.mode !== "today" && sameDay.otherIds.has(m.marketId) ? (
+            sameDay && sameDay.otherIds.has(m.marketId) ? (
               <div key={m.marketId} data-testid="not-today-close">
                 <span className="muted" style={{ fontSize: "0.75rem" }}>Not today&apos;s close</span>
                 <MarketCard
@@ -461,6 +465,11 @@ export function MarketsClient({
                       {m.marketId === lastViewed && (
                         <span className="chip chip-current" style={{ marginLeft: 6 }}>
                           Last viewed
+                        </span>
+                      )}
+                      {sameDay && sameDay.otherIds.has(m.marketId) && (
+                        <span className="muted" data-testid="not-today-close-row" style={{ marginLeft: 6, fontSize: "0.75rem" }}>
+                          Not today&apos;s close
                         </span>
                       )}
                     </td>

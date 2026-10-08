@@ -220,9 +220,22 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
 
   const collateral = opt("COLLATERAL_MINT", env.COLLATERAL_MINT ?? "");
 
+  // DLV-119 / Reviewers L-5: "localnet" unlocks dev-only paths (static admin price, zero feed ids), so it must also
+  // point at a loopback RPC — a mis-set SOLANA_CLUSTER=localnet on a real RPC refuses to start.
+  const rpcUrl = req("SOLANA_RPC_URL", env.SOLANA_RPC_URL ?? (cluster === "localnet" ? "http://127.0.0.1:8899" : "https://api.devnet.solana.com"));
+  if (cluster === "localnet" && !isLoopbackRpc(rpcUrl)) {
+    throw new Error(`SOLANA_CLUSTER=localnet requires a loopback SOLANA_RPC_URL (127.0.0.1 / localhost / ::1); got a non-loopback host`);
+  }
+  // Nit (Reviewers !91): validate the strike step at load, not mid-create.
+  let strikeStepE6: bigint | null = null;
+  if (env.STRIKE_STEP_E6 !== undefined && env.STRIKE_STEP_E6.trim() !== "") {
+    if (!/^[1-9][0-9]*$/.test(env.STRIKE_STEP_E6.trim())) throw new Error("STRIKE_STEP_E6 must be a positive integer (micro-USD), e.g. 5000000");
+    strikeStepE6 = BigInt(env.STRIKE_STEP_E6.trim());
+  }
+
   return {
     mode,
-    rpcUrl: req("SOLANA_RPC_URL", env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com"),
+    rpcUrl,
     cluster,
     programId: new PublicKey(env.MERIDIAN_PROGRAM_ID ?? DEFAULT_PROGRAM_ID),
     idlPath,
@@ -257,7 +270,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AutomationConf
     logLevel: env.LOG_LEVEL ?? "info",
     pythHermesUrl: env.PYTH_HERMES_URL || "https://hermes.pyth.network",
     pythHermesApiKey: env.PYTH_HERMES_API_KEY || undefined,
-    strikeStepE6: env.STRIKE_STEP_E6 ? BigInt(env.STRIKE_STEP_E6) : null,
+    strikeStepE6,
     strikeRefMaxAgeSecs: intInRange("STRIKE_REF_MAX_AGE_SECS", env.STRIKE_REF_MAX_AGE_SECS, 300, 10, 3600),
     operatorStrikePricesRaw: env.OPERATOR_STRIKE_PRICES ?? "",
     operatorStrikePricesFile: env.OPERATOR_STRIKE_PRICES_FILE ?? "",
@@ -348,4 +361,14 @@ export function resolvePauser(cfg: AutomationConfig, authority: Keypair, settler
     throw new Error("PHOENIX_PAUSER_KEYPAIR must differ from SETTLER_KEYPAIR");
   }
   return kp;
+}
+
+/** True for 127.0.0.0/8, localhost and ::1 RPC URLs (DLV-119 L-5). */
+export function isLoopbackRpc(url: string): boolean {
+  try {
+    const h = new URL(url).hostname.replace(/^\[|\]$/g, "").toLowerCase();
+    return h === "localhost" || h === "::1" || /^127\.\d+\.\d+\.\d+$/.test(h);
+  } catch {
+    return false;
+  }
 }

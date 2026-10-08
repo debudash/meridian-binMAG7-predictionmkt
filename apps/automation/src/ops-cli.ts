@@ -39,7 +39,7 @@
 import * as fs from "fs";
 import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import { assertPauserDistinct, loadConfig, loadKeypairFromEnv } from "./config";
-import { sameDaySession } from "./marketDay";
+import { calendarHorizonAlert, isAlertCode, sameDaySession } from "./marketDay";
 import { planDayForOps } from "./modes/calendar";
 import { createProgram } from "./solana/client";
 import { configPda } from "./solana/pdas";
@@ -114,7 +114,8 @@ function pauserKeypair(opts: { checkSeatManagerAuthority?: boolean } = {}): Keyp
 async function main() {
   const cmd = process.argv[2];
   if (cmd === "market-day") {
-    // DLV-118: no RPC, no keys. Exit 0 = same-day session (JSON on stdout); 5 = refused (after close / weekend / holiday).
+    // DLV-118: no RPC, no keys. Exit 0 = same-day session (JSON on stdout); 5 = refused (after close / weekend / holiday /
+    // early close (DLV-119 M-1, ALERT on stderr)).
     const nowArg = arg("--now");
     const nowSec = nowArg ? Number(nowArg) : Math.floor(Date.now() / 1000);
     if (!Number.isInteger(nowSec)) throw new Error("--now must be unix seconds");
@@ -122,8 +123,16 @@ async function main() {
     if (process.argv.includes("--strikes")) {
       const mc = loadConfig();
       const c = new Connection(mc.rpcUrl, "confirmed"); // read-only: sponsored Pyth account reads
-      out = await planDayForOps(mc, nowSec, undefined, async (pk) => (await c.getAccountInfo(pk, "confirmed"))?.data ?? null);
+      out = await planDayForOps(mc, nowSec, undefined, async (pk) => {
+        const acct = await c.getAccountInfo(pk, "confirmed");
+        return acct ? { data: acct.data, owner: acct.owner } : null; // L-6: owner checked by strikeReferenceFor
+      });
     } else out = sameDaySession(nowSec);
+    // M-1: early-close days / calendar gaps page ops (stderr ALERT); the JSON on stdout stays machine-readable.
+    const code = (out as { code?: string }).code;
+    if (!out.ok && code && isAlertCode(code)) console.error(`[create] ALERT market-day refused: ${code} — ${String((out as { reason?: string }).reason ?? "").replace(/^ALERT /, "")}`);
+    const horizon = calendarHorizonAlert(nowSec);
+    if (horizon) console.error(`[create] ${horizon}`);
     console.log(JSON.stringify(out));
     process.exit(out.ok ? 0 : 5);
   }

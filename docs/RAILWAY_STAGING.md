@@ -39,6 +39,36 @@ The devnet program and books need ≈13 SOL (program ≈2.7 SOL rent + ≈2.7 tr
 
 `/workspace/meridian-staging-ops/`: `devnet-bootstrap.cjs` (idempotent bootstrap), `settle-test.cjs` (mint / settle / redeem on the short market), `run-staging.sh` (wait for SOL → deploy → bootstrap → e2e → settle). State: `/workspace/meridian-staging-state.json`.
 
+## 0b. Daily 0DTE markets on staging (DLV-118 / DLV-119)
+
+- **One creator:** the Railway `automation` worker creates each trading day's MAG7 markets at the 9:30 ET open (expiry
+  16:00 ET same day). The box bootstrap (`ops/run-staging.sh` → `devnet-bootstrap.cjs`) does **not**
+  (`BOOTSTRAP_DAILY_MARKETS=0`, default); it still funds wallets / mUSDC / settler / pauser, inits Config and runs the
+  20-min market on START (capped at today's close, L-4).
+- **Refused days:** weekends, NYSE holidays and NYSE **early-close** days (13:00 ET: 2026-11-27, 2026-12-24,
+  2027-11-26, 2028-07-03, 2028-11-24) — the worker logs `ALERT skip create — early_close`. 13:00 handling is a
+  mainnet Todo.
+- **Strike reference:** Hermes latest (first; it served AAPL on 2026-10-08) → a fresh receiver-owned, Full-verified
+  `PYTH_PRICE_FEEDS` account → the operator prices below → otherwise no market + `ALERT`.
+- **Operator prices** (Debu-approved while Hermes lacks equities) live in the `automation` variables
+  `OPERATOR_STRIKE_PRICES` / `OPERATOR_CLOSE_PRICES` (JSON `{dateKey, source, pricesE6}`; the source is logged). The worker
+  reads them **at start**, so the box command sets the variable and then redeploys `automation`:
+
+  ```bash
+  # before the 09:30 ET open (08:30 CT) — all 7 tickers, real prices, where they came from:
+  node ops/operator-prices.cjs strike --source "Nasdaq pre-market last sale 09:15 ET" \
+    AAPL=… MSFT=… GOOGL=… AMZN=… NVDA=… META=… TSLA=…
+  # at/after the 16:00 ET close (15:00 CT) — official closes, for admin_settle when pull settle can't:
+  node ops/operator-prices.cjs close --source "Nasdaq official closing price" AAPL=… MSFT=… GOOGL=… AMZN=… NVDA=… META=… TSLA=…
+  ```
+
+  `--dry-run` validates only; `--clear strike|close` empties a variable; `--no-restart` skips the redeploy. Needs
+  `RAILWAY_PROJECT_TOKEN` (meridian-staging) in the env; `RAILWAY_API_TOKEN` is dropped for the call and CLI output is
+  suppressed (no variable values or tokens are printed).
+- **No Phoenix books yet from the worker** (TODO): worker-created daily markets can be minted / redeemed / settled but
+  not traded on a book until worker-side book creation lands. Keep `PHOENIX_MARKETS` empty (L-8: ignored for daily
+  markets, `ALERT` if set).
+
 ## 1. Connect project
 
 1. Create / open a Railway **staging** project (done 2026-10-07: `meridian-staging`, see §0).
