@@ -4,7 +4,7 @@ Kanban for Peak6 Meridian work. Columns: **Done** / **In Progress** / **Todo** o
 No Blocked column — land via `glab` (D-014). Phoenix V1 spot is the working assumption (D-015). **TDD mandatory** for vault $1 / mint / settle / redeem / pause (D-016). **Anytime open/close/settle simulation** is a V1 hard acceptance requirement (D-017). **D-018** locks prod `merge_pair`, A-05 Policy A, and X-07 Settling retire.
 **Prod app/automation host:** Railway (staging→prod per [`DEPLOY.md`](DEPLOY.md)) — deploy deferred locally; Debu browsing fixtures @ localhost:3000.
 
-_Last refreshed: 2026-10-07 23:30 CT (main `7f8e766`; public-launch blockers DLV-087/088 (+DLV-068) landed in !63, DLV-090/089/081 in !62; Anchor suite 108/108 on main)._
+_Last refreshed: 2026-10-07 23:40 CT (main `ab3b57c` = Merge !70; Reviewer fixes for !52–!61 and !63 landed in !67 `7aa1fe5`, !69 `6e3c91b`, !70 `ab3b57c`; web vitest 320 + 14 opt-in E2E skipped, automation 47/47, prod-settle LiteSVM 22/22. Prior: 23:30 CT, main `0d856ed` after !62/!63/!64; Anchor suite 108/108)._
 
 ## Done
 
@@ -72,6 +72,17 @@ _Last refreshed: 2026-10-07 23:30 CT (main `7f8e766`; public-launch blockers DLV
 - [x] Web (minor): **favicon + real 404** DLV-089 (!62) — `app/icon.svg` (+ `/favicon.ico` rewrite). `/markets/<id>` returns HTTP 404 for implausible ids via middleware (streamed `notFound()` under the root `loading.tsx` stays 200 in Next 14.2) and from `generateMetadata` for unknown ids. **Residual:** settle proof "Settle tx not found in RPC history" on localnet was not investigated (tracked below)
 - [x] Web (observability): **chain-read errors are logged** DLV-090 (!62) — `lib/log/chainRead.ts` (`[chain-read] <scope> failed {ctx}: msg`, deduped 60 s) across the indexer (`listFromLive` / `getMarket` / rpc / http), Phoenix book reads, Pyth/position hooks and the settle proof. A missing account is "not found"; any other RPC error is logged and surfaced
 
+- [x] Web: **Reviewer Mediums M1/M4/M5 + Lows L8/L10–L14** DLV-091 (!67, `7aa1fe5`). From `meridian-review-mr52-61` and `meridian-review-mr63`.
+  - **M1/L12:** sizes that aren't whole lots are rejected before signing. The ticket shows an error and disables the CTA, and the client returns `invalid-size`. Phoenix sizing now comes from the market's own lot metadata (`contractsToLots`), so the SDK's float floor can't drop a lot, and mint/merge amounts equal the lots placed.
+  - **M4/L10:** server-side market-scan cache (`MARKET_LIST_CACHE_MS` 20 s, 3 s after a failure, in-flight dedupe). Settled markets skip Phoenix reads (Portfolio still reads them so leftover seat funds can be withdrawn). Polls are slower (Header 60 s, Portfolio/markets 30 s, trade account 10 s, book 6 s, paused when hidden or not open, Fills tab only) with 429 backoff up to 300 s.
+  - **M5:** if the balance read fails, the ticket stays locked with "Couldn't check your balances" and a Retry button, instead of unlocking blind.
+  - **L8:** Market worst price is touch ± 2 %, clamped.
+  - **L11:** the sweep is disclosed on the ticket and in the toast.
+  - **L13:** Cancel all is chunked at 20 orders per tx, with partial "Cancelled X of Y".
+  - **L14:** success is only shown after a confirmed signature; otherwise failed or unconfirmed copy.
+  - Web vitest 320 + 14 skipped, `tsc` clean.
+- [x] Web: **fixtures need a loopback RPC** DLV-092 (!69, `6e3c91b`; Reviewers M2). The `custom` cluster label alone no longer enables fixture markets. `isFixtureCluster` / `fixturesAllowed` also require `NEXT_PUBLIC_SOLANA_RPC_URL` on loopback (shared `LOOPBACK_RPC` / `isLoopbackRpcUrl`), so a `custom` RPC pointing at devnet or mainnet gets the real "unavailable" path. `fixtureRpcGate.test.ts` 12 tests.
+- [x] Automation: **separate low-balance settler key** DLV-093 (!70, `ab3b57c`; Reviewers M3). No program change: `Settle.settler` is a bare `Signer` with no authority constraint. New `SETTLER_KEYPAIR` signs **and pays** permissionless settle (legacy and pull paths) through its own provider. `admin_settle`, create and `set_phoenix_market` stay authority-only. It must differ from the authority and is required on mainnet-beta; devnet/localnet fall back to the authority with a warning. `settler-key.test.ts` +10 (automation 47/47). Prod LiteSVM **PULL-M3**: a 0.01-SOL non-authority key settles on the prod `.so` (22/22). Staging ops scripts (box-only) use `$K/settler.json` for the settle step, funded faucet-first at bootstrap.
 - [x] Reviewer continuous / demo readiness DLV-037 (MR !40; `docs/dlv037-demo-readiness-nits`) — fixtures/localnet walkthrough **conditional pass** @ `bcf5d23`; docs polish landed; Peak6 PRD demo **video** remains Todo (DLV-038)
 - [x] Testers: **devnet staging acceptance test plan** (MR !65; `test/staging-test-plan`) — [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md): Phantom checklist for Railway staging (devnet) written against main `0d856ed`, program `9Rb7nx…`. Covers connect, Buy/Sell Yes/No × Market/Limit, resting fill by a 2nd wallet + cancel/withdraw (DLV-087), real Portfolio/History (DLV-088), opposite-side block, 20-min AAPL close + `admin_settle` (300 s delay, no Hermes key), redeem, settle proof, payoff line, Explorer vault == pairs × $1 / Yes == No supply at 4 checkpoints, sign-off table. Pending on main: resting Sell No merge (DLV-069), History maker fills. Docs only, no deploy
 
@@ -82,6 +93,8 @@ _Last refreshed: 2026-10-07 23:30 CT (main `7f8e766`; public-launch blockers DLV
 ## Todo
 
 - [ ] Ops: **Pyth Hermes API key** DLV-085 — Hermes (`hermes.pyth.network`, also `pyth.dourolabs.app/hermes`) returns 401 without `Authorization: Bearer` since 2026-08-26; permissionless settle on devnet/mainnet needs `PYTH_HERMES_API_KEY` (Railway secret on `automation`). **Needs Debu** (Pyth Terminal key; not signed up by agents). Until then markets resolve via `admin_settle`
+- [ ] Ops: **`SETTLER_KEYPAIR` Railway secret** on `automation` (DLV-093 follow-up). **Needs Debu.** Use a low-balance key, about 0.05 devnet SOL; the box staging key is `7a2BWufrgmu2B37drnZjy1JRQy9KLJVLAzmEULsNetwi`. Until it's set, devnet automation settles with the authority and logs a warning.
+- [ ] Reviewer Lows deferred (`meridian-review-mr52-61`): **L1–L3** need program changes, which would alter the deployed binary. **L4** is a prod IDL change. **L5** is orphan-account cleanup logic. **L6** is IPv6 probing in the dev-wallet exposure check. **L7** is informational. **L9** is a lockfile / Node pin. None of these are one-liners; pick them up with the next program or ops pass.
 - [ ] Web: History misses **maker fills** done by other traders against your resting orders (they appear only via the later cancel/withdraw row and the seat balance). Needs Phoenix event-log parsing by market or an indexer (follow-up to DLV-088)
 - [ ] Web: settle proof shows "Settle tx not found in RPC history" on localnet (DLV-089 residual) — check whether the localnet settle path emits the parsed event / sits outside the scanned 5×200 signatures
 - [ ] Web: merge-on-fill for **resting** Sell No (limit/post-only bid fills → `merge_pair`); Market Sell No already merges in-tx (DLV-069)

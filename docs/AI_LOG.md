@@ -1,4 +1,16 @@
-## 2026-10-08T00:05:00-05:00 — Engineers: M3 separate low-balance settler key (no program change)
+## 2026-10-07T23:40:00-05:00 — Engineers: TRACKER sync after Reviewer fixes (!67, !69, !70)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers |
+| **Branch** | `docs/tracker-reviewer-fixes` from `origin/main` @ `ab3b57c` (!70) |
+| **Change** | The TRACKER header cited `7f8e766` (Reviewers' nit); it now cites the real tip `ab3b57c`. Adds Done rows DLV-091 (!67: M1/M4/M5 + L8/L10/L11/L12/L13/L14), DLV-092 (!69: M2) and DLV-093 (!70: M3). Adds Todo rows for the `SETTLER_KEYPAIR` Railway secret and the deferred Reviewer Lows (L1–L7, L9). Corrects the three Engineers AI_LOG timestamps above to the real merge times (they had been written ahead of the clock). |
+| **Evidence** | Docs only. Counts cited: web vitest 320 passed / 14 skipped (opt-in E2E), web `tsc` clean · automation 47/47 · prod LiteSVM `settle_pull_oracle` 22/22 · root `tests/unit` 7/7. The full Anchor localnet suite was not re-run; it needs `:8899`, which is reserved for Debu's localnet. |
+| **Related** | DLV-091…093 · M1–M5 · L1–L14 · !67 · !69 · !70 |
+
+---
+
+## 2026-10-07T23:37:00-05:00 — Engineers: M3 separate low-balance settler key (no program change)
 
 | Field | Value |
 | --- | --- |
@@ -13,7 +25,7 @@
 
 ---
 
-## 2026-10-07T23:55:00-05:00 — Engineers: M2 fixtures need a loopback RPC (`custom` label no longer enough)
+## 2026-10-07T23:34:00-05:00 — Engineers: M2 fixtures need a loopback RPC (`custom` label no longer enough)
 
 | Field | Value |
 | --- | --- |
@@ -27,7 +39,7 @@
 
 ---
 
-## 2026-10-07T23:45:00-05:00 — Engineers: Reviewer Mediums M1/M4/M5 + L8/L10/L11/L12/L13/L14 (web)
+## 2026-10-07T23:33:00-05:00 — Engineers: Reviewer Mediums M1/M4/M5 + L8/L10/L11/L12/L13/L14 (web)
 
 | Field | Value |
 | --- | --- |
