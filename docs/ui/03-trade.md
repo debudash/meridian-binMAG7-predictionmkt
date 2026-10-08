@@ -132,6 +132,8 @@ Rules:
 | Submitted | Toast with tx sig link (explorer `<EXPLORER_URL>/tx/<sig>`) | "Order submitted…" |
 | Confirmed — filled | Toast success; position panel updates | "Bought 40 Yes at avg 0.62 (24.80 USDC)." |
 | Confirmed — partially filled (IOC) | Toast warn | "Bought 18 of 40 Yes at avg 0.63. Remaining 22 not filled." |
+| Market order can't fully fill within the cap (D-024) | Toast error | "No fill: the book doesn't have 40 Yes at 0.65 or better. Nothing was traded — try a smaller size or a Limit order." (Market is fill-or-kill; partial-fill copy applies to Limit only) |
+| Program refused (paused / market closed / expired) | Toast error | "Trading is paused by the operator. Nothing was traded." / "This market is no longer open. Nothing was traded." |
 | Confirmed — resting | Toast info; Open orders tab badge | "Limit order placed: Buy 40 Yes @ 0.60." |
 | Failed | Toast error + "Retry" | Map known program errors (`TODO(schema)` error codes): price moved, insufficient funds, market closed, blockhash expired ("Network busy — try again") |
 - Commitment: show "Submitted" on send, "Confirmed" at `confirmed`; position math uses confirmed; history waits for indexer. Retry policy: rebroadcast until blockhash expiry (~60–90s), then Failed.

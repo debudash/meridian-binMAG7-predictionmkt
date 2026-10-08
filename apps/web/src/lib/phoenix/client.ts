@@ -31,6 +31,7 @@ import {
   effectiveYesLimitPrice,
   planIntentComposition,
 } from "./compose";
+import { explainPlaceError } from "./errors";
 import { buildClaimSeatInstructions } from "./seat";
 import { contractsToRawAmounts, DEFAULT_OUTCOME_DECIMALS } from "./size";
 import type {
@@ -132,7 +133,9 @@ async function buildPhoenixPlaceIx(
       priceAsFloat: limitYesPrice,
       sizeInBaseUnits,
       sizeInQuoteUnits: 0,
-      minBaseUnitsToFill: 0,
+      // Fill-or-kill at the worst price (D-024 / DLV-070): a market order fills its full size
+      // or the whole tx reverts — no silent 0-fill "success", no Buy No leaving Yes+No behind.
+      minBaseUnitsToFill: sizeInBaseUnits,
       minQuoteUnitsToFill: 0,
       selfTradeBehavior: selfTrade,
       clientOrderId: Date.now() % 1_000_000,
@@ -300,10 +303,19 @@ export async function placePhoenixOrder(
     const msg = e instanceof Error ? e.message : String(e);
     const rejected =
       /reject|denied|cancel/i.test(msg) || msg.includes("User rejected");
+    if (rejected) {
+      return { ok: false, reason: "user-rejected", message: "Wallet rejected the transaction.", mapped, plan };
+    }
+    const explained = explainPlaceError(msg, {
+      intent: req.intent,
+      orderType: plan.orderType,
+      size: plan.size,
+      worstPrice: req.worstPrice,
+    });
     return {
       ok: false,
-      reason: rejected ? "user-rejected" : "sdk-error",
-      message: rejected ? "Wallet rejected the transaction." : `Phoenix place failed: ${msg}`,
+      reason: explained?.reason ?? "sdk-error",
+      message: explained?.message ?? `Phoenix place failed: ${msg}`,
       mapped,
       plan,
     };
