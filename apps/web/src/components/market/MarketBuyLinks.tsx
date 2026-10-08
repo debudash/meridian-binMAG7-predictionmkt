@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import type { MarketView } from "@/lib/market/types";
-import type { IntentAvailabilityMap, OpenOrdersSnapshot, PositionSnapshot } from "@/lib/intents/types";
+import type { IntentAvailabilityMap, PositionSnapshot } from "@/lib/intents/types";
 import type { LiveExposure } from "@/hooks/useWalletPositions";
 import { getCountdown } from "@/lib/market/countdown";
 import { useChainClock } from "@/components/providers/AppProviders";
 import { useIntentAvailability } from "@/hooks/useIntentAvailability";
 import { useTradingBlockedByBanner } from "@/components/layout/GlobalBanners";
 import { shortBuyBlockedTitle } from "@/lib/intents/shortCopy";
-
-const NO_OPEN_ORDERS: OpenOrdersSnapshot = { openBuyYesQty: 0, openBuyNoQty: 0 };
+import { cardAvailabilityOptions, type BalancesLock } from "@/lib/intents/cardLock";
 
 export interface MarketTradeState {
   availability: IntentAvailabilityMap;
@@ -24,25 +23,20 @@ export interface MarketTradeState {
 /**
  * Buy-side availability for a market on list surfaces (DLV-074). With live
  * exposure (wallet + Phoenix seat + resting orders, DLV-088/068) it runs the same rules as
- * the ticket (getIntentAvailability); without one it keeps the previous behaviour.
+ * the ticket (getIntentAvailability); without one, a connected wallet whose read is pending or
+ * failed is locked like the ticket (M5); disconnected keeps the previous behaviour.
  */
 export function useMarketTradeState(
   market: MarketView,
   livePosition?: LiveExposure | null,
+  balancesLock: BalancesLock = null,
 ): MarketTradeState {
   const { nowSec } = useChainClock();
   const tradingBlocked = useTradingBlockedByBanner();
   const cd = getCountdown(market, nowSec);
   const { availability, position, openOrders } = useIntentAvailability(
     market.marketId,
-    livePosition
-      ? {
-          position: livePosition,
-          openOrders: livePosition.openOrders ?? NO_OPEN_ORDERS,
-          lifecycle: cd.state,
-          lotSize: market.lotSize,
-        }
-      : {},
+    cardAvailabilityOptions(livePosition, balancesLock, cd.state, market.lotSize),
   );
   const tradeDisabled = !cd.tradingEnabled || tradingBlocked;
   const title = (side: "yes" | "no") => {
@@ -105,10 +99,12 @@ export function MarketBuyLinks({
 export function MarketBuyCell({
   market,
   livePosition,
+  balancesLock = null,
 }: {
   market: MarketView;
   livePosition?: LiveExposure | null;
+  balancesLock?: BalancesLock;
 }) {
-  const state = useMarketTradeState(market, livePosition);
+  const state = useMarketTradeState(market, livePosition, balancesLock);
   return <MarketBuyLinks market={market} state={state} compact />;
 }

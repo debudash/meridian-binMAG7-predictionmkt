@@ -5,7 +5,7 @@
  * read → positions, resting orders, Phoenix seat balances, redeemable. Demo data only in
  * localnet fixture mode (the market list itself is fixtures on a localnet-style cluster).
  */
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { buildFixtureMarkets } from "@/lib/market/fixtures";
 import type { MarketView } from "@/lib/market/types";
@@ -14,7 +14,9 @@ import { demoAccountAllowed } from "@/lib/portfolio/demoMode";
 import { buildDemoPortfolio } from "@/lib/demo/portfolio";
 import { useMarketList } from "./useMarketList";
 import { useWalletAccount } from "./useWalletAccount";
-import { accountRefsFor, POLL_MS, type AccountScope } from "@/lib/rpc/pollPolicy";
+import { accountRefsFor, nextSettledPhoenixDone, POLL_MS, type AccountScope } from "@/lib/rpc/pollPolicy";
+
+const EMPTY: ReadonlySet<string> = new Set();
 
 export interface UsePortfolioResult {
   portfolio: Portfolio | null;
@@ -35,12 +37,24 @@ export function usePortfolio(
   pollMs: number = POLL_MS.portfolioAccount,
   scope: AccountScope = "portfolio",
 ): UsePortfolioResult {
-  const { connected } = useWallet();
+  const { connected, publicKey } = useWallet();
+  const owner = publicKey?.toBase58() ?? null;
   const list = useMarketList();
   const markets = list.data?.markets;
   const demo = list.data ? demoAccountAllowed({ usedFixtures: list.data.usedFixtures }) : false;
-  const refs = useMemo(() => (demo || !markets ? [] : accountRefsFor(markets, { scope })), [demo, markets, scope]);
-  const acct = useWalletAccount(refs, pollMs);
+  // Settled books whose seat for this wallet already read empty: stop re-reading them every poll.
+  const [done, setDone] = useState<{ owner: string | null; set: ReadonlySet<string> }>({ owner, set: new Set() });
+  const settledPhoenixDone = done.owner === owner ? done.set : EMPTY;
+  const refs = useMemo(
+    () => (demo || !markets ? [] : accountRefsFor(markets, { scope, settledPhoenixDone })),
+    [demo, markets, scope, settledPhoenixDone],
+  );
+  const acct = useWalletAccount(refs, pollMs, { keepPrevious: scope === "portfolio" });
+  useEffect(() => {
+    if (scope !== "portfolio" || demo || !markets || !acct.account || acct.account.owner !== owner) return;
+    const next = nextSettledPhoenixDone(settledPhoenixDone, markets, acct.account.markets);
+    if (next !== settledPhoenixDone) setDone({ owner, set: next });
+  }, [scope, demo, markets, acct.account, owner, settledPhoenixDone]);
   const portfolio = useMemo(() => {
     if (!connected || !list.data) return null;
     if (demo) return buildDemoPortfolio(buildFixtureMarkets(nowSec));

@@ -62,7 +62,7 @@ export function MarketsClient({
   const [expiry, setExpiry] = useState<string>(initialExpiry ?? "");
   const lastViewed = useLastViewedMarket();
   // One batched balance read for every listed market (null when disconnected).
-  const livePositions = useWalletPositions(markets);
+  const { positions: livePositions, lock: balancesLock } = useWalletPositions(markets);
 
   const allUnderlyings = useMemo(() => {
     const set = new Set(markets.map((m) => m.underlyingSymbol));
@@ -370,6 +370,7 @@ export function MarketsClient({
               market={m}
               lastViewed={m.marketId === lastViewed}
               livePosition={livePositions?.get(m.marketId)}
+              balancesLock={balancesLock}
             />
           ))}
         </div>
@@ -430,7 +431,7 @@ export function MarketsClient({
                     <td>{cd.relativeLabel}</td>
                     <td>{cd.state}</td>
                     <td>
-                      <MarketBuyCell market={m} livePosition={livePositions?.get(m.marketId)} />
+                      <MarketBuyCell market={m} livePosition={livePositions?.get(m.marketId)} balancesLock={balancesLock} />
                     </td>
                   </tr>
                 );
@@ -531,6 +532,7 @@ export function MarketsClient({
                             <MarketBuyCell
                               market={m}
                               livePosition={livePositions?.get(m.marketId)}
+                              balancesLock={balancesLock}
                             />
                           </td>
                         </tr>

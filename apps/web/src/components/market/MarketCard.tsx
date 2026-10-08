@@ -8,6 +8,7 @@ import { noPriceFromYes } from "@/lib/market/bookTransform";
 import type { MarketView } from "@/lib/market/types";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { LiveExposure } from "@/hooks/useWalletPositions";
+import type { BalancesLock } from "@/lib/intents/cardLock";
 import { MarketBuyLinks, useMarketTradeState } from "./MarketBuyLinks";
 import { DistanceReadout } from "@/components/trade/DistanceReadout";
 
@@ -15,15 +16,18 @@ export function MarketCard({
   market,
   lastViewed = false,
   livePosition,
+  balancesLock = null,
 }: {
   market: MarketView;
+  /** M5: list's batched read pending / failed → Buy links locked like the ticket */
+  balancesLock?: BalancesLock;
   /** Connected wallet's live Yes/No balance (batched by the list, DLV-074). */
   livePosition?: LiveExposure | null;
   /** Market the user last opened (sessionStorage) — marked "Last viewed" (D-022). */
   lastViewed?: boolean;
 }) {
   const { connected } = useWallet();
-  const trade = useMarketTradeState(market, livePosition);
+  const trade = useMarketTradeState(market, livePosition, balancesLock);
   const { position } = trade;
   const yes = market.yesMid ?? market.lastYes;
   const no = yes != null ? noPriceFromYes(yes, market.tickSize) : undefined;
