@@ -6,7 +6,7 @@
  *    ChangeMarketStatus therefore has to go through PSM ix 8, signed by the *seat-manager authority*
  *    (initially the ClaimMarketAuthority payer = the box upgrade key).
  *  - PSM NameSuccessor (6, signed by the current SM authority) + ClaimSeatManagerAuthority (7, signed
- *    by the successor) move that authority to a dedicated low-privilege pauser key, per market.
+ *    by the successor) move that authority to a dedicated pauser key, per market (full SM authority, not pause-only: review mr72-73 M1).
  *  - MarketStatus is Borsh (1-byte variant): Paused = 3 → only reductions (cancel) and withdrawals.
  */
 import { expect } from "chai";
@@ -186,7 +186,7 @@ describe("runPausePass", () => {
   });
 });
 
-describe("config: PHOENIX_PAUSER_KEYPAIR (dedicated low-privilege pauser, never the upgrade key / authority / settler)", () => {
+describe("config: PHOENIX_PAUSER_KEYPAIR (dedicated pauser, never the upgrade key / authority / settler)", () => {
   const asEnv = (kp: Keypair) => JSON.stringify(Array.from(kp.secretKey));
   const base = (cluster: string) => ({ SOLANA_CLUSTER: cluster, SOLANA_RPC_URL: "http://x" }) as any;
   it("reads PHOENIX_PAUSER_KEYPAIR, PHOENIX_PAUSE_LEAD_SECS (0), PHOENIX_PAUSE_ALERT_SECS (120)", () => {

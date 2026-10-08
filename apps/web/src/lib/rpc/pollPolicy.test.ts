@@ -86,6 +86,15 @@ describe("Portfolio: stop re-reading settled Phoenix books once the wallet's sea
     expect([...next].sort()).toEqual(["b", "g"]);
   });
 
+  it("L7 (review mr72-73): a failed Phoenix read (phoenixReadFailed) never marks a settled book done", () => {
+    const acct = new Map<string, unknown>([
+      ["b", { ...state("b", null), phoenixReadFailed: true }], // transient read failure → keep polling
+      ["c", state("c", null)], // decoded, no seat → done
+    ]);
+    const next = nextSettledPhoenixDone(new Set(), markets, acct as never);
+    expect([...next]).toEqual(["c"]);
+  });
+
   it("returns the same Set instance when nothing changes (no extra re-render / query-key churn)", () => {
     const prev = new Set(["b"]);
     const acct = new Map([["b", state("b", null)], ["c", state("c", leftovers)]]);

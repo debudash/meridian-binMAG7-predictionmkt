@@ -38,8 +38,15 @@
 # ── DRY RUN ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 #   DRY_RUN=1 bash run-staging.sh  (or --dry-run): prints the plan and exits 0. No SOL wait, no build, no deploy, zero
 #   transactions (only a read-only getBalance).
-# Railway: this script makes NO Railway calls. The watcher is launched with the retired workspace token unset.
+# Railway: this script makes NO Railway calls, and it unsets RAILWAY_API_TOKEN / RAILWAY_TOKEN itself (L6d) so no
+#   child process can inherit a Railway credential, whatever the launching shell had.
+# Safety (review mr72-73 L6): devnet genesis-hash guard before deploy / bootstrap / settle; per-run mktemp dir; the state
+#   path is passed to Python as argv; mint / pause-once failures log ALERTs. `set -e` stays off on purpose: each step
+#   checks its own exit so a failed optional step (e2e, web check) can't abort a live market mid-session.
 set -uo pipefail
+unset RAILWAY_API_TOKEN RAILWAY_TOKEN
+DEVNET_GENESIS=EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG
+RUN_TMP=$(mktemp -d -t stg-run.XXXXXX)
 OPS_DIR=${OPS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 ENV_FILE=${STAGING_ENV_FILE:-$OPS_DIR/staging.env}
 # shellcheck disable=SC1090
@@ -53,7 +60,7 @@ K=$KEYS_DIR; PROG=$MERIDIAN_PROGRAM_ID
 SO=$BUILD/target/deploy/meridian.so
 AUTO=${AUTO:-$BUILD/apps/automation}                 # ops-cli (pause / handoff / pull settle / admin-price) built from origin/main
 UPGRADE_KEY=${UPGRADE_KEY:-$K/upgrade-authority.json}; PROGRAM_KEYPAIR=${PROGRAM_KEYPAIR:-$K/program.json}
-DEPLOYED_DUMP=${DEPLOYED_DUMP:-/tmp/stg-deployed-meridian.so}
+DEPLOYED_DUMP=${DEPLOYED_DUMP:-$RUN_TMP/deployed-meridian.so}
 REQUIRE_PULL_ORACLE=${REQUIRE_PULL_ORACLE:-1}
 PAYER=$(solana-keygen pubkey "$UPGRADE_KEY"); MIN_SOL=${MIN_SOL:-9}; WAIT_HOURS=${WAIT_HOURS:-48}
 DEBU=${DEBU_WALLET:-}
@@ -70,6 +77,9 @@ START_20M=${START_20M:-wait}; DRY_RUN=${DRY_RUN:-0}
 WALLET_B_PUB=${WALLET_B:-$(solana-keygen pubkey "$WALLET_B_KEY" 2>/dev/null || echo "MISSING($WALLET_B_KEY)")}
 SETTLER_PUB=$(solana-keygen pubkey "$SETTLER_KEY" 2>/dev/null || echo "MISSING($SETTLER_KEY)")
 PAUSER_PUB=$(solana-keygen pubkey "$PAUSER_KEY" 2>/dev/null || echo "MISSING($PAUSER_KEY)")
+KEEPER_PUB=$(solana-keygen pubkey "$K/keeper.json" 2>/dev/null || echo "")
+# L5: pubkeys the pauser must never equal (keeper, settler, upgrade key) — pubkeys only, no key loaded for the check
+PAUSER_MUST_DIFFER_FROM=$(printf '%s\n' "$PAYER" "$KEEPER_PUB" "$SETTLER_PUB" | grep -v -e '^$' -e '^MISSING' | paste -sd, -)
 HERMES=$([ -n "${PYTH_HERMES_API_KEY:-}" ] && echo set || echo MISSING)   # name only, never the value
 export SHORT_MIN SHORT_SETUP_SECS WALLET_B_KEY SETTLER_KEY PAUSER_KEY KEYS="$K" MERIDIAN_PROGRAM_ID
 log(){ echo "[$(date '+%F %T %Z')] $*"; }
@@ -78,7 +88,7 @@ ct(){ TZ=America/Chicago date -d "@$1" '+%F %T %Z'; }
 nbooks(){ awk "BEGIN{n=int(($1-2-1.7-0.5-0.7)/1.7); if(n>3)n=3; if(n<1)n=1; print n}"; }
 bal(){ solana balance "$PAYER" -u "$RPC" 2>/dev/null | awk '{print $1}'; }
 ops_cli(){   # automation ops-cli with the pauser / settler keys passed as file paths (never their bytes)
-  ( cd "$AUTO" && SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json \
+  ( cd "$AUTO" && PAUSER_MUST_DIFFER_FROM=$PAUSER_MUST_DIFFER_FROM SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json \
       PHOENIX_PAUSER_KEYPAIR=$PAUSER_KEY SETTLER_KEYPAIR=$SETTLER_KEY node dist/ops-cli.js "$@" )
 }
 ops_cli_ro(){   # read-only ops-cli status reads: no pauser / settler key at all, not even inherited
@@ -92,7 +102,7 @@ handoff_repair(){
   local dry=${1:-0} i rc=1
   for i in 1 2 3; do
     ( cd "$AUTO" && env -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet MERIDIAN_PROGRAM_ID=$PROG MERIDIAN_IDL_PATH=$BUILD/idl/meridian.prod.json \
-        PHOENIX_PAUSER_KEYPAIR=$PAUSER_KEY SEAT_MANAGER_AUTHORITY_KEYPAIR=$UPGRADE_KEY DRY_RUN=$dry node dist/ops-cli.js handoff --state "$STATE" ) 2>&1 | while read -r l; do log "$l"; done
+        PHOENIX_PAUSER_KEYPAIR=$PAUSER_KEY SEAT_MANAGER_AUTHORITY_KEYPAIR=$UPGRADE_KEY PAUSER_MUST_DIFFER_FROM=$PAUSER_MUST_DIFFER_FROM DRY_RUN=$dry node dist/ops-cli.js handoff --state "$STATE" ) 2>&1 | while read -r l; do log "$l"; done
     ops_cli_ro pause-status --state "$STATE" --expect-pauser "$PAUSER_PUB" 2>&1 | while read -r l; do log "$l"; done
     rc=$?; { [ "$rc" = 0 ] || [ "$dry" = 1 ]; } && break
     log "[pause] ALERT handoff repair attempt $i: not every book has the pauser as SM authority — retrying in 30 s"; sleep 30
@@ -120,12 +130,18 @@ for k, env in (("market", "OPERATOR_PRICE_MARKET"), ("price_e6", "OPERATOR_PRICE
     print(f"export {env}={shlex.quote(kv.get(k, ''))}")
 PY
 }
+# L6a: refuse to touch anything that isn't devnet (the upgrade key would deploy to whatever $RPC is).
+assert_devnet(){
+  local gh; gh=$(solana genesis-hash -u "$RPC" 2>/dev/null)
+  [ "$gh" = "$DEVNET_GENESIS" ] || { log "ABORT: $RPC genesis hash '${gh:-unreachable}' is not devnet ($DEVNET_GENESIS) — refusing deploy/bootstrap/settle"; exit 8; }
+  log "devnet guard: $RPC genesis $gh (devnet)"
+}
 build_latest_main(){
   [ -e "$BUILD/.git" ] || git -C "$REPO" worktree add --detach "$BUILD" origin/main >/dev/null 2>&1 || { log "build: worktree add failed"; return 1; }
   git -C "$BUILD" fetch -q origin main && git -C "$BUILD" checkout -q --detach origin/main || { log "build: fetch/checkout origin/main failed"; return 1; }
   log "build: prod anchor build (no features) at origin/main $(git -C "$BUILD" rev-parse --short HEAD) — $(git -C "$BUILD" log -1 --format=%s | cut -c1-80)"
-  ( cd "$BUILD" && anchor build >"${BUILD_LOG:-/tmp/meridian-staging-build.log}" 2>&1 && node scripts/emit-prod-idl.js >>"${BUILD_LOG:-/tmp/meridian-staging-build.log}" 2>&1 \
-      && bash scripts/assert-prod-no-fixtures.sh target/deploy/meridian.so idl/meridian.prod.json ) || { log "build: FAILED (see ${BUILD_LOG:-/tmp/meridian-staging-build.log})"; return 1; }
+  ( cd "$BUILD" && anchor build >"${BUILD_LOG:-$RUN_TMP/build.log}" 2>&1 && node scripts/emit-prod-idl.js >>"${BUILD_LOG:-$RUN_TMP/build.log}" 2>&1 \
+      && bash scripts/assert-prod-no-fixtures.sh target/deploy/meridian.so idl/meridian.prod.json ) || { log "build: FAILED (see ${BUILD_LOG:-$RUN_TMP/build.log})"; return 1; }
   if [ "$REQUIRE_PULL_ORACLE" = 1 ] && ! grep -q PythPriceNotAtExpiry "$BUILD/idl/meridian.prod.json"; then
     log "build: origin/main has no D-025 pull-oracle settle (PythPriceNotAtExpiry missing) — refusing to deploy a legacy-Pyth .so"; return 1; fi
   export MERIDIAN_IDL=$BUILD/idl/meridian.prod.json   # bootstrap + settle-test use the IDL matching the deployed .so
@@ -174,6 +190,7 @@ PY
 }
 
 if [ "$DRY_RUN" = 1 ]; then
+  ( assert_devnet ) || log "DRY_RUN: devnet guard FAILED — a real run would abort here (exit 8)"
   log "DRY_RUN=1 — plan only: no SOL wait, no build, no deploy, ZERO transactions (ops dir $OPS_DIR, env file $([ -f "$ENV_FILE" ] && echo "$ENV_FILE" || echo none))"
   b=$(bal); b=${b:-0}; NB=$(nbooks "$b")
   log "0. wait until payer $PAYER has >= $MIN_SOL SOL (now $b, read-only) — poll every 300 s, give up after ${WAIT_HOURS}h"
@@ -202,10 +219,11 @@ while :; do b=$(bal); b=${b:-0}; if awk "BEGIN{exit !($b >= $MIN_SOL)}"; then br
   log "waiting for >= $MIN_SOL SOL on $PAYER (now $b)"; sleep 300; done
 log "funded: $(bal) SOL"
 # 1. program deploy (prod build from latest origin/main; assert no fixtures first)
+assert_devnet
 build_latest_main || { log "prod build from origin/main FAILED — abort (nothing deployed)"; exit 3; }
 log "artifact sha256 $(sha256sum "$SO" | cut -c1-64)"
 if solana program show "$PROG" -u "$RPC" >/dev/null 2>&1; then
-  if solana program dump "$PROG" /tmp/stg-onchain.so -u "$RPC" >/dev/null 2>&1 && cmp -s -n "$(stat -c%s "$SO")" "$SO" /tmp/stg-onchain.so; then
+  if solana program dump "$PROG" "$RUN_TMP/onchain.so" -u "$RPC" >/dev/null 2>&1 && cmp -s -n "$(stat -c%s "$SO")" "$SO" "$RUN_TMP/onchain.so"; then
     log "on-chain program already matches the origin/main build"
   else
     log "on-chain program differs from origin/main build — upgrading"
@@ -230,18 +248,18 @@ summary "bootstrap done (Friday markets + wallets)"
 handoff_repair 0 || true   # every book (incl. pre-!73 Friday books) → pauser; ALERTs logged, pause watcher still starts
 # 2b. pause watcher: every book in $STATE → Paused at its expiry (re-reads the state, so the 20-min book is covered too)
 if [ -f "$PAUSER_KEY" ]; then
-  ( cd "$AUTO" && SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet PHOENIX_PAUSER_KEYPAIR=$PAUSER_KEY nohup node dist/ops-cli.js pause-watch --state "$STATE" >>"$PAUSE_LOG" 2>&1 & echo $! >"$PAUSE_LOG.pid" )
+  ( cd "$AUTO" && env -u SETTLER_KEYPAIR SOLANA_RPC_URL=$RPC SOLANA_CLUSTER=devnet PHOENIX_PAUSER_KEYPAIR=$PAUSER_KEY PAUSER_MUST_DIFFER_FROM=$PAUSER_MUST_DIFFER_FROM nohup node dist/ops-cli.js pause-watch --state "$STATE" >>"$PAUSE_LOG" 2>&1 & echo $! >"$PAUSE_LOG.pid" )
   log "pause watcher started (pid $(cat "$PAUSE_LOG.pid"), pauser $PAUSER_PUB, log $PAUSE_LOG)"
 else log "WARNING no pauser key ($PAUSER_KEY) — Phoenix books will NOT be paused at expiry"; fi
 # 3. e2e Buy Yes / Buy No through the web order path (Friday books; cluster explicitly devnet)
 if [ -n "$WEB_SRC" ] && [ -d "$WEB_SRC/node_modules" ]; then
   install -m 644 "$OPS_DIR/staging.e2e.test.ts" "$WEB_SRC/src/lib/phoenix/staging.e2e.test.ts"
   ( cd "$WEB_SRC" && STAGING_E2E=1 STAGING_STATE=$STATE VERIFY_WALLET=$K/trader.json RPC=$RPC CLUSTER=$WEB_CLUSTER NEXT_PUBLIC_SOLANA_CLUSTER=$WEB_CLUSTER \
-    E2E_OUT=${E2E_OUT:-/tmp/meridian-staging-e2e.json} npx vitest run src/lib/phoenix/staging.e2e.test.ts 2>&1 | grep -E '^\{|✓|✗|×|Tests|FAIL' )
+    E2E_OUT=${E2E_OUT:-$RUN_TMP/e2e.json} npx vitest run src/lib/phoenix/staging.e2e.test.ts 2>&1 | grep -E '^\{|✓|✗|×|Tests|FAIL' )
 else log "e2e skipped: WEB_SRC unset or has no node_modules"; fi
 # 4. wait for Debu's START signal for the 20-min market (skip wait if it already exists in state, e.g. a rerun)
 SKIP_SHORT=0
-if python3 -c "import json,sys;sys.exit(0 if json.load(open('$STATE')).get('shortPlan') else 1)"; then
+if python3 -c 'import json,sys;sys.exit(0 if json.load(open(sys.argv[1])).get("shortPlan") else 1)' "$STATE"; then
   log "20-min market already in state — resuming it (no START wait)"
 else
   log "waiting for START signal for the 20-min AAPL >= 300 market: touch $START_FILE (or rerun with START_20M=now). Timeout ${START_WAIT_HOURS}h."
@@ -255,19 +273,19 @@ fi
 if [ $SKIP_SHORT = 0 ]; then
   # 5. bootstrap phase 2: 20-min AAPL >= 300 market with a Phoenix book + maker ladder + SM handoff to the pauser
   ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE NBOOKS=$NB SHORT_PHASE=only DEBU_WALLET=$DEBU node devnet-bootstrap.cjs ) || { log "20-min market bootstrap failed"; exit 6; }
-  exp=$(python3 -c "import json;print([m for m in json.load(open('$STATE'))['markets'] if m.get('short')][0]['expiryTs'])")
-  SM=$(python3 -c "import json;print([m for m in json.load(open('$STATE'))['markets'] if m.get('short')][0]['market'])")
+  exp=$(python3 -c 'import json,sys;print([m for m in json.load(open(sys.argv[1]))["markets"] if m.get("short")][0]["expiryTs"])' "$STATE")
+  SM=$(python3 -c 'import json,sys;print([m for m in json.load(open(sys.argv[1]))["markets"] if m.get("short")][0]["market"])' "$STATE")
   handoff_repair 0 || true   # the new 20-min book and every older book → pauser
   log "SHORT MARKET READY: AAPL >= 300 — trade until $(ct "$exp") (~$(( (exp - $(date +%s)) / 60 )) min left; UI closes 5 s early; book PAUSED at expiry); pull settle from $(ct $((exp+PULL_SETTLE_AFTER))), admin_settle fallback ~$(ct $((exp+SETTLE_AFTER)))"
   summary "20-min market live"
   # 6. short market: trader mints 5 pairs before expiry
-  ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE node settle-test.cjs mint )
+  ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE node settle-test.cjs mint ) || log "[settle] ALERT trader mint failed on the 20-min market (settle/redeem proof will be incomplete)"
   # 6b. pause the 20-min book at expiry (foreground, deterministic; the background watcher is the backstop)
   while [ "$(date +%s)" -lt "$exp" ]; do sleep 5; done
-  [ -f "$PAUSER_KEY" ] && { ops_cli pause-once --state "$STATE"; ops_cli_ro pause-status --state "$STATE" | grep -F '[20-min]'; }
+  [ -f "$PAUSER_KEY" ] && { ops_cli pause-once --state "$STATE" || log "[pause] ALERT pause-once failed at expiry (the pause watcher keeps retrying)"; ops_cli_ro pause-status --state "$STATE" | grep -F '[20-min]'; }
   # 7. settle: permissionless Pyth pull settle (settler + Hermes key) first, admin_settle at the last published Pyth price as fallback
   while [ "$(date +%s)" -lt $(( exp + PULL_SETTLE_AFTER )) ]; do sleep 10; done
-  SETTLE_OUT=$(mktemp -t stg-settle.XXXXXX)
+  SETTLE_OUT=$RUN_TMP/settle.out
   settled(){ grep -q "final status=[23]" "$SETTLE_OUT" 2>/dev/null; }
   while [ "$(date +%s)" -lt $(( exp + SETTLE_AFTER )) ]; do
     ( cd "$OPS_DIR" && RPC=$RPC STATE=$STATE node settle-test.cjs settle ) | tee "$SETTLE_OUT"; settled && break; sleep 30; done
@@ -297,7 +315,8 @@ if [ $SKIP_SHORT = 0 ]; then
 fi
 # 8. staging web lists real markets (no fixtures)
 if [ -n "$WEB_URL" ]; then
-  curl -sS -m 30 "$WEB_URL/markets" -o /tmp/stg-markets.html; log "fixture ids on /markets: $(grep -o 'fixture-[a-z0-9-]*' /tmp/stg-markets.html | sort -u | wc -l); real market ids: $(python3 -c "import json;s=json.load(open('$STATE'));print(sum(m['market'] in open('/tmp/stg-markets.html').read() for m in s['markets']))")"
+  curl -sS -m 30 "$WEB_URL/markets" -o "$RUN_TMP/markets.html"
+  log "fixture ids on /markets: $(grep -o 'fixture-[a-z0-9-]*' "$RUN_TMP/markets.html" | sort -u | wc -l); real market ids: $(python3 -c 'import json,sys;s=json.load(open(sys.argv[1]));h=open(sys.argv[2]).read();print(sum(m["market"] in h for m in s["markets"]))' "$STATE" "$RUN_TMP/markets.html")"
 fi
 log "settler $SETTLER_PUB SOL $(solana balance "$SETTLER_PUB" -u "$RPC" 2>/dev/null); pauser $PAUSER_PUB SOL $(solana balance "$PAUSER_PUB" -u "$RPC" 2>/dev/null)"
 log "DONE payer left $(bal) SOL; Debu SOL $([ -n "$DEBU" ] && solana balance "$DEBU" -u "$RPC"); wallet B $WALLET_B_PUB SOL $(solana balance "$WALLET_B_PUB" -u "$RPC" 2>/dev/null)"
