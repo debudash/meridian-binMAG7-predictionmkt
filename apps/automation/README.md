@@ -37,13 +37,13 @@ Requires `SOLANA_CLUSTER=localnet`, `MODE=sim`, `AUTOMATION_KEYPAIR`, `COLLATERA
 
 Lifecycle: **create → sim_open → (mint documented) → sim_close → settle / admin_settle**.
 
-See [`docs/SIM_LIFECYCLE.md`](../../docs/SIM_LIFECYCLE.md).
+See [`docs/DEPLOY.md`](../../docs/DEPLOY.md) §3.3.
 
 ## Railway
 
 - **Build:** `npm install && npm run build` (in this package, or monorepo equivalent)
 - **Start:** `node dist/worker.js`
-- Env table: `docs/DEPLOY.md` §4 + `.env.example`
+- Env table: `docs/DEPLOY.md` §5.2 + `.env.example`
 - Program id default: `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6`
 
 ## Tests
@@ -73,7 +73,7 @@ Covers ET settle gates, strike encoding, and prod-entry ↔ sim-module isolation
 - **Settle at the close:** permissionless pull settle first; when Hermes can't (403), `admin_settle` after the on-chain delay at
   the **operator close price** (`OPERATOR_CLOSE_PRICES(_FILE)`, bound to the market's ET day + symbol, source required;
   outcome = price ≥ strike). The static `ADMIN_SETTLE_PRICE_E6` is localnet-only, and `SOLANA_CLUSTER=localnet` refuses to
-  start on a non-loopback RPC (L-5). Staging operator prices: `node ops/operator-prices.cjs` (see docs/RAILWAY_STAGING.md §0b).
+  start on a non-loopback RPC (L-5). Staging operator prices: `node ops/operator-prices.cjs` (see [`docs/DEPLOY.md`](../../docs/DEPLOY.md) §6.2).
 - `node dist/ops-cli.js market-day [--now <unix>] [--strikes]` prints today's session / plan (used by `ops/run-staging.sh`).
 - Localnet: `scripts/localnet/today-markets.cjs` creates today's-close MAG7 markets with books (SimClock-aware, additive).
 

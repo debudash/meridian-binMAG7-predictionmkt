@@ -6,7 +6,7 @@
  *
  * Book-sim models Phoenix match economics (Yes↔USDC between traders) without
  * deploying Phoenix CLOB on solana-test-validator. Residual: full Phoenix.so
- * market create — docs/phoenix-onbook-sim.md.
+ * market create — docs/TEST_RESULTS.md §2 (PHX on-book sim).
  *
  * Case IDs: PHX-01…PHX-06.
  */

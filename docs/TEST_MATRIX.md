@@ -1,9 +1,9 @@
 # Meridian Test Matrix — Mint / Settle / Redeem + $1 Vault
 
-**Status:** P0/P1/SIM + Cluster I (`merge_pair`) green on `main` (68/68 localnet post-!31). **P2 cluster + INV gates** = `tests/p2_gates.ts` — Eng pin A-05 Policy A + X-07 Settling retired (D-018) on `eng/p2-invariant-gates`.  
-**Audience:** Meridian Testers → Anchor/TS integration tests.  
-**Stack:** Solana + Anchor; Phoenix CLOB (integrate, no matching in Meridian); Pyth equity closes; USDC collateral; MAG7 binary Yes/No.  
-**Program id (tip):** `9Rb7nxTRRQg2F3qWiDhnQ1dTjDoTvRimcyykLfhwG9r6` (post !24 rotate; suite confirm !25). Revoked: `GwTvo6yNrGc8FS8cRYi1wbqcynVyWgkQssZ2vyYnxxo2`.
+**Status:** every case mapped to a file in "Case → file map" below passes on `main` (localnet `localnet-test` build). Latest counts and how to run: [`TEST_RESULTS.md`](TEST_RESULTS.md). The **Status** column below records drafting history (`draft` = written before the code existed); it is not a live result.
+**Audience:** testers and reviewers.
+**Stack:** Solana + Anchor; Phoenix CLOB (integrate, no matching in Meridian); Pyth equity closes; USDC collateral; MAG7 binary Yes/No.
+**Program id:** see `Anchor.toml` / `declare_id!`.
 
 **Source of truth (docs on `main`):**
 - [`SCHEMA.md`](SCHEMA.md) §§5–7 (instructions, events, invariants)
@@ -250,70 +250,39 @@ Cite: SCHEMA §7; flows §2/§5/§7; units §3.
 | INV-PROD-01 | invariant | Committed `idl/meridian.prod.json` | Parse prod IDL ix names | Fixture ixs (`sim_*`, `upsert_mock_pyth`, `test_drain_vault`, …) **absent**; localnet IDL may keep them | Mocha twin of CI assert; no `.so` strings | P2 | passing |
 | INV-FEE-TRUNC | invariant | Fee bps=10; amount with residual | unit + mint(999) | `fee = amount * bps / 10_000` trunc toward 0; fee(999)=0 → treasury unchanged; vault += amount | Documents M-03/R-05 1-lamport edge | P2 | passing |
 
-## Priority rollup (plan coverage)
+## Clusters added after this catalogue
 
-| Phase | P0 | P1 | P2 | Total |
-| --- | ---: | ---: | ---: | ---: |
-| mint | 6 | 4 | 0 | 10 |
-| settle | 9 | 1 | 0 | 10 |
-| admin_settle | 4 | 0 | 1 | 5 |
-| redeem | 7 | 1 | 1 | 9 |
-| invariant | 5 | 3 | 0 | 8 |
-| pause / lifecycle | 6 | 1 | 1 | 8 |
-| sim_session (localnet) | 8 | 1 | 0 | 9 |
-| merge_pair (D-018) | 6 | 2 | 0 | 8 |
-| **Sum** | **51** | **13** | **3** | **67** |
-| inv gates (Cluster H) | 0 | 0 | 3 | 3 |
-| **Sum** | **45** | **11** | **6** | **62** |
+These suites are listed in [`TEST_RESULTS.md`](TEST_RESULTS.md) §3 rather than as rows here:
 
-*(S-10 counted under settle P0 as unit-testable without full program. SIM-* are **localnet-only** and never gate mainnet builds.)*
-
----
-
-## Mapping to future test files (not created yet)
-
-| Suggested path (when `tests/` exists) | Cases |
-| --- | --- |
-| `tests/unit/pyth_price_to_e6.ts` (or Rust `utils/pyth`) | S-10 + units §8 |
-| `tests/mint.ts` | M-* |
-| `tests/settle.ts` | S-* (excl. pure unit), A-* |
-| `tests/redeem.ts` | R-* |
-| `tests/invariants.ts` | V-* asserted as postconditions + X-04/X-05 |
-| `tests/pause.ts` | X-01…X-03 |
-| `tests/sim_session.ts` | SIM-01…SIM-09 (**localnet-test only**) |
-| `tests/merge_pair.ts` | MP-01…MP-08 (**D-018**; green) |
-
-P0/P1/SIM suites green on `main` (localnet). Cluster I (`merge_pair`) **green** (Eng D-018). **A-05 / X-07** owned by P2 suite !27 — do not double-flip here.
-| `tests/sim_session.ts` | SIM-01…SIM-09 (**localnet-test only**) — green on tip (!16) |
-| `tests/p2_gates.ts` | A-05, R-08, X-07 + INV-P2-I3, INV-PROD-01, INV-FEE-TRUNC |
-
-P0/P1/SIM suites green on `main` (localnet). Cluster H / P2 pinned by Eng (D-018) on `eng/p2-invariant-gates`.
-
----
-
-## Doc gaps that blocked or softened cases
-
-| Gap | Impact | Interim test stance |
+| Prefix | File | Covers |
 | --- | --- | --- |
-| Strike `>=` vs `>` still open in SCHEMA §8 | S-03 locks on **≥** (D-005) | Fail test if Engineers flip without DECISIONS update |
-| Admin `outcome_yes` vs price consistency | A-05 → Policy A in Schema !29 | **Covered by P2 suite !27** — do not re-test in Cluster I |
-| `Settling` enum unused | X-07 → retire in Schema !29 | **Covered by P2 suite !27** — do not re-test in Cluster I |
-| `merge_pair` prod ix (D-018) | Sell No unwind | Cluster I MP-01…MP-08 **green** |
-| `burn_losing` optional v1 | R-08 | Skip if ix absent |
-| Admin `outcome_yes` vs price consistency | A-05 underspecified | P2; suite pins **reject** until Eng locks reject XOR accept+log |
-| `burn_losing` optional v1 | R-08 | Ix on tip; assert supply↓ / no USDC / pairs_redeemed frozen |
-| `Void` redeem policy out of v1 | No void cases | Do not invent refund math |
-| Exact MAG7 Pyth feed ids not pinned | S-07 uses fixtures | Pin before mainnet eval |
-| Zero-amount mint/redeem | M-07 | Prefer reject; confirm in impl |
-| Fee rounding (floor/ceil) | M-03, R-05 | Use `amount * bps / 10_000` trunc toward zero per units §3 unless Engineers document otherwise |
+| SC | `tests/sim_clock.ts` | SimClock warp / set / disable (D-017) |
+| PHX + U | `tests/phoenix_onbook_e2e.ts`, `tests/unit/phoenix_compose.ts` | Four intents composed against a simulated book fill |
+| PULL | `tests/prod/settle_pull_oracle.ts` | Prod pull-oracle settle on the prod `.so` (D-025) |
 
----
+## Case → file map
 
-## Sign-off checklist (Testers, after code lands)
+| File | Cases |
+| --- | --- |
+| `tests/mint.ts` | M-01, M-02, M-04, M-05, M-06, M-08 |
+| `tests/settle.ts` | S-01…S-07, S-09, S-11, A-01…A-04 |
+| `tests/unit/pyth_price_to_e6.ts` | S-10 |
+| `tests/redeem.ts` | R-01…R-04, R-06, R-07, R-09 |
+| `tests/invariants.ts` | V-01…V-05 |
+| `tests/pause.ts` | X-01, X-02, X-04, X-05, X-06 |
+| `tests/fees.ts` | M-03, R-05, V-06 |
+| `tests/p1_edges.ts` | S-08, X-03, M-07, M-09, M-10, V-07, V-08 |
+| `tests/sim_session.ts` | SIM-01…SIM-09 (localnet-test only) |
+| `tests/merge_pair.ts` | MP-01…MP-08 |
+| `tests/p2_gates.ts` | A-05, R-08, X-07, INV-P2-I3, INV-PROD-01, INV-FEE-TRUNC |
 
-- [ ] All **P0** cases have failing-then-passing Anchor/TS coverage
-- [ ] Invariant helpers I1–I5 run on X-04 / X-05
-- [ ] Fee=0 path green before enabling fee cases
-- [ ] No Meridian test asserts Phoenix matching internals (pubkey + mint wiring only)
-- [ ] **SIM-*** cases green on `localnet-test` only; prod `.so` still omits `sim_*` / mock fixtures (D-017)
-- [x] P2 A-05 / R-08 / X-07 + INV gates green (D-018 Policy A + Settling retired)
+## Settled design points the cases pin
+
+| Point | Pinned by |
+| --- | --- |
+| Yes wins on `settle ≥ strike` (D-005) | S-03 |
+| `admin_settle` outcome must match price vs strike (D-018 Policy A) | A-05 |
+| `Settling` status retired (D-018) | X-07 |
+| `burn_losing`: loser supply down, no USDC, `pairs_redeemed` frozen | R-08 |
+| Fee math truncates toward zero (`amount × bps / 10_000`) | INV-FEE-TRUNC, M-03, R-05 |
+| `Void` redeem is out of V1 scope | no cases (do not invent refund math) |

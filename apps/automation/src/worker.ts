@@ -1,7 +1,7 @@
 /**
  * Railway / prod entry — calendar mode only.
  *
- * Start: `node dist/worker.js` (DEPLOY.md §4).
+ * Start: `node dist/worker.js` (DEPLOY.md §5).
  * Loads packaged idl/meridian.prod.json; refuses fixture IDL off localnet.
  * Does NOT import modes/sim.ts (fixture isolation).
  * Optional HTTP /health for Railway healthcheckPath (HEALTH_PORT, default 8080).

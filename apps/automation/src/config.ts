@@ -1,5 +1,5 @@
 /**
- * Automation env config (DEPLOY.md §4).
+ * Automation env config (DEPLOY.md §5.2).
  * Secrets via env / Railway Variables only — never commit keypairs.
  */
 import * as fs from "fs";

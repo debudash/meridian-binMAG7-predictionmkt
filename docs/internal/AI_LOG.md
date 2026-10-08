@@ -424,7 +424,7 @@
 
 Append-only log of agent decisions and orchestration events for Peak6 Meridian.
 Timestamps are America/Chicago (CDT, UTC-5). Newest entries at the top.
-Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DECISIONS.md).
+Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](../DECISIONS.md).
 
 ---
 
@@ -719,7 +719,7 @@ Narrative detail lives here; locked decisions are indexed in [`DECISIONS.md`](DE
 | Field | Value |
 | --- | --- |
 | **Actor** | Meridian Schema |
-| **Decision** | **D-017:** Simulate mint-window open/close without wall-clock waits. No new `StrikeMarket` status for session hours — lifecycle stays `Open` → `SettledYes|SettledNo|Void`. Meridian "market open" = `status==Open && !paused && effective_now < expiry_ts`; "close" = `effective_now >= expiry_ts`. Add **SimClock** PDA seeds `["sim_clock"]` (`authority`, `unix_timestamp`, `slot`, `enabled`, `bump`); authority = `Config.authority`. Ixs `init_sim_clock` / `set_sim_clock` / `warp_sim_clock` / optional `disable_sim_clock` all `#[cfg(feature = "localnet-test")]` (same deploy-blocker pattern as mock Pyth). Time gates on mint/settle/admin_settle (+ Pyth `slot_now`) use **`effective_clock`**; prod builds use `Clock::get()` only. Preferred Anchor shape: `sim_clock: Option<Account<SimClock>>` under localnet-test. `settled_at_ts`/`settled_slot` record effective values. Event `SimClockSet`. Pause unchanged. Full proposal: [`sim-clock.md`](sim-clock.md). |
+| **Decision** | **D-017:** Simulate mint-window open/close without wall-clock waits. No new `StrikeMarket` status for session hours — lifecycle stays `Open` → `SettledYes|SettledNo|Void`. Meridian "market open" = `status==Open && !paused && effective_now < expiry_ts`; "close" = `effective_now >= expiry_ts`. Add **SimClock** PDA seeds `["sim_clock"]` (`authority`, `unix_timestamp`, `slot`, `enabled`, `bump`); authority = `Config.authority`. Ixs `init_sim_clock` / `set_sim_clock` / `warp_sim_clock` / optional `disable_sim_clock` all `#[cfg(feature = "localnet-test")]` (same deploy-blocker pattern as mock Pyth). Time gates on mint/settle/admin_settle (+ Pyth `slot_now`) use **`effective_clock`**; prod builds use `Clock::get()` only. Preferred Anchor shape: `sim_clock: Option<Account<SimClock>>` under localnet-test. `settled_at_ts`/`settled_slot` record effective values. Event `SimClockSet`. Pause unchanged. Full proposal: [`sim-clock.md`](../sim-clock.md). |
 | **Result** | Schema docs updated: `docs/sim-clock.md` created; SCHEMA / accounts / flows / programs README / DECISIONS / AI_LOG aligned. Engineers implement behind `localnet-test`. |
 | **Related** | D-017 · D-014 · D-016 · localnet fixtures (upsert_mock_pyth, test_drain_vault) |
 
