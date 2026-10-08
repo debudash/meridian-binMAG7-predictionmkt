@@ -6,6 +6,8 @@ Built for the Peak6 brief: [`docs/PEAK6_PRD.md`](docs/PEAK6_PRD.md).
 
 **Graders: start with [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md)** (every PRD line, its status and evidence).
 
+**Testnet demo (Solana devnet):** https://web-production-77fbb.up.railway.app. It is live once the devnet re-bootstrap lands (DLV-077); connect Phantom on devnet. Mainnet production is future work (see [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md)).
+
 ## Architecture in 60 seconds
 
 | Part | What it does |
