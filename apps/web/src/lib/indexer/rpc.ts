@@ -10,6 +10,7 @@ import { mapStrikeMarketToView, type RawStrikeMarket } from "./mapStrikeMarket";
 import type { MarketView } from "@/lib/market/types";
 import { decodePythPriceAccount } from "@/lib/pyth/priceAccount";
 import { isMissingAccountError, logChainReadError } from "@/lib/log/chainRead";
+import { attachPhoenixQuotes } from "./phoenixQuotes";
 
 /** Read-only wallet stub for Anchor Program fetches (SSR / no signer). */
 function readOnlyProvider(connection: Connection): AnchorProvider {
@@ -43,43 +44,6 @@ async function fetchTreasury(program: Program): Promise<string | undefined> {
     // Mint / merge need the treasury; without it trades fail later — make the cause visible.
     logChainReadError("rpc.config.treasury", e);
     return undefined;
-  }
-}
-
-/**
- * Top-of-book from Phoenix for markets with phoenixMarket set (one batched RPC).
- * createWithoutConfig avoids the SDK's remote master_config (absent on localnet).
- */
-async function attachPhoenixQuotes(
-  connection: Connection,
-  views: MarketView[],
-): Promise<void> {
-  const withBook = views.filter((v) => v.phoenixMarket);
-  if (withBook.length === 0) return;
-  try {
-    const PhoenixSdk = await import("@ellipsis-labs/phoenix-sdk");
-    const client = await PhoenixSdk.Client.createWithoutConfig(
-      connection,
-      withBook.map((v) => new PublicKey(v.phoenixMarket!)),
-      false,
-    );
-    for (const v of withBook) {
-      try {
-        const ladder = client.getUiLadder(v.phoenixMarket!, 1);
-        const bid = ladder.bids?.[0]?.price;
-        const ask = ladder.asks?.[0]?.price;
-        if (bid != null) v.yesBid = bid;
-        if (ask != null) v.yesAsk = ask;
-        if (bid != null && ask != null) v.yesMid = Math.round(((bid + ask) / 2) * 1000) / 1000;
-        else if (bid != null || ask != null) v.yesMid = (bid ?? ask) as number;
-      } catch (e) {
-        // leave quotes unset for this market
-        logChainReadError("rpc.phoenix.ladder", e, { phoenixMarket: v.phoenixMarket });
-      }
-    }
-  } catch (e) {
-    // Phoenix unavailable on this cluster — quotes stay "—"
-    logChainReadError("rpc.phoenix.markets", e, { count: withBook.length });
   }
 }
 
