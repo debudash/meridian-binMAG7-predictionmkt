@@ -25,7 +25,7 @@ function bootstrapPlanFromToday(today, { nbooks, feeds, nowSec }) {
     book: i < nbooks,
     fair: 0.5,
   }));
-  // 20-min settle-test market: ATM strike from the same fresh reference (AAPL if present) — no more hardcoded AAPL ≥ 300.
+  // 20-min settle-test market: ATM strike from the same prior-close reference (D-026) (AAPL if present) — no more hardcoded AAPL ≥ 300.
   const s = markets.find((m) => m.symbol === "AAPL") || markets[0];
   return { dateKey: today.dateKey, closeTs: today.closeTs, regular, short: { symbol: s.symbol, strike: Number(s.strikeE6) / 1e6 } };
 }

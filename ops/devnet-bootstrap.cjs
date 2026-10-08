@@ -87,7 +87,7 @@ const FEEDS = {
   META: ["GsKrMNoa1Mqjpif4SYk2WjdduWZP699hXRdP51yBM6K2", "78a3e3b8e676a8f73c439f5d749737034b139bbbe899ba5775216fba596607fe"],
   TSLA: ["E8WFH8brgP58arcuW2wwsPHiomYrSvrgWTsRLZLAEZUQ", "16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1"],
 };
-// DLV-118 (SPEC §1/§3.3): markets expire at TODAY's 16:00 ET close with strikes from a fresh reference price.
+// DLV-118 (SPEC §1/§3.3): markets expire at TODAY's 16:00 ET close with strikes ATM on the previous trading day's close (D-026).
 // TODAY_PLAN = JSON from `ops-cli market-day --strikes` (run-staging.sh writes it). No fixed next-close date, no AAPL ≥ 300.
 const { bootstrapPlanFromToday, shortExpiryFor, sameDayDuplicates } = require("./lib/today-plan.cjs");
 function envOrStagingEnv(k) {

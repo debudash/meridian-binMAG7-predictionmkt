@@ -1,5 +1,6 @@
 /**
- * Calendar mode (prod/devnet/Railway): morning create + post-16:00 ET settle with real Pyth.
+ * Calendar mode (prod/devnet/Railway): morning create (D-026: from 07:00, by 08:00 ET, on the prior close) + post-16:00 ET
+ * settle with real Pyth.
  * Must NOT import sim helpers or localnet fixture ixs.
  */
 import BN from "bn.js";
@@ -15,13 +16,15 @@ import {
   decideStrikeReference,
   defaultStrikeStepE6,
   etWall,
+  etWallClockToUnix,
   isAlertCode,
   OperatorDayPrices,
+  priorSessionClose,
   sameDaySession,
   StrikeReferenceDecision,
 } from "../marketDay";
 import { decideAdminFallbackPrice } from "../pyth/adminFallback";
-import { fetchLatestPrice } from "../pyth/hermes";
+import { fetchUpdateAt } from "../pyth/hermes";
 import { decodePriceUpdateV2, PullPrice, PYTH_RECEIVER_PROGRAM_ID } from "../pyth/pullOracle";
 import {
   adminSettleMarket,
@@ -52,7 +55,19 @@ export interface CalendarState {
   dayPlan?: { dateKey: string; strikes: Record<string, string[]> };
   /** ET day the once-a-day ALERTs (calendar horizon, ignored PHOENIX_MARKETS) were last logged. */
   lastDailyAlertKey?: string | null;
+  /** D-026: ET day the "create deadline missed" ALERT was last logged (once per day). */
+  lastDeadlineAlertKey?: string | null;
+  /**
+   * D-026 review M1: gaps that do not block marking the day done (symbol skipped for config, fewer markets than planned),
+   * so a later "already ran" tick past the deadline still ALERTs. Retried gaps (no price, failed create) keep the day open.
+   */
+  dayGaps?: { dateKey: string; gaps: string[] };
+  /** D-026 review N3: symbol → ET day its "no prior-close strike reference" ALERT was last logged (once per day). */
+  refAlertDay?: Record<string, string>;
 }
+
+/** D-026 seam: Hermes price AT a unix time (first update with publish_time >= `publishTime`). */
+export type HermesAt = (feedIdHex: string, publishTime: number) => Promise<PullPrice>;
 
 /** On-chain account read seam: data + owner (DLV-119 L-6 verifies the owner). */
 export type ReadAccount = (pk: PublicKey) => Promise<{ data: Buffer; owner: PublicKey } | null>;
@@ -87,23 +102,32 @@ export function loadOperatorDayPrices(cfg: AutomationConfig, kind: "strike" | "c
     }
     const pricesE6: Record<string, string> = {};
     for (const [k, v] of Object.entries(j.pricesE6)) pricesE6[k.toUpperCase()] = String(v);
-    return { dateKey: j.dateKey, source: String(j.source ?? ""), pricesE6 };
+    // Review L3: the raw closeDateKey is kept (any type) so decideStrikeReference refuses a wrong one with a reason.
+    return { dateKey: j.dateKey, ...("closeDateKey" in j ? { closeDateKey: j.closeDateKey } : {}), source: String(j.source ?? ""), pricesE6 };
   } catch (e) {
     log(`ALERT operator ${kind} prices are not valid JSON: ${String(e).slice(0, 120)}`);
     return null;
   }
 }
 
-/** DLV-118: fresh strike reference for one symbol — Hermes latest (if a key / seam) else the operator day price. */
+/**
+ * D-026: strike reference for one symbol on market day `dateKey` = the previous trading day's close — Hermes at the prior
+ * close (if a key / seam) → sponsored on-chain account at the prior close → the operator prior close.
+ */
 export async function strikeReferenceFor(
   cfg: AutomationConfig,
   symbol: string,
   dateKey: string,
-  nowSec: number,
   operator: OperatorDayPrices | null,
-  hermesLatest?: (feedIdHex: string) => Promise<PullPrice>,
+  hermesAt?: HermesAt,
   readAccount?: ReadAccount,
 ): Promise<StrikeReferenceDecision> {
+  let prevClose: { dateKey: string; closeTs: number };
+  try {
+    prevClose = priorSessionClose(dateKey);
+  } catch (e) {
+    return { ok: false, reason: `no previous trading day for ${dateKey}: ${String((e as Error)?.message ?? e)}` };
+  }
   const feedIdHex = cfg.pythFeedIds[symbol]?.toString("hex");
   let onchain: { parsed: PullPrice; account: string } | { error: string } | undefined;
   const feedPk = cfg.pythPriceFeeds[symbol];
@@ -123,36 +147,46 @@ export async function strikeReferenceFor(
     }
   }
   let hermes: { parsed: PullPrice } | { error: string } | undefined;
-  if (feedIdHex && (hermesLatest || cfg.pythHermesApiKey)) {
+  if (feedIdHex && (hermesAt || cfg.pythHermesApiKey)) {
     try {
-      const parsed = hermesLatest
-        ? await hermesLatest(feedIdHex)
-        : await fetchLatestPrice({ baseUrl: cfg.pythHermesUrl, apiKey: cfg.pythHermesApiKey, feedIdHex });
+      const parsed = hermesAt
+        ? await hermesAt(feedIdHex, prevClose.closeTs)
+        : (await fetchUpdateAt({ baseUrl: cfg.pythHermesUrl, apiKey: cfg.pythHermesApiKey, feedIdHex, publishTime: prevClose.closeTs })).parsed;
       hermes = { parsed };
     } catch (e) {
       hermes = { error: String((e as Error)?.message ?? e).slice(0, 160) };
     }
   }
   return decideStrikeReference({
-    symbol, dateKey, nowSec, feedIdHex, maxAgeSecs: cfg.strikeRefMaxAgeSecs, maxConfBps: 500, hermes, onchain, operator: operator ?? undefined,
+    symbol, dateKey, prevClose, feedIdHex, maxSkewSecs: cfg.priorCloseMaxSkewSecs, maxConfBps: 500, hermes, onchain, operator: operator ?? undefined,
   });
 }
 
 /**
- * DLV-118: today's plan for ops (run-staging.sh → devnet-bootstrap.cjs via `ops-cli market-day --strikes`):
- * session (expiry = 16:00 ET today) + one ATM strike per symbol from a fresh reference; refused symbols listed.
+ * DLV-118 / D-026: today's plan for ops (run-staging.sh → devnet-bootstrap.cjs via `ops-cli market-day --strikes`):
+ * session (expiry = 16:00 ET today) + one ATM strike per symbol on the prior close (same rule as the worker); refused
+ * symbols listed. No create-window gate (ops runs it by hand).
  */
 export async function planDayForOps(
   cfg: AutomationConfig,
   nowSec: number,
-  hermesLatest?: (feedIdHex: string) => Promise<PullPrice>,
+  hermesAt?: HermesAt,
   readAccount?: ReadAccount,
 ): Promise<
-  | { ok: true; dateKey: string; openTs: number; closeTs: number; markets: Array<{ symbol: string; strikeE6: string; refE6: string; source: string }>; refused: Array<{ symbol: string; reason: string }> }
+  | {
+      ok: true; dateKey: string; openTs: number; closeTs: number; prevDateKey: string; prevCloseTs: number;
+      markets: Array<{ symbol: string; strikeE6: string; refE6: string; source: string }>; refused: Array<{ symbol: string; reason: string }>;
+    }
   | { ok: false; code: string; reason: string; dateKey: string; nextDateKey?: string }
 > {
   const s = sameDaySession(nowSec);
   if (!s.ok) return { ok: false, code: s.code, reason: s.reason, dateKey: s.dateKey, nextDateKey: s.nextDateKey };
+  let prev: { dateKey: string; closeTs: number };
+  try {
+    prev = priorSessionClose(s.plan.dateKey);
+  } catch (e) {
+    return { ok: false, code: "unknown_year", reason: String((e as Error)?.message ?? e), dateKey: s.plan.dateKey };
+  }
   const operator = loadOperatorDayPrices(cfg, "strike");
   const markets: Array<{ symbol: string; strikeE6: string; refE6: string; source: string }> = [];
   const refused: Array<{ symbol: string; reason: string }> = [];
@@ -162,7 +196,7 @@ export async function planDayForOps(
       refused.push({ symbol, reason: `missing PYTH_FEED_IDS.${symbol} (required, D-025)` });
       continue;
     }
-    const d = await strikeReferenceFor(cfg, symbol, s.plan.dateKey, nowSec, operator, hermesLatest, readAccount);
+    const d = await strikeReferenceFor(cfg, symbol, s.plan.dateKey, operator, hermesAt, readAccount);
     if (!d.ok) {
       refused.push({ symbol, reason: d.reason });
       continue;
@@ -170,12 +204,12 @@ export async function planDayForOps(
     const [strike] = atmStrikesE6(d.priceE6, [0], cfg.strikeStepE6 ?? defaultStrikeStepE6(d.priceE6));
     markets.push({ symbol, strikeE6: strike.toString(), refE6: d.priceE6.toString(), source: d.source });
   }
-  return { ok: true, dateKey: s.plan.dateKey, openTs: s.plan.openTs, closeTs: s.plan.closeTs, markets, refused };
+  return { ok: true, dateKey: s.plan.dateKey, openTs: s.plan.openTs, closeTs: s.plan.closeTs, prevDateKey: prev.dateKey, prevCloseTs: prev.closeTs, markets, refused };
 }
 
 /**
- * DLV-118: today's strikes. expiry = that ET day's 16:00 close (sameDaySession); ATM strike from the fresh reference
- * rounded to STRIKE_STEP_E6 (default $5 ≥ $100, else $1) plus STRIKE_OFFSETS_E6. After the close → { ok:false }.
+ * DLV-118: today's strikes. expiry = that ET day's 16:00 close (sameDaySession); ATM strike from the reference (the prior
+ * close, D-026) rounded to STRIKE_STEP_E6 (default $5 ≥ $100, else $1) plus STRIKE_OFFSETS_E6. After the close → { ok:false }.
  */
 export function planSameDayStrikes(
   cfg: AutomationConfig,
@@ -205,15 +239,20 @@ export function planSameDayStrikes(
 }
 
 /**
- * DLV-118: create each trading day's markets at the 9:30 ET open (window [09:30, 16:00) ET, weekends / NYSE
- * holidays skipped), expiry = that day's 16:00 ET close. Never after the close (no next-day roll).
+ * D-026 (supersedes DLV-118's 09:30-open create): create each trading day's markets in [CREATE_FROM_ET (07:00), 16:00) ET
+ * (weekends / NYSE holidays skipped), expiry = that day's 16:00 ET close, strikes ATM on the previous trading day's
+ * close. Never after the close (no next-day roll).
+ * Deadline (review M1): decided AFTER the on-chain scan and the create pass, so a restart past 08:00 with every market
+ * on-chain is silent. Past CREATE_DEADLINE_ET (08:00) it ALERTs once that day when the day is incomplete: no price, a
+ * failed create, a symbol skipped for a missing PYTH_FEED_IDS / PYTH_PRICE_FEEDS entry, fewer markets than planned, or
+ * markets that only got created now (late start). No price / failed create keep retrying every tick until the close.
  * DLV-119 (Reviewers !91):
  *   - early-close days and calendar gaps are refused with an ALERT (M-1);
  *   - the open-market scan must succeed, else nothing is created this tick (ALERT, retry) — no blind create (L-1);
  *   - a failed create is an ALERT and the day stays open; the retry creates only the missing strikes of the day's
  *     FIRST plan (L-3), so it is idempotent even when the reference moved;
  *   - PHOENIX_MARKETS is ignored for daily markets (ALERT once a day if set) until the worker creates books (L-8).
- * A symbol without a fresh reference price is skipped with an ALERT and the day stays un-done so the next tick retries.
+ * A symbol without a prior-close reference price is skipped with an ALERT and the day stays un-done so the next tick retries.
  */
 export async function runMorningCreate(opts: {
   cfg: AutomationConfig;
@@ -223,7 +262,7 @@ export async function runMorningCreate(opts: {
   now?: Date;
   /** Test seams */
   listOpen?: () => Promise<Array<{ publicKey: PublicKey; account: any }>>;
-  hermesLatest?: (feedIdHex: string) => Promise<PullPrice>;
+  hermesAt?: HermesAt;
   readAccount?: ReadAccount;
   create?: (strike: StrikeSpec) => Promise<{ market: PublicKey; signature: string }>;
 }): Promise<TrackedMarket[]> {
@@ -238,14 +277,23 @@ export async function runMorningCreate(opts: {
     }
     opts.state.lastDailyAlertKey = today;
   }
-  const session = sameDaySession(nowSec, { requireOpen: true });
+  const session = sameDaySession(nowSec, { notBeforeEt: opts.cfg.createFromEt });
   if (!session.ok) {
     log(`${isAlertCode(session.code) ? "ALERT " : ""}skip create — ${session.code}: ${session.reason.replace(/^ALERT /, "")}`);
     return [];
   }
   const { dateKey, closeTs } = session.plan;
+  // D-026 (Peak6 PRD "market creation by 8:00 AM ET"): past the deadline with the day incomplete → page ops once that day.
+  const dl = opts.cfg.createDeadlineEt;
+  const deadlineAlert = (gaps: string[]) => {
+    if (!gaps.length || nowSec < etWallClockToUnix(dateKey, dl.hour, dl.minute) || opts.state.lastDeadlineAlertKey === dateKey) return;
+    const hhmm = `${String(dl.hour).padStart(2, "0")}:${String(dl.minute).padStart(2, "0")}`;
+    log(`ALERT create deadline ${hhmm} ET missed for ${dateKey} — incomplete: ${gaps.join("; ")} (no price / failed creates retry every tick until 16:00 ET)`);
+    opts.state.lastDeadlineAlertKey = dateKey;
+  };
   if (opts.state.lastCreateDateKey === dateKey) {
     log(`skip create — already ran for ${dateKey}`);
+    deadlineAlert(opts.state.dayGaps?.dateKey === dateKey ? opts.state.dayGaps.gaps : []);
     return [];
   }
   if (!opts.cfg.collateralMint) {
@@ -285,14 +333,19 @@ export async function runMorningCreate(opts: {
   const step = (ref: bigint) => opts.cfg.strikeStepE6 ?? defaultStrikeStepE6(ref);
   const toCreate: StrikeSpec[] = [];
   let missingPrice = 0;
+  // Review M1: why the day is incomplete. `persistent` = not retried (config / partial set); `retried` = this pass only.
+  const persistent: string[] = [];
+  const retried: string[] = [];
   for (const symbol of opts.cfg.symbols) {
     // D-025: off-localnet a market with a zero feed id can never permissionless-settle.
     if (opts.cfg.cluster !== "localnet" && !opts.cfg.pythFeedIds[symbol]) {
       log(`skip ${symbol} — missing PYTH_FEED_IDS entry (required off-localnet, D-025)`);
+      persistent.push(`${symbol} missing PYTH_FEED_IDS`);
       continue;
     }
     if (!opts.cfg.pythPriceFeeds[symbol]) {
       log(`skip ${symbol} — missing PYTH_PRICE_FEEDS entry`);
+      persistent.push(`${symbol} missing PYTH_PRICE_FEEDS`);
       continue;
     }
     let strikes = dayPlan.strikes[symbol];
@@ -301,12 +354,19 @@ export async function runMorningCreate(opts: {
         // Created before this process knew the plan (restart / other creator): never add a second set.
         const n = haveCount[symbol];
         log(`${n < opts.cfg.strikeOffsetsE6.length ? "ALERT " : ""}skip ${symbol} — already has ${n} market(s) expiring ${dateKey} 16:00 ET${n < opts.cfg.strikeOffsetsE6.length ? ` (fewer than the ${opts.cfg.strikeOffsetsE6.length} planned; not completing without the original plan)` : ""}`);
+        if (n < opts.cfg.strikeOffsetsE6.length) persistent.push(`${symbol} has ${n}/${opts.cfg.strikeOffsetsE6.length} markets`);
         continue;
       }
-      const d = await strikeReferenceFor(opts.cfg, symbol, dateKey, nowSec, operator, opts.hermesLatest, readAccount);
+      const d = await strikeReferenceFor(opts.cfg, symbol, dateKey, operator, opts.hermesAt, readAccount);
       if (!d.ok) {
         missingPrice++;
-        log(`ALERT no fresh strike reference for ${symbol} on ${dateKey} — not created: ${d.reason}`);
+        retried.push(`${symbol} no prior-close price`);
+        // Review N3: ALERT once per symbol per ET day; later ticks log a plain retry line.
+        const seen = (opts.state.refAlertDay ??= {});
+        if (seen[symbol] !== dateKey) {
+          log(`ALERT no prior-close strike reference for ${symbol} on ${dateKey} — not created: ${d.reason}`);
+          seen[symbol] = dateKey;
+        } else log(`no prior-close strike reference for ${symbol} on ${dateKey} — retrying next tick: ${d.reason}`);
         continue;
       }
       log(`strike reference ${symbol} ${d.priceE6} (${d.source})`);
@@ -339,14 +399,20 @@ export async function runMorningCreate(opts: {
       const tracked: TrackedMarket = { market, symbol: strike.symbol, pythPriceFeed: feed, expiryTs: closeTs, settleAttempts: 0, createdDateKey: dateKey };
       opts.state.tracked.push(tracked);
       created.push(tracked);
+      retried.push(`${strike.symbol}@${strike.strikePriceE6.toString()} created only now`);
     } catch (e) {
       failed++;
+      retried.push(`${strike.symbol}@${strike.strikePriceE6.toString()} create failed`);
       log(`ALERT create failed for ${strike.symbol}@${strike.strikePriceE6.toString()} (day stays open; retry next tick, L-3): ${String(e).split("\n")[0].slice(0, 200)}`);
     }
   }
 
   // Missing price or failed create → leave the day open so the next tick retries (idempotent: existing strikes skip).
-  if (missingPrice === 0 && failed === 0) opts.state.lastCreateDateKey = dateKey;
+  if (missingPrice === 0 && failed === 0) {
+    opts.state.lastCreateDateKey = dateKey;
+    opts.state.dayGaps = { dateKey, gaps: persistent };
+  }
+  deadlineAlert([...persistent, ...retried]);
   return created;
 }
 

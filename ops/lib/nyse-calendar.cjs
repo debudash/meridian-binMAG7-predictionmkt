@@ -1,6 +1,7 @@
 /**
  * NYSE calendar for box ops scripts (plain CJS, no build). MUST equal apps/automation/src/marketDay.ts
- * NYSE_HOLIDAYS / NYSE_EARLY_CLOSES (asserted by apps/automation/test/dlv119-review.test.ts). Source: nyse.com.
+ * NYSE_HOLIDAYS / NYSE_EARLY_CLOSES (asserted by apps/automation/test/dlv119-review.test.ts) and its prevTradingDay /
+ * prior-close rule (d026-create-0800.test.ts). Source: nyse.com.
  */
 "use strict";
 const NYSE_HOLIDAYS = {
@@ -61,11 +62,51 @@ function tradingDay(dateKey) {
   return { ok: true };
 }
 
-/** Unix seconds of 16:00 ET on dateKey. */
-function closeTsFor(dateKey) {
+/** Unix seconds of hour:minute ET on dateKey (DST via Intl). */
+function etWallToUnix(dateKey, hour, minute = 0) {
   const [y, mo, d] = dateKey.split("-").map(Number);
-  for (const off of [4, 5]) { const t = Date.UTC(y, mo - 1, d, 16 + off) / 1000; const q = etParts(t); if (q.dateKey === dateKey && q.hour === 16) return t; }
-  throw new Error(`no 16:00 ET on ${dateKey}`);
+  for (const off of [4, 5]) {
+    const t = Date.UTC(y, mo - 1, d, hour + off, minute) / 1000;
+    const q = etParts(t);
+    if (q.dateKey === dateKey && q.hour === hour && q.minute === minute) return t;
+  }
+  throw new Error(`no ${hour}:${String(minute).padStart(2, "0")} ET on ${dateKey}`);
 }
 
-module.exports = { NYSE_HOLIDAYS, NYSE_EARLY_CLOSES, CALENDAR_YEARS, etParts, tradingDay, closeTsFor };
+/** Unix seconds of 16:00 ET on dateKey. */
+function closeTsFor(dateKey) {
+  return etWallToUnix(dateKey, 16, 0);
+}
+
+/** D-026: a day's actual session close — 13:00 ET on an NYSE early close, else 16:00 ET (prior-close reference only). */
+function sessionCloseTsFor(dateKey) {
+  return etWallToUnix(dateKey, NYSE_EARLY_CLOSES[dateKey] ? 13 : 16, 0);
+}
+
+function addDays(dateKey, n) {
+  const [y, mo, d] = dateKey.split("-").map(Number);
+  return new Date(Date.UTC(y, mo - 1, d + n)).toISOString().slice(0, 10);
+}
+
+/** First/last NYSE session (early closes count) strictly after (dir=1) / before (dir=-1) dateKey; unknown year throws. */
+function stepSession(dateKey, dir) {
+  let k = addDays(dateKey, dir);
+  for (let i = 0; i < 14; i++, k = addDays(k, dir)) {
+    const t = tradingDay(k);
+    if (t.ok || t.code === "early_close") return k;
+    if (t.code === "unknown_year") throw new Error(t.reason);
+  }
+  throw new Error(`no NYSE session within 14 days of ${dateKey}`);
+}
+
+/** D-026: previous NYSE session before dateKey — same rule as marketDay.prevTradingDay (early closes count). */
+function prevTradingDay(dateKey) {
+  return stepSession(dateKey, -1);
+}
+
+/** Next NYSE session after dateKey, early closes included (callers refuse an early-close market day themselves). */
+function nextSessionDay(dateKey) {
+  return stepSession(dateKey, 1);
+}
+
+module.exports = { NYSE_HOLIDAYS, NYSE_EARLY_CLOSES, CALENDAR_YEARS, etParts, tradingDay, closeTsFor, sessionCloseTsFor, etWallToUnix, prevTradingDay, nextSessionDay };

@@ -3,6 +3,7 @@
  * Pure validation + the Railway call shape for ops/operator-prices.cjs. Unit-tested in
  * apps/automation/test/operator-prices-cli.test.ts. Output JSON = what the worker's loadOperatorDayPrices parses:
  *   {"dateKey":"YYYY-MM-DD","source":"<where the prices came from>","pricesE6":{"AAPL":"227310000",...}}
+ * Strike kind (D-026) adds "closeDateKey" = the previous trading day whose official closes these are.
  */
 "use strict";
 const cal = require("./nyse-calendar.cjs");
@@ -34,38 +35,79 @@ function parsePriceArgs(pairs) {
 }
 
 /**
- * kind: "strike" (set before the 09:30 ET open; used as the strike reference when Hermes / the on-chain feed can't)
- *     | "close"  (set at/after the 16:00 ET close; used by admin_settle when pull settle can't).
- * dateKey (optional) must equal TODAY's ET date; the day must be a full NYSE trading day (no weekend / holiday /
- * early close / unknown year). Throws with every problem listed; returns { varName, json, dateKey, warnings }.
+ * kind: "strike" = the PREVIOUS trading day's official closes (D-026: strikes are ATM on the prior close), used as the
+ *                  strike reference when Hermes / the on-chain feed have no price at that close. Allowed any time from
+ *                  that prior close until the market day's CREATE_DEADLINE_ET (default 08:00 ET) — e.g. the evening
+ *                  before. The market day = today if it is a session and before the deadline, else the next session.
+ *                  Review M2: an explicit dateKey = today is also accepted after the deadline until today's 16:00 ET
+ *                  close (the worker keeps retrying until then), with a "LATE: after the 08:00 ET deadline" warning.
+ *     | "close"  (set at/after the 16:00 ET close; used by admin_settle when pull settle can't) — market day = today.
+ * dateKey (optional) must equal that market day; it must be a full NYSE trading day (no weekend / holiday / early
+ * close / unknown year). Throws with every problem listed; returns { varName, json, dateKey, warnings }.
  */
-function validateOperatorPrices({ kind, source, prices, nowSec, dateKey, symbols = MAG7 }) {
+function validateOperatorPrices({ kind, source, prices, nowSec, dateKey, symbols = MAG7, deadlineEt = "08:00" }) {
   if (kind !== "strike" && kind !== "close") throw new Error(`kind must be strike or close (got ${kind})`);
   const errs = [];
   const warnings = [];
-  const today = cal.etParts(nowSec).dateKey;
-  if (dateKey !== undefined && dateKey !== today) errs.push(`--date ${dateKey} is not today's ET date ${today} (prices are only for today)`);
-  const td = cal.tradingDay(today);
-  if (!td.ok) errs.push(`${today}: ${td.reason.replace(/^ALERT /, "")} (${td.code === "early_close" ? "early close" : td.code}) — no 0DTE markets today`);
-  if (!source || !String(source).trim()) errs.push("--source is required (where the prices came from, e.g. \"Nasdaq last sale 09:25 ET\")");
+  const w = cal.etParts(nowSec);
+  const today = w.dateKey;
+  const hhmm = (h, m) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  const dl = /^([01][0-9]|2[0-3]):([0-5][0-9])$/.exec(String(deadlineEt).trim());
+  if (!dl) throw new Error(`CREATE_DEADLINE_ET must be HH:MM (got ${JSON.stringify(deadlineEt)})`);
+  const [dlH, dlM] = [Number(dl[1]), Number(dl[2])];
+  let market = today;
+  let prev = null;
+  try {
+    if (kind === "strike") {
+      const t = cal.tradingDay(today);
+      const todayIsSession = t.ok || t.code === "early_close";
+      market = todayIsSession && nowSec < cal.etWallToUnix(today, dlH, dlM) ? today : cal.nextSessionDay(today);
+      if (market !== today && dateKey === today && t.ok && nowSec < cal.closeTsFor(today)) {
+        market = today;
+        warnings.push(`LATE: after the ${hhmm(dlH, dlM)} ET deadline — today's (${today}) markets missed the deadline; the worker uses these prices for the missing markets until the 16:00 ET close`);
+      }
+    }
+  } catch (e) {
+    errs.push(String(e.message || e));
+  }
+  if (dateKey !== undefined && dateKey !== market) {
+    errs.push(kind === "strike"
+      ? `--date ${dateKey} is not the market day ${market} (today's before ${hhmm(dlH, dlM)} ET, else the next session)`
+      : `--date ${dateKey} is not today's ET date ${today} (close prices are only for today)`);
+  }
+  const td = cal.tradingDay(market);
+  if (!td.ok) errs.push(`${market}: ${td.reason.replace(/^ALERT /, "")} (${td.code === "early_close" ? "early close" : td.code}) — no 0DTE markets ${market === today ? "today" : "that day"}`);
+  if (!source || !String(source).trim()) errs.push(`--source is required (where the prices came from, e.g. "Nasdaq official close${kind === "strike" ? " <previous trading day>" : ""}")`);
   const got = Object.keys(prices || {});
   for (const s of symbols) if (!got.includes(s)) errs.push(`missing ${s} (all of ${symbols.join(",")} are required)`);
   for (const s of got) if (!symbols.includes(s)) errs.push(`unexpected ticker ${s} (only ${symbols.join(",")})`);
-  if (td.ok) {
+  if (td.ok && kind === "strike") {
+    try {
+      prev = cal.prevTradingDay(market);
+      const prevClose = cal.sessionCloseTsFor(prev);
+      if (nowSec < prevClose) {
+        const c = cal.etParts(prevClose);
+        errs.push(market !== today && cal.tradingDay(today).ok
+          ? `it is past today's ${hhmm(dlH, dlM)} ET create deadline; the next strike prices are for ${market} = the ${prev} official close — set them after ${hhmm(c.hour, c.minute)} ET`
+          : `the ${prev} close (${hhmm(c.hour, c.minute)} ET) has not happened yet — strike prices are the previous trading day's official closes`);
+      }
+    } catch (e) {
+      errs.push(String(e.message || e));
+    }
+  } else if (td.ok) {
     const closeTs = cal.closeTsFor(today);
-    const w = cal.etParts(nowSec);
-    if (kind === "strike") {
-      if (nowSec >= closeTs) errs.push(`strike prices after today's 16:00 ET close are useless (same-day markets only)`);
-      else if (w.hour > 9 || (w.hour === 9 && w.minute >= 30)) warnings.push(`late: it is past the 09:30 ET open — the worker creates on its next start (this set triggers a redeploy)`);
-    } else if (nowSec < closeTs) errs.push(`close prices before today's 16:00 ET close are refused (it is ${String(w.hour).padStart(2, "0")}:${String(w.minute).padStart(2, "0")} ET)`);
+    if (nowSec < closeTs) errs.push(`close prices before today's 16:00 ET close are refused (it is ${hhmm(w.hour, w.minute)} ET)`);
   }
   if (errs.length) throw new Error(`refused:\n  - ${errs.join("\n  - ")}`);
   const pricesE6 = {};
   for (const s of symbols) pricesE6[s] = prices[s];
+  const body = kind === "strike"
+    ? { dateKey: market, closeDateKey: prev, source: String(source).trim(), pricesE6 }
+    : { dateKey: market, source: String(source).trim(), pricesE6 };
   return {
     varName: kind === "strike" ? "OPERATOR_STRIKE_PRICES" : "OPERATOR_CLOSE_PRICES",
-    json: JSON.stringify({ dateKey: today, source: String(source).trim(), pricesE6 }),
-    dateKey: today,
+    json: JSON.stringify(body),
+    dateKey: market,
     warnings,
   };
 }

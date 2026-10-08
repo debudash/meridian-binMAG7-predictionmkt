@@ -47,6 +47,7 @@ This SPEC is the **locked** product/engineering contract (Debu 2026-10-06 CT). M
 | D-015 | Phoenix V1 | **Phoenix V1 spot** = working assumption (Yes/USDC book) |
 | D-016 | TDD | Failing tests first for vault $1, mint, settle, redeem, pause |
 | D-017 | Anytime sim | V1 **hard acceptance**: E2E without waiting for real 9:30/4:00 ET; sim open/close; force YesWins/NoWins; prod gates intact; feature-gated `localnet-test` |
+| D-026 | Daily timing | Markets created **by 08:00 ET** (window opens 07:00) with strikes ATM on the **previous trading day's close**; supersedes DLV-118's 09:30-open create |
 
 Full rows: [`DECISIONS.md`](DECISIONS.md).
 
@@ -68,6 +69,13 @@ Full rows: [`DECISIONS.md`](DECISIONS.md).
 ### 3.3 MAG7 0DTE lifecycle
 
 End-to-end: **create → mint → Phoenix trade → settle → redeem** for a same-day MAG7 strike market.
+
+**Daily timing (D-026):**
+
+- **Create by 08:00 ET** (the worker's create window opens at 07:00 ET; a missed deadline is an ALERT and it keeps retrying).
+- **Strike = ATM on the prior close** (the previous NYSE trading day's close; 13:00 ET after an early close).
+- **Trading 09:30–16:00 ET**; expiry = that day's 16:00 ET close.
+- **Settle by 16:05 ET.**
 
 ### 3.4 Phoenix
 

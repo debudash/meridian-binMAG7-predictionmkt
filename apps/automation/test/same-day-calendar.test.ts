@@ -1,8 +1,9 @@
 /**
- * DLV-118 (SPEC §1 / §3.3): the calendar worker (prod/devnet) creates each trading day's markets at the 9:30 ET
- * open with expiry == THAT day's 16:00 ET close, strikes from a fresh reference price (Hermes when entitled, else an
- * operator price bound to the day), and settles at the close via the operator-sourced price while Hermes lacks
- * equities (DLV-106). After the close it never creates (no next-day roll).
+ * DLV-118 (SPEC §1 / §3.3) + D-026: the calendar worker (prod/devnet) creates each trading day's markets from 07:00 ET
+ * (by the 08:00 ET deadline) with expiry == THAT day's 16:00 ET close, strikes ATM on the previous trading day's close
+ * (Hermes at the prior close when entitled, else an operator prior close bound to the market day), and settles at the
+ * close via the operator-sourced price while Hermes lacks equities (DLV-106). After the close it never creates (no
+ * next-day roll).
  */
 import * as fs from "fs";
 import * as os from "os";
@@ -14,6 +15,7 @@ import { loadConfig } from "../src/config";
 import { createCalendarState, planSameDayStrikes, runMorningCreate, runSettlePass, loadOperatorDayPrices } from "../src/modes/calendar";
 import { encodeEquitySymbol } from "../src/strikes";
 import { PYTH_RECEIVER_PROGRAM_ID } from "../src/pyth/pullOracle";
+import { prevTradingDay } from "../src/marketDay";
 
 const utc = (y: number, mo: number, d: number, h: number, mi = 0) => new Date(Date.UTC(y, mo - 1, d, h, mi));
 const CLOSE_1008 = 1791489600; // 2026-10-08 16:00 EDT
@@ -39,7 +41,7 @@ function devnetCfg(extra: Record<string, string> = {}) {
 }
 
 const operator = (dateKey: string) =>
-  JSON.stringify({ dateKey, source: "Nasdaq last sale 09:31 ET", pricesE6: { AAPL: "227310000", MSFT: "414200000" } });
+  JSON.stringify({ dateKey, closeDateKey: prevTradingDay(dateKey), source: "Nasdaq official close 2026-10-07", pricesE6: { AAPL: "227310000", MSFT: "414200000" } });
 
 describe("DLV-118 calendar create: same-day 16:00 ET expiry", () => {
   it("default symbols are the SPEC §1 MAG7 list", () => {
@@ -75,7 +77,7 @@ describe("DLV-118 calendar create: same-day 16:00 ET expiry", () => {
       state,
       now,
       listOpen: async () => existing,
-      hermesLatest: async () => {
+      hermesAt: async () => {
         throw new Error("Hermes key is valid but not entitled to this feed (HTTP 403)");
       },
       create: async (s) => {
@@ -86,8 +88,8 @@ describe("DLV-118 calendar create: same-day 16:00 ET expiry", () => {
     return { out, created, state };
   }
 
-  it("09:31 ET with Hermes 403 + operator prices for TODAY → one market per symbol, expiry == 16:00 ET today", async () => {
-    const { created, state } = await run(utc(2026, 10, 8, 13, 31), { OPERATOR_STRIKE_PRICES: operator("2026-10-08") });
+  it("07:01 ET with Hermes 403 + operator prior closes for TODAY's market → one market per symbol, expiry == 16:00 ET today", async () => {
+    const { created, state } = await run(utc(2026, 10, 8, 11, 1), { OPERATOR_STRIKE_PRICES: operator("2026-10-08") });
     expect(created).to.deep.equal([
       { symbol: "AAPL", expiry: CLOSE_1008, strike: "225000000" },
       { symbol: "MSFT", expiry: CLOSE_1008, strike: "415000000" },
@@ -95,8 +97,8 @@ describe("DLV-118 calendar create: same-day 16:00 ET expiry", () => {
     expect(state.lastCreateDateKey).to.equal("2026-10-08");
   });
 
-  it("before the 9:30 ET open → nothing (create happens at the open, not 08:00)", async () => {
-    const { created } = await run(utc(2026, 10, 8, 13, 29), { OPERATOR_STRIKE_PRICES: operator("2026-10-08") });
+  it("before the 07:00 ET create window → nothing (D-026: create from 07:00, done by 08:00)", async () => {
+    const { created } = await run(utc(2026, 10, 8, 10, 59), { OPERATOR_STRIKE_PRICES: operator("2026-10-08") });
     expect(created).to.deep.equal([]);
   });
 
@@ -112,7 +114,7 @@ describe("DLV-118 calendar create: same-day 16:00 ET expiry", () => {
     expect((await run(utc(2026, 11, 26, 15), { OPERATOR_STRIKE_PRICES: operator("2026-11-26") })).created).to.deep.equal([]);
   });
 
-  it("no fresh price (Hermes 403, no / stale operator prices) → nothing created, day NOT marked done (retries next tick)", async () => {
+  it("no prior-close price (Hermes 403, no / wrong-day operator prices) → nothing created, day NOT marked done (retries next tick)", async () => {
     const a = await run(utc(2026, 10, 8, 13, 31));
     expect(a.created).to.deep.equal([]);
     expect(a.state.lastCreateDateKey).to.equal(null);
@@ -206,7 +208,7 @@ describe("DLV-118 calendar settle: operator-sourced close price while Hermes lac
 describe("DLV-118 ops plan (ops-cli market-day --strikes → devnet-bootstrap TODAY_PLAN)", () => {
   it("one ATM strike per symbol, expiry = today's close; symbols without a fresh price are listed as refused", async () => {
     const { planDayForOps } = await import("../src/modes/calendar");
-    const cfg = devnetCfg({ OPERATOR_STRIKE_PRICES: JSON.stringify({ dateKey: "2026-10-08", source: "op", pricesE6: { AAPL: "227310000" } }) });
+    const cfg = devnetCfg({ OPERATOR_STRIKE_PRICES: JSON.stringify({ dateKey: "2026-10-08", closeDateKey: "2026-10-07", source: "op", pricesE6: { AAPL: "227310000" } }) });
     const r = await planDayForOps(cfg, Math.floor(utc(2026, 10, 8, 13, 0).getTime() / 1000));
     expect(r.ok).to.equal(true);
     if (!r.ok) return;
@@ -217,10 +219,9 @@ describe("DLV-118 ops plan (ops-cli market-day --strikes → devnet-bootstrap TO
     expect(late).to.include({ ok: false, code: "after_close" });
   });
 
-  it("create uses a fresh sponsored on-chain account when Hermes is 403 (readAccount seam)", async () => {
+  it("create uses a sponsored on-chain account posted at the prior close when Hermes is 403 (readAccount seam)", async () => {
     const created: string[] = [];
     const now = utc(2026, 10, 8, 13, 31);
-    const nowSec = Math.floor(now.getTime() / 1000);
     const acct = Buffer.alloc(134);
     Buffer.from([34, 241, 35, 99, 157, 126, 244, 205]).copy(acct, 0);
     acct[40] = 1; // Full
@@ -228,10 +229,10 @@ describe("DLV-118 ops plan (ops-cli market-day --strikes → devnet-bootstrap TO
     acct.writeBigInt64LE(41431000000n, 73); // 414.31 @ expo -8
     acct.writeBigUInt64LE(1000000n, 81);
     acct.writeInt32LE(-8, 89);
-    acct.writeBigInt64LE(BigInt(nowSec - 60), 93);
+    acct.writeBigInt64LE(BigInt(CLOSE_1008 - 86400 + 60), 93); // 2026-10-07 16:01 ET = prior close + 60 s
     await runMorningCreate({
       cfg: devnetCfg(), program: {} as any, authority: Keypair.generate(), state: createCalendarState(), now,
-      listOpen: async () => [], hermesLatest: async () => { throw new Error("403"); },
+      listOpen: async () => [], hermesAt: async () => { throw new Error("403"); },
       readAccount: async () => ({ data: acct, owner: PYTH_RECEIVER_PROGRAM_ID }), // L-6: receiver-owned
       create: async (s) => (created.push(`${s.symbol}:${s.strikePriceE6.toString()}:${s.expiryTs.toNumber()}`), { market: Keypair.generate().publicKey, signature: "x" }),
     });

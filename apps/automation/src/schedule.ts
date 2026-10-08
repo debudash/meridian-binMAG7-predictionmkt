@@ -1,5 +1,5 @@
 /**
- * America/New_York calendar gates for create (~08:00) and settle (≥16:00 ET).
+ * America/New_York calendar gates for settle (≥16:00 ET). The create window lives in marketDay.sameDaySession (D-026).
  * Pure helpers — unit-tested without RPC.
  */
 import { ET_TZ } from "./config";
@@ -42,12 +42,6 @@ export function getEtParts(now: Date = new Date(), timeZone: string = ET_TZ): Et
     second: Number(parts.second),
     dateKey: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
   };
-}
-
-/** @deprecated DLV-118 — the calendar worker creates at the 9:30 ET open via marketDay.sameDaySession({ requireOpen }). */
-export function isCreateWindow(now: Date, createHourEt: number = 8): boolean {
-  const p = getEtParts(now);
-  return p.hour === createHourEt;
 }
 
 /**
