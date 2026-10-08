@@ -30,6 +30,9 @@ RUN sh -c "$(curl -sSfL https://release.anza.xyz/v${SOLANA_VERSION}/install)" \
 RUN cargo install --git https://github.com/coral-xyz/anchor --tag v${ANCHOR_VERSION} avm --locked \
     && avm install ${ANCHOR_VERSION} && avm use ${ANCHOR_VERSION} && anchor --version
 
+# Node >= 22.18 strips TS types natively and loads .ts as ESM, which breaks the ts-node/mocha suites.
+ENV NODE_OPTIONS=--no-experimental-strip-types
+
 RUN corepack enable && yarn --version
 
 WORKDIR /repo
