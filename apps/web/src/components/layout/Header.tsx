@@ -23,6 +23,7 @@ import { isNavActive } from "@/lib/ui/selection";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { POLL_MS } from "@/lib/rpc/pollPolicy";
 import { useChainClock } from "@/components/providers/AppProviders";
+import { ChangeWalletButton } from "@/components/wallet/ChangeWalletButton";
 
 const NAV = [
   { href: "/markets", label: "Markets" },
@@ -54,7 +55,7 @@ export function Header() {
         }}
       >
         <div
-          className="container"
+          className="container header-row"
           style={{
             display: "flex",
             alignItems: "center",
@@ -100,7 +101,9 @@ export function Header() {
           <span className="chip" title="Solana cluster">
             {cluster}
           </span>
-          <WalletMultiButton style={{ height: 36, fontSize: 13 }} />
+          {/* DLV-115: always reachable, even with a stale remembered wallet (e.g. Phantom not installed). */}
+          <ChangeWalletButton />
+          <WalletMultiButton style={{ height: 36, fontSize: 13, padding: "0 0.9rem", whiteSpace: "nowrap" }} />
         </div>
       </header>
       <nav className="mobile-bottom-nav" aria-label="Primary (mobile)">

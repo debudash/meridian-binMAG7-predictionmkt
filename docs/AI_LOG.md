@@ -1,3 +1,17 @@
+## 2026-10-08T12:10:00-05:00 — Engineers: remembered-but-not-installed wallet opens the picker (never the wallet site) + header Change wallet
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian Engineers (item from Grok Bot; Debu hit it on local :3000 @ `7e8120d`; Debu's standing autonomy) |
+| **Branch** | `fix/wallet-picker-fallback` from `origin/main` @ `7e8120d`, merged with `66c4179` (Merge !85) |
+| **Source** | wallet-adapter localStorage `walletName="Phantom"` with no Phantom installed: the header showed **Connect** with the Phantom icon, clicking opened phantom.app, and the wallet list (Localnet Dev Wallet) couldn't be reached. |
+| **Decision** | Root cause: `WalletProvider` had no `onError`, so `WalletProviderBase`'s default handler ran `window.open(adapter.url)` on `WalletNotReadyError` (thrown by `connect()` for NotDetected / Unsupported wallets). Nothing cleared the stale selection, and the library button offers Change wallet only once connected. Fix: our own `onError` (clear selection + open picker + toast, never navigate). Forget a stale remembered wallet: Unsupported at once, NotDetected after a 2.5 s grace so a real extension can inject. Our own modal provider on the same `WalletModalContext`, rendering the stock `WalletModal` with a reordered list (dev wallet first when the DLV-081 gate allows it, filtered out otherwise). An always-visible header Change wallet. |
+| **Change** | `apps/web`: new `src/lib/solana/walletPicker.ts`, `src/components/wallet/WalletPickerProvider.tsx`, `src/components/wallet/ChangeWalletButton.tsx`; `AppProviders.tsx` (`onError` bridge, notice bridge, `WalletPickerProvider` replaces `WalletModalProvider`); `Header.tsx` (Change wallet, nowrap wallet button); `globals.css` ("Wallets" label + tighter header gap under 480 px). `docs/VISUAL_RUNBOOK.md` 0.2 note. |
+| **Tests** | Red first: `src/lib/solana/walletPicker.test.ts` (10). Web vitest **384 passed + 14 skipped** (was 374 + 14). `tsc --noEmit` clean, `next lint` clean. Live: temporary `next dev` on 127.0.0.1:3100 (reads :8899 only), fresh headless Chrome profile, `walletName="Phantom"`. Connect (Phantom icon) opens the picker `[Localnet Dev Wallet Detected, Phantom, Solflare]` with the toast "Phantom isn't installed in this browser. Pick another wallet.", `walletName` removed, 0 popups, URL unchanged. Reload + 4 s shows `Select Wallet`. Gate off lists `[Phantom, Solflare]`. 390 px header: no overflow. :3100 stopped; :3000 / :8899 untouched. Screenshots `/workspace/meridian-wallet-picker-run/`. No Railway redeploy. |
+| **Related** | DLV-115 · MR !86 · DLV-081 · VISUAL_RUNBOOK 0.2 |
+
+---
+
 ## 2026-10-08T12:10:00-05:00 — Testers: VISUAL_RUNBOOK (+ STAGING) strings synced to apps/web @ 7e8120d
 
 | Field | Value |
