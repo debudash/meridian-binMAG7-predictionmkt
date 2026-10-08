@@ -63,6 +63,24 @@ It is never shown on devnet/mainnet or any production build. Fund the key on loc
 > server answers there (`next dev -H 0.0.0.0` or no `-H`) it returns 404 and logs
 > `[dev-wallet] refused: … reachable off-loopback` (DLV-081). Restart bound to 127.0.0.1 to fix.
 
+#### Fresh (flat) dev wallet without reseeding (DLV-113)
+
+VISUAL_RUNBOOK §5 starts flat. If the current dev key already holds positions, swap in a new key
+instead of reseeding the validator (markets, books and the maker are untouched):
+
+1. Back up `apps/web/.env.local` (mode 600, outside the repo).
+2. `solana-keygen new --no-bip39-passphrase --silent -o <new-key>.json` outside the repo, `chmod 600`.
+   Only ever print its **pubkey**.
+3. Fund it on localnet: `requestAirdrop` 20 SOL (faucet), then create its fixture-USDC ATA and
+   `mintTo` 100,000 USDC signed by the localnet USDC mint authority (the localnet admin key).
+4. Change only `LOCALNET_DEV_WALLET_KEYPAIR=<new-key>.json` in `.env.local`, restart `npm run dev -- -p 3000`
+   (loopback), then in the browser **Disconnect** and pick **Localnet Dev Wallet** again.
+5. Check `/api/localnet-dev-wallet` derives the new pubkey (don't print the key).
+
+The previous dev key keeps its balances and Phoenix seats, so the operator can use it as the
+**second localnet key** that crosses your resting order in VISUAL_RUNBOOK §9.2.
+Undo: restore the `.env.local` backup and restart.
+
 ## Tests / checks
 
 ```bash

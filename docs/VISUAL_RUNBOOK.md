@@ -103,7 +103,7 @@ Reference shots: `meridian-orderbook-highlight.png`, `meridian-orderbook-highlig
 
 ## 5. Buy Yes, Sell Yes, Buy No, Sell No (Market and Limit)
 
-Start flat on a market with a book. Use size **5**. (The full table with exact balances is STAGING_TEST_PLAN §3.)
+Start flat on a market with a book. Use size **5**. (The full table with exact balances is STAGING_TEST_PLAN §3.) **[A]** If the dev wallet already holds Yes or No (card badge `You: …`), ask the operator for a fresh dev wallet ([`apps/web/README.md`](../apps/web/README.md) "Fresh (flat) dev wallet"); no reseed needed.
 
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
@@ -153,7 +153,7 @@ Reference shots: `meridian-payoff-line-ticket.png`, `meridian-payoff-line-sell-y
 
 ## 9. Resting order filled by the other wallet, Phoenix balance, Withdraw, Cancel, Cancel all
 
-**[B]**: use wallet B in Phantom. **[A]**: the dev wallet is a single key, so ask the operator to cross your order from a second localnet key, or do this section on Track B.
+**[B]**: use wallet B in Phantom. **[A]**: the dev wallet is a single key, so ask the operator to cross your order from a second localnet key (after a fresh-dev-wallet swap, the previous dev key is that second key), or do this section on Track B.
 
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
