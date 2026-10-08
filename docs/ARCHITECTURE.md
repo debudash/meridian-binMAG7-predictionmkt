@@ -76,7 +76,7 @@ sequenceDiagram
   U->>P: redeem winning side 1:1 USDC
 ```
 
-On `main` the worker creates markets at the 9:30 ET open; D-026 (in flight) moves creation to 08:00 ET on the prior close. Details: [`DEPLOY.md`](DEPLOY.md) §6.
+The worker creates the day's markets from 07:00 ET, by 08:00 ET, with strikes ATM on the previous session's close (D-026). Details: [`DEPLOY.md`](DEPLOY.md) §6.
 
 ## 4. Trust boundaries
 

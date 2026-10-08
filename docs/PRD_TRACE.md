@@ -5,13 +5,13 @@ Every line of the Peak6 PRD ([`PEAK6_PRD.md`](PEAK6_PRD.md)) with its status and
 **Status key:** **Met** = built and tested · **Partial** = built, with a stated gap · **Not yet** = not done.
 "Staging" = Railway services pointed at Solana devnet (the PRD's "testnet").
 
-Last reviewed: 2026-10-08 against `main` @ `a5146d4`.
+Last reviewed: 2026-10-08 against `main` @ `4630892`.
 
 ## 1. Functional requirements
 
 | PRD line | Status | Evidence |
 | --- | --- | --- |
-| Daily market creation for 7 stocks (AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA) | **Partial** | Worker creates the day's MAG7 markets, expiry 16:00 ET same day (`apps/automation/src/marketDay.ts`, `modes/calendar.ts`; tests `market-day.test.ts`, `same-day-calendar.test.ts`). Localnet: `scripts/localnet/today-markets.cjs` creates all 7 with books. Gaps: worker-created markets have no Phoenix book yet; staging `STRIKE_SYMBOLS` is `AAPL` only and the keeper needs devnet SOL ([`DEPLOY.md`](DEPLOY.md) §6.1) |
+| Daily market creation for 7 stocks (AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA) | **Partial** | Worker creates the day's MAG7 markets by 08:00 ET (D-026), expiry 16:00 ET same day (`apps/automation/src/marketDay.ts`, `modes/calendar.ts`; tests `market-day.test.ts`, `same-day-calendar.test.ts`, `d026-create-0800.test.ts`). Localnet: the Docker instance (`docker/localnet/seed.cjs` → `scripts/localnet/today-markets.cjs`) creates all 7 with books. Gaps: worker-created markets have no Phoenix book yet; staging `STRIKE_SYMBOLS` is `AAPL` only and the keeper needs devnet SOL ([`DEPLOY.md`](DEPLOY.md) §6.1) |
 | Yes / No token trading | **Met** | Four intents on one Yes/USDC Phoenix book ([`ARCHITECTURE.md`](ARCHITECTURE.md) §2, D-004, D-018). Program `mint` / `merge_pair`; web `lib/phoenix/compose.ts`. Tests: MP-*, PHX-*, web E2E cases 1–7 ([`TEST_RESULTS.md`](TEST_RESULTS.md)) |
 | Automated settlement via oracle | **Partial** | Built: Pyth pull oracle (D-025) in the program (`instructions/settle.rs`, `tests/prod/settle_pull_oracle.ts` 22 cases) and in automation (`solana/pullSettle.ts`, `pull-oracle.test.ts`). Deviation: the devnet Hermes key lacks the equity entitlement (DLV-106), so staging settles by `admin_settle` at an operator-sourced close price with a logged source. Recorded and swappable: no code change when the key is entitled ([`DEPLOY.md`](DEPLOY.md) §6.2) |
 | Position management | **Met** | Portfolio: positions, open orders, Phoenix seat balances, cancel / cancel all / withdraw, redeem (DLV-087, DLV-088). Tests: `lib/portfolio/*.test.ts`, `lib/phoenix/manage*.test.ts`, account E2E 4/4 |
@@ -43,8 +43,8 @@ Last reviewed: 2026-10-08 against `main` @ `a5146d4`.
 
 | PRD line | Status | Evidence |
 | --- | --- | --- |
-| Market creation by 8:00 AM ET | **Partial** | On `main` the worker creates at the 9:30 ET open. D-026 (branch in flight) moves creation to 08:00 ET using the prior close |
-| Trading 9:30 AM – 4:00 PM ET | **Partial** | Close is enforced: mint is refused at/after `expiry_ts` (16:00 ET), the web closes the ticket 5 s early, and books are paused at expiry. The program has no 9:30 open gate; on `main` trading starts when the market is created |
+| Market creation by 8:00 AM ET | **Met in code, verified in tests**; live devnet proof pending (DLV-077) | D-026: create window from 07:00 ET, deadline 08:00 ET with an `ALERT` (retries until 16:00); strikes ATM on the previous session's close (13:00 after an early close), Hermes within `PRIOR_CLOSE_MAX_SKEW_SECS` (300 s) or operator prior closes. `apps/automation/src/modes/calendar.ts`, `marketDay.ts`; test `d026-create-0800.test.ts` ([`DEPLOY.md`](DEPLOY.md) §6.1) |
+| Trading 9:30 AM – 4:00 PM ET | **Partial** | Close is enforced: mint is refused at/after `expiry_ts` (16:00 ET), the web closes the ticket 5 s early, and books are paused at expiry. The program has no 09:30 open gate, so markets can be traded from creation (07:00–08:00 ET) |
 | Settlement by 4:05 PM ET | **Partial** | See "Settlement within 10 minutes" above (DLV-123 open) |
 
 ## 5. Impact metrics
@@ -52,7 +52,7 @@ Last reviewed: 2026-10-08 against `main` @ `a5146d4`.
 | PRD line | Status | Evidence |
 | --- | --- | --- |
 | 100% accuracy in settlements | **Met (tests)** | Outcome = `price ≥ strike` (D-005); immutable once set; `admin_settle` must match the same rule (Policy A, A-05). Above / below / at-strike cases in S-*, E2E cases 8–9. Not yet observed on devnet |
-| Markets created before market open daily | **Partial** | See "Market creation by 8:00 AM ET" |
+| Markets created before market open daily | **Met in code, verified in tests**; live devnet proof pending (DLV-077) | See "Market creation by 8:00 AM ET" |
 | Settlements within 10 minutes of market close | **Partial** | See §2 |
 | Full lifecycle demo on testnet | **Not yet** | Railway staging services are up; the program and markets are not yet on devnet (DLV-077). A local Docker instance runs the full lifecycle any time ([`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)) |
 | $1.00 payout invariant maintained | **Met** | Vault = pairs × $1 and Yes supply = No supply after every step (V-*, MP-*, E2E); winners redeem exactly $1 |
@@ -87,7 +87,6 @@ Last reviewed: 2026-10-08 against `main` @ `a5146d4`.
 | --- | --- |
 | Deploy the program and bootstrap markets on devnet; run the staging plan | DLV-077, [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) |
 | Hermes key with equity entitlement (removes the operator-price deviation) | DLV-106 |
-| Create by 08:00 ET on the prior close | D-026 (in flight) |
 | Settle by 16:05 ET on the operator path | DLV-123 |
 | Phoenix book per worker-created daily market | Tracker Todo |
 | Record the demo video | DLV-038 |

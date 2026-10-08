@@ -22,6 +22,8 @@ What is tested, how to run it, and the latest recorded result per suite. Case ca
 
 ## 2. How to run
 
+All commands below also run inside the Docker toolchain image (Rust 1.85, Agave 4.3.0, Anchor 0.31.1), which is now the reference toolchain: prefix them with `docker compose -f docker/compose.localnet.yml run --rm local bash -lc "…"` ([`docker/README.md`](../docker/README.md)).
+
 ```bash
 yarn install
 

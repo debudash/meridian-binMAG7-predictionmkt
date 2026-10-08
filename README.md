@@ -25,18 +25,20 @@ Diagrams and trust boundaries: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ```bash
 docker compose -f docker/compose.localnet.yml up --build
-# open http://localhost:3000
+# wait for [meridian-local] ready, then open http://127.0.0.1:3000 (not localhost)
 ```
 
-Details: [`docker/README.md`](docker/README.md). Manual setup, tests and devnet / Railway deployment: [`docs/DEPLOY.md`](docs/DEPLOY.md).
+No Rust or Solana install needed: the Docker toolchain image (Rust 1.85, Agave 4.3.0, Anchor 0.31.1, Node 22) builds and runs everything. Details: [`docker/README.md`](docker/README.md). Manual setup, tests and devnet / Railway deployment: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 Run the tests:
 
 ```bash
-yarn install && yarn test                 # program suite on a local validator
-npm test --prefix apps/automation
-npm run test --prefix apps/web
+# in the Docker toolchain (stop the local instance first: the program suite uses :8899)
+docker compose -f docker/compose.localnet.yml run --rm local bash -lc "anchor test -- --features localnet-test"
+docker compose -f docker/compose.localnet.yml run --rm local bash -lc "npm test --prefix apps/automation && npm test --prefix apps/web"
 ```
+
+Or on a host with the same toolchain: `yarn install && yarn test`, `npm test --prefix apps/automation`, `npm run test --prefix apps/web`.
 
 ## Deliverables
 

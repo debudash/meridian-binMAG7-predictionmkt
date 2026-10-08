@@ -42,14 +42,14 @@ Order: local green → prod `.so` fixture assert → devnet program → Railway 
 
 ```bash
 docker compose -f docker/compose.localnet.yml up --build
-# open http://localhost:3000
+# open http://127.0.0.1:3000
 ```
 
-Brings up a local validator with the localnet-test program and the web app, with no Solana toolchain on the host. What it seeds, ports and troubleshooting: [`docker/README.md`](../docker/README.md).
+Brings up a local validator with the localnet-test program and the web app, with no Solana toolchain on the host. Use `127.0.0.1`, not `localhost` (another app on `[::]:3000` can capture `localhost`). The validator container runs with `seccomp:unconfined` because Agave 4.x needs io_uring, which Docker's default seccomp profile blocks; local dev container only. The same image runs every suite (`docker compose … run --rm local bash -lc "<command>"`). What it seeds, ports and troubleshooting: [`docker/README.md`](../docker/README.md).
 
 ### 3.2 Manual
 
-Use the Docker path (§3.1) unless you need to work on the toolchain itself. Prerequisites: Rust, Solana CLI 2.1.x, Anchor 0.31.1 (`Anchor.toml`), Node ≥ 20, yarn.
+Use the Docker path (§3.1) unless you need to work on the toolchain itself. Prerequisites (same as the Docker toolchain image): Rust 1.85, Solana / Agave CLI 4.3.0, Anchor 0.31.1 (`Anchor.toml`), Node ≥ 20 (the image uses 22), yarn.
 
 ```bash
 yarn install
@@ -142,7 +142,8 @@ No private key ever goes in a `NEXT_PUBLIC_*` variable. `NEXT_PUBLIC_LOCALNET_DE
 | `SETTLER_KEYPAIR` | **yes** | Low-balance key that signs and pays for permissionless `settle`. Must differ from the authority; required on mainnet |
 | `PHOENIX_PAUSER_KEYPAIR` | **yes** | Seat Manager authority of each book; pauses books at expiry. Not pause-only (it can also unpause and move authority), so treat a leak as an incident: [`runbooks/PAUSER_ROTATION.md`](runbooks/PAUSER_ROTATION.md) |
 | `PHOENIX_PAUSE_LEAD_SECS` (staging 5), `PHOENIX_PAUSE_ALERT_SECS`, `PHOENIX_PAUSE_ALERT_REPEAT_SECS` | no | Pause timing and alert repeat |
-| `OPERATOR_STRIKE_PRICES`, `OPERATOR_CLOSE_PRICES` | no | Operator prices for the day (§6.2). Set with `ops/operator-prices.cjs` |
+| `OPERATOR_STRIKE_PRICES`, `OPERATOR_CLOSE_PRICES` | no | Operator prices (§6.2). Set with `ops/operator-prices.cjs` |
+| `CREATE_FROM_ET`, `CREATE_DEADLINE_ET`, `PRIOR_CLOSE_MAX_SKEW_SECS` | no | Create window 07:00, deadline 08:00, prior-close skew 300 s (D-026). Keep comments on their own line: Railway takes everything after `=` as the value |
 | `PHOENIX_MARKETS` | no | Keep empty; ignored for daily markets |
 | `SETTLE_POLL_MS`, `SETTLE_MAX_RETRIES`, `ADMIN_SETTLE_AFTER_RETRIES`, `WORKER_TICK_MS`, `LOG_LEVEL`, `HEALTH_PORT` | no | Tuning |
 
@@ -154,8 +155,8 @@ Staging is being re-bootstrapped with new keys and a new program id (DLV-124). F
 
 | Role | Value |
 | --- | --- |
-| Program id | set at re-bootstrap (`declare_id!`) |
-| Upgrade authority / payer (`upgrade-authority.json`) | set at re-bootstrap |
+| Program id | `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj`: pending (DLV-124); `declare_id!` on `main` is the old id until then |
+| Upgrade authority / payer (`upgrade-authority.json`) | `Fm34E3zi5QBLxC2QFWvjGkcN2D4i3RmgUwvcFhjF9XVo` |
 | Keeper = config authority (`AUTOMATION_KEYPAIR`) | set at re-bootstrap |
 | Settler (`SETTLER_KEYPAIR`) | set at re-bootstrap |
 | Pauser (`PHOENIX_PAUSER_KEYPAIR`, = `EXPECTED_PAUSER_PUB`) | set at re-bootstrap |
@@ -191,27 +192,37 @@ Key roles (all `chmod 600`, never in git): the full table is in [`ops/README.md`
 
 ## 6. Daily operation (staging)
 
-### 6.1 Market creation
+### 6.1 Market creation and daily timing (D-026)
 
-- One creator: the Railway `automation` worker creates each trading day's MAG7 markets (`BOOTSTRAP_DAILY_MARKETS=0` on the box). On `main` it creates them at the 9:30 ET open with `expiry_ts` = that day's 16:00 ET close. D-026 (branch in flight) moves creation to 08:00 ET with strikes from the prior close.
-- Weekends, NYSE holidays and NYSE early-close days are refused with an `ALERT`. After the close the worker never creates (no roll to the next day).
-- Strike reference, in order: Hermes latest → a fresh, receiver-owned, Full-verified sponsored feed account → the operator strike prices for today → otherwise no market and an `ALERT`.
-- Known gap: worker-created markets have no Phoenix book yet (mint / redeem / settle work; book trading needs the bootstrap books). Tracked in the internal tracker.
+| When (ET) | What |
+| --- | --- |
+| Previous session's close (16:00, or 13:00 after an early close) → 08:00 | Operator strike prices can be set (§6.2) |
+| From 07:00 | The worker's create window opens (`CREATE_FROM_ET`) |
+| By 08:00 | Every MAG7 market for the day must exist (`CREATE_DEADLINE_ET`). If not, the worker logs `ALERT create deadline 08:00 ET missed …` once that day and keeps retrying until 16:00 |
+| 09:30–16:00 | PRD trading session; expiry = that day's 16:00 ET close. There is no on-chain 09:30 gate: markets can be minted and traded from creation |
+| 16:00 → 16:05 | Pause books, settle (§6.3–§6.4) |
+
+- One creator: the Railway `automation` worker creates each trading day's MAG7 markets (`BOOTSTRAP_DAILY_MARKETS=0` on the box).
+- Strike = ATM on the **previous trading day's close** (13:00 ET after an early close). Reference, in order: the Hermes price at that close (publish time within `PRIOR_CLOSE_MAX_SKEW_SECS`, default 300 s) → a receiver-owned, Full-verified `PYTH_PRICE_FEEDS` account posted at that close → the operator prior closes (§6.2) → otherwise no market and an `ALERT`.
+- Weekends, NYSE holidays and NYSE early-close days (no market created that day; 13:00 handling is a mainnet Todo) are refused with an `ALERT`. After the close the worker never creates (no roll to the next day).
+- Known gap: worker-created markets have no Phoenix book yet (mint / redeem / settle work; book trading needs the bootstrap books). Keep `PHOENIX_MARKETS` empty.
 
 ### 6.2 Operator prices (while DLV-106 is open)
 
-The current Hermes key returns 403 for equity feeds, so staging uses operator-sourced prices with a logged source. This is a recorded, swappable deviation: once the key has an equity grant, the pull-oracle path (§6.3) runs with no code change.
+The current Hermes key returns 403 for equity feeds, so staging uses operator-sourced prices with a logged source. This is a recorded, swappable deviation: once the key has an equity grant, the pull-oracle path (§6.1, §6.3) runs with no code change.
+
+The variables are `OPERATOR_STRIKE_PRICES` and `OPERATOR_CLOSE_PRICES` on `automation` (JSON `{dateKey, source, pricesE6}`; the strike variable also needs `closeDateKey` = the previous trading day).
 
 ```bash
-# before creation: all 7 tickers, with where the prices came from
-node ops/operator-prices.cjs strike --source "<source, e.g. Nasdaq pre-market last sale 09:15 ET>" \
-  AAPL=… MSFT=… GOOGL=… AMZN=… NVDA=… META=… TSLA=…
+# strikes = the previous trading day's official closes; any time from that close until 08:00 ET on the market day
+node ops/operator-prices.cjs strike --source "<source, e.g. Nasdaq official close 2026-10-07>"   AAPL=… MSFT=… GOOGL=… AMZN=… NVDA=… META=… TSLA=…
 # at/after the 16:00 ET close: official closes for admin_settle
-node ops/operator-prices.cjs close --source "<source, e.g. Nasdaq official closing price>" \
-  AAPL=… MSFT=… GOOGL=… AMZN=… NVDA=… META=… TSLA=…
+node ops/operator-prices.cjs close --source "<source, e.g. Nasdaq official closing price>"   AAPL=… MSFT=… GOOGL=… AMZN=… NVDA=… META=… TSLA=…
 ```
 
-The worker reads the variables at start, so the command sets the variable and then redeploys `automation`. `--dry-run` validates only; `--clear strike|close` empties a variable; `--no-restart` skips the redeploy. Needs `RAILWAY_PROJECT_TOKEN` in the environment; no values or tokens are printed.
+- `--date YYYY-MM-DD` names the market day. Without it, a strike set before 08:00 ET is for today, otherwise for the next session. A late `--date <today>` after 08:00 is still accepted until 16:00 ET, with a LATE warning.
+- `CREATE_DEADLINE_ET` (default 08:00) is read from the local shell and must match Railway's value.
+- The worker reads the variables at start, so the command sets the variable and then redeploys `automation`. `--dry-run` validates only; `--clear strike|close` empties a variable; `--no-restart` skips the redeploy. Needs `RAILWAY_PROJECT_TOKEN` in the environment; no values or tokens are printed.
 
 ### 6.3 Settlement
 
@@ -239,4 +250,4 @@ Settle-by-16:05 ET on the operator path is not yet guaranteed (DLV-123, open).
 
 ## 8. CI
 
-[`.gitlab-ci.yml`](../.gitlab-ci.yml) defines `prod-build-no-fixtures` (`yarn build:prod` + fixture assert) and `localnet-anchor-test` (`anchor test -- --features localnet-test`). Labs GitLab has no CI runners for this project; the merge gate is local (and now the Docker toolchain). Results: [`TEST_RESULTS.md`](TEST_RESULTS.md).
+[`.gitlab-ci.yml`](../.gitlab-ci.yml) defines `prod-build-no-fixtures` (`yarn build:prod` + fixture assert) and `localnet-anchor-test` (`anchor test -- --features localnet-test`). Labs GitLab has no CI runners for this project; the merge gate is local (and now the Docker toolchain). Note: `.gitlab-ci.yml` still pins Solana 2.1.0, which no longer builds this repo; the Docker toolchain (Agave 4.3.0) is the reference. Results: [`TEST_RESULTS.md`](TEST_RESULTS.md).
