@@ -1,3 +1,10 @@
+## 2026-10-08T12:40:00-05:00 — Engineers: implied labels read `NN% implied Yes` on every surface (DLV-117)
+
+- **Ask (Meridian UI, after accepting !88):** label the mid as the Yes-implied probability everywhere, also in the No perspective; tooltip `0.42 ≈ 42% implied Yes chance`, never "chance of winning". Keep card padding, one-sided `Spread —`, settled cards, Mark fallback and ticket `?? 0.5`; don't touch docs/ui.
+- **TDD:** expected strings in `priceDisplay.test.ts` / `priceDisplaySurfaces.test.ts` changed to `implied Yes` first (8 red), plus a `chance of winning` guard and a chart-stub "no doubled Yes" wiring guard.
+- **Change:** `impliedText` → `NN% implied Yes` / `NN% implied Yes (last trade)`; `impliedTooltip` → `… ≈ NN% implied Yes chance`; `spreadText` inherits (`Spread 0.02 · 42% implied Yes`). TradeClient chart stub dropped its own `Yes ` prefix. Table header stays `Implied`. `copy/payoff.ts impliedLabel` left alone (no on-screen use).
+- **Verify:** web vitest 409 passed + 14 skipped, `tsc --noEmit` + `next lint` clean; live check on a temporary 127.0.0.1:3100 (card, table, ladder, header, book spread row in Yes and No perspective, tooltip). Branched from main `a299356` (!87 already merged), so no rebase or conflicts. No Railway redeploy; :3000 / :8899 / watcher untouched.
+
 ## 2026-10-08T12:37:00-05:00 — Engineers: executable prices on every control, mid only as `NN% implied` (docs/ui/08)
 
 | Field | Value |
