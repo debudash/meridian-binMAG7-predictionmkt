@@ -12,10 +12,12 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  // Server render time; the client's first render reuses it so countdowns hydrate cleanly (DLV-086).
+  const serverNowSec = Math.floor(Date.now() / 1000);
   return (
     <html lang="en">
       <body>
-        <AppProviders>
+        <AppProviders serverNowSec={serverNowSec}>
           <GlobalBanners />
           <Header />
           <main style={{ minHeight: "70vh", padding: "1.5rem 0" }}>{children}</main>

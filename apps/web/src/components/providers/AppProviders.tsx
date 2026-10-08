@@ -25,6 +25,7 @@ import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getRpcUrl, getCluster } from "@/lib/solana/config";
+import { resolveClockNowSec } from "@/lib/market/clock";
 import {
   LocalnetDevWalletAdapter,
   isLocalnetDevWalletAllowed,
@@ -57,9 +58,17 @@ export function useChainClock() {
   return useContext(ChainClockContext);
 }
 
-function ChainClockProvider({ children }: { children: ReactNode }) {
+function ChainClockProvider({
+  children,
+  serverNowSec,
+}: {
+  children?: ReactNode;
+  serverNowSec?: number;
+}) {
   const [skewMs, setSkewMs] = useState(0);
   const [tick, setTick] = useState(0);
+  // Until mounted, report the server's render time so hydration matches SSR (DLV-086).
+  const [mounted, setMounted] = useState(false);
 
   const refresh = useCallback(() => {
     // TODO(schema/rpc): compare getBlockTime vs Date.now(); for now local clock
@@ -68,6 +77,7 @@ function ChainClockProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    setMounted(true);
     refresh();
     const skewTimer = setInterval(refresh, 60_000);
     const tickTimer = setInterval(() => setTick((t) => t + 1), 1000);
@@ -79,12 +89,12 @@ function ChainClockProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      nowSec: Math.floor((Date.now() + skewMs) / 1000),
+      nowSec: resolveClockNowSec({ mounted, serverNowSec, clientNowMs: Date.now(), skewMs }),
       skewMs,
       refresh,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [skewMs, refresh, tick],
+    [skewMs, refresh, tick, mounted, serverNowSec],
   );
 
   return (
@@ -174,7 +184,14 @@ function PythProvider({ children }: { children: ReactNode }) {
   return <PythContext.Provider value={value}>{children}</PythContext.Provider>;
 }
 
-export function AppProviders({ children }: { children: ReactNode }) {
+export function AppProviders({
+  children,
+  serverNowSec,
+}: {
+  children: ReactNode;
+  /** Server render time (unix sec) from the root layout; keeps hydration deterministic. */
+  serverNowSec?: number;
+}) {
   const endpoint = getRpcUrl();
   // Localnet dev signer is registered ONLY when cluster=localnet + flag + loopback RPC.
   const devWallet = isLocalnetDevWalletAllowed();
@@ -202,7 +219,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
           { client: queryClient },
           createElement(
             ChainClockProvider,
-            null,
+            { serverNowSec },
             createElement(
               TxStatusProvider,
               null,
