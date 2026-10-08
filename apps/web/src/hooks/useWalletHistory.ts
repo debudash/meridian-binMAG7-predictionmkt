@@ -13,9 +13,10 @@ import { logChainReadError } from "@/lib/log/chainRead";
 import { getPhoenixProgramId } from "@/lib/phoenix/config";
 import { getProgramId, getUsdcMint } from "@/lib/solana/config";
 import { POLL_MS, refetchWithBackoff } from "@/lib/rpc/pollPolicy";
+import { WALLET_HISTORY_KEY } from "@/lib/rpc/refreshAfterOwnTx";
 
 /**
- * pollMs: false = read once (and on invalidation after own txs), no interval — e.g. the trade
+ * pollMs: false = read once (and on refreshAfterOwnTx after own txs, DLV-114), no interval — e.g. the trade
  * page while its Fills tab isn't open (M4). Default 60s (was 30s).
  */
 export function useWalletHistory(
@@ -38,7 +39,7 @@ export function useWalletHistory(
     [key],
   );
   return useQuery({
-    queryKey: ["wallet-history", owner, key, connection.rpcEndpoint],
+    queryKey: [WALLET_HISTORY_KEY, owner, key, connection.rpcEndpoint],
     enabled: enabled && owner != null && markets !== undefined,
     refetchInterval: pollMs === false ? false : refetchWithBackoff(pollMs),
     refetchIntervalInBackground: false,
