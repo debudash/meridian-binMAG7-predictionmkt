@@ -21,6 +21,7 @@ const WalletMultiButton = dynamic(
 import { getCluster } from "@/lib/solana/config";
 import { isNavActive } from "@/lib/ui/selection";
 import { usePortfolio } from "@/hooks/usePortfolio";
+import { POLL_MS } from "@/lib/rpc/pollPolicy";
 import { useChainClock } from "@/components/providers/AppProviders";
 
 const NAV = [
@@ -35,7 +36,8 @@ export function Header() {
   const { connected } = useWallet();
   const { nowSec } = useChainClock();
   // Real winning-side balances on settled markets (demo only in localnet fixture mode) — DLV-088.
-  const { portfolio } = usePortfolio(nowSec, 30_000);
+  // M4: settled markets' Yes/No ATAs only (no Phoenix market-state reads), every 60s.
+  const { portfolio } = usePortfolio(nowSec, POLL_MS.headerAccount, "redeemable");
   const redeemable = connected ? portfolio?.totals.redeemableUsdc ?? 0 : 0;
   const showRedeemDot = redeemable > 0;
 

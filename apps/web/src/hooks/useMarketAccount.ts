@@ -9,6 +9,7 @@ import type { MarketView } from "@/lib/market/types";
 import { availabilityInputs, labelOrders, type LabelledOrder, type MarketAccountState } from "@/lib/portfolio/account";
 import type { OpenOrdersSnapshot, PositionSnapshot } from "@/lib/intents/types";
 import { useWalletAccount } from "./useWalletAccount";
+import { accountRefsFor, POLL_MS } from "@/lib/rpc/pollPolicy";
 
 export interface MarketAccount {
   state: MarketAccountState | null;
@@ -23,12 +24,14 @@ export interface MarketAccount {
 }
 
 export function useMarketAccount(
-  market: Pick<MarketView, "marketId" | "yesMint" | "noMint" | "phoenixMarket">,
-  pollMs = 4_000,
+  market: Pick<MarketView, "marketId" | "status" | "yesMint" | "noMint" | "phoenixMarket">,
+  pollMs: number = POLL_MS.tradeAccount,
 ): MarketAccount {
+  // M4: 10s (was 4s); Phoenix seat/orders only read while the market is open.
   const refs = useMemo(
-    () => [{ marketId: market.marketId, yesMint: market.yesMint, noMint: market.noMint, phoenixMarket: market.phoenixMarket }],
-    [market.marketId, market.yesMint, market.noMint, market.phoenixMarket],
+    () => accountRefsFor([market]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [market.marketId, market.status, market.yesMint, market.noMint, market.phoenixMarket],
   );
   const { account, error, loading, connected, refresh } = useWalletAccount(refs, pollMs);
   return useMemo(() => {

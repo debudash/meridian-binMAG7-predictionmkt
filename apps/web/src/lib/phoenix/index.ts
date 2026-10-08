@@ -22,9 +22,12 @@ export { placePhoenixOrder, fetchPhoenixBook } from "./client";
 export { buildClaimSeatInstructions } from "./seat";
 export {
   contractsToRawAmounts,
+  contractsToLots,
+  lotSizeError,
+  SizeNotLotAlignedError,
   DEFAULT_OUTCOME_DECIMALS,
 } from "./size";
-export type { ContractSizeRaw } from "./size";
+export type { ContractSizeRaw, LotSizing, PhoenixLotParams } from "./size";
 export type {
   PhoenixPlaceOrderRequest,
   PhoenixPlaceOrderResult,

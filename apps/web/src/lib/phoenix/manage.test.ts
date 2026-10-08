@@ -101,3 +101,51 @@ describe("seatSweepIxs — fold seat funds back into the wallet before a new ord
     expect(seatSweepIxs({ ...fakeMarketState(), data: { ...fakeMarketState().data, traders: new Map() } } as never, trader)).toEqual([]);
   });
 });
+
+/**
+ * L13 (Reviewers, !63): one CancelMultipleOrdersById with every order overflows the 1232-byte tx
+ * limit past ~50 orders. Cancel all is chunked into several txs; L14: each is confirmed and a
+ * failed or unconfirmed chunk is reported, never shown as success.
+ */
+import { CANCEL_ORDERS_PER_TX, chunkCancelOrders, submitPhoenixManage } from "./manage";
+import { ComputeBudgetProgram, PublicKey, Transaction } from "@solana/web3.js";
+
+const order = (i: number) => ({ side: (i % 2 ? "bid" : "ask") as "bid" | "ask", priceInTicks: String(40 + (i % 50)), orderSequenceNumber: String(1_000_000 + i) });
+
+describe("L13: chunked Cancel all", () => {
+  it("splits orders into chunks of at most CANCEL_ORDERS_PER_TX, preserving order", () => {
+    const orders = Array.from({ length: 120 }, (_, i) => order(i));
+    const chunks = chunkCancelOrders(orders);
+    expect(chunks.length).toBe(Math.ceil(120 / CANCEL_ORDERS_PER_TX));
+    expect(chunks.every((c) => c.length <= CANCEL_ORDERS_PER_TX)).toBe(true);
+    expect(chunks.flat()).toEqual(orders);
+  });
+
+  it("a full chunk fits in one legacy tx (realistic Phoenix account set, 17 bytes/order)", () => {
+    const k = () => Keypair.generate().publicKey;
+    const phoenix = k(), logAuth = k(), market = k(), baseVault = k(), quoteVault = k();
+    const tokenProgram = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+    const ata = (m: PublicKey) => getAssociatedTokenAddressSync(m, trader);
+    const ms = {
+      data: { header: { baseParams: { mintKey: baseMint }, quoteParams: { mintKey: quoteMint } } },
+      createCancelMultipleOrdersByIdInstruction: (args: { params: { orders: unknown[] } }) =>
+        new TransactionInstruction({
+          programId: phoenix,
+          keys: [logAuth, market, trader, ata(baseMint), ata(quoteMint), baseVault, quoteVault, tokenProgram].map((pubkey, i) => ({ pubkey, isSigner: i === 2, isWritable: i !== 0 && i !== 7 })),
+          data: Buffer.alloc(1 + 4 + 17 * args.params.orders.length),
+        }),
+      createWithdrawFundsInstruction: () =>
+        new TransactionInstruction({
+          programId: phoenix,
+          keys: [logAuth, market, trader, ata(baseMint), ata(quoteMint), baseVault, quoteVault, tokenProgram].map((pubkey, i) => ({ pubkey, isSigner: i === 2, isWritable: i !== 0 && i !== 7 })),
+          data: Buffer.alloc(1 + 2 + 2),
+        }),
+    };
+    const orders = Array.from({ length: CANCEL_ORDERS_PER_TX }, (_, i) => order(i));
+    const tx = new Transaction().add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }), ...buildCancelIxs(ms as never, trader, orders, SIDE));
+    tx.feePayer = trader;
+    tx.recentBlockhash = Keypair.generate().publicKey.toBase58();
+    const size = tx.serialize({ requireAllSignatures: false, verifySignatures: false }).length;
+    expect(size).toBeLessThanOrEqual(1232);
+  });
+});

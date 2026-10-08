@@ -12,8 +12,17 @@ import { readWalletHistory } from "@/lib/history/readHistory";
 import { logChainReadError } from "@/lib/log/chainRead";
 import { getPhoenixProgramId } from "@/lib/phoenix/config";
 import { getProgramId, getUsdcMint } from "@/lib/solana/config";
+import { POLL_MS, refetchWithBackoff } from "@/lib/rpc/pollPolicy";
 
-export function useWalletHistory(markets: readonly MarketView[] | undefined, enabled = true) {
+/**
+ * pollMs: false = read once (and on invalidation after own txs), no interval — e.g. the trade
+ * page while its Fills tab isn't open (M4). Default 60s (was 30s).
+ */
+export function useWalletHistory(
+  markets: readonly MarketView[] | undefined,
+  enabled = true,
+  pollMs: number | false = POLL_MS.history,
+) {
   const { connection } = useConnection();
   const { publicKey } = useWallet();
   const owner = publicKey?.toBase58() ?? null;
@@ -31,8 +40,9 @@ export function useWalletHistory(markets: readonly MarketView[] | undefined, ena
   return useQuery({
     queryKey: ["wallet-history", owner, key, connection.rpcEndpoint],
     enabled: enabled && owner != null && markets !== undefined,
-    refetchInterval: 30_000,
-    staleTime: 10_000,
+    refetchInterval: pollMs === false ? false : refetchWithBackoff(pollMs),
+    refetchIntervalInBackground: false,
+    staleTime: 30_000,
     retry: 1,
     queryFn: async () => {
       try {
