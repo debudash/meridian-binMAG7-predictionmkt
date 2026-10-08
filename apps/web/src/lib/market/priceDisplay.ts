@@ -4,8 +4,9 @@
  * One place for what a price control shows:
  *  - Controls show EXECUTABLE prices only: Buy Yes = best Yes ask, Buy No = 1 − best Yes bid,
  *    Sell Yes = best Yes bid, Sell No = 1 − best Yes ask (Sell* on the ticket only).
- *  - Mid is never shown as a bare 0.xx, only as `NN% implied` (from mid only when both sides exist,
- *    else `NN% implied (last trade)`, else `—`).
+ *  - Mid is never shown as a bare 0.xx, only as `NN% implied Yes` (from mid only when both sides exist,
+ *    else `NN% implied Yes (last trade)`, else `—`). Always Yes-implied, also in the No perspective
+ *    (DLV-117, Meridian UI decision after !88).
  *  - Buy Yes + Buy No = 1 + spread (never claim 1.00); only implied Yes + No = 100%.
  *  - Caps: executables 0.01–0.99 (on the tick grid), implied 1–99% (never 100% from 0.995).
  * Integer-tick math via bookTransform (toTicks / fromTicks / noPriceFromYes).
@@ -110,20 +111,20 @@ export function execTitle(d: PriceDisplay, intent: ExecIntent): string | undefin
   return intent.startsWith("buy") ? NO_SELLERS_TITLE : NO_BUYERS_TITLE;
 }
 
-/** `42% implied` / `42% implied (last trade)` / `—` (also `—` when closed / settled). */
+/** `42% implied Yes` / `42% implied Yes (last trade)` / `—` (also `—` when closed / settled). */
 export function impliedText(d: PriceDisplay): string {
   if (!d.open || d.impliedPct == null) return "—";
-  return d.impliedSource === "last" ? `${d.impliedPct}% implied (last trade)` : `${d.impliedPct}% implied`;
+  return d.impliedSource === "last" ? `${d.impliedPct}% implied Yes (last trade)` : `${d.impliedPct}% implied Yes`;
 }
 
-/** Long form for a tooltip (06 §4.1): `0.42 ≈ 42% implied chance`. */
+/** Long form for a tooltip: `0.42 ≈ 42% implied Yes chance` (never "chance of winning"). */
 export function impliedTooltip(d: PriceDisplay): string | undefined {
   if (!d.open || d.impliedPct == null || d.impliedPrice == null) return undefined;
-  const long = `${formatPrice(d.impliedPrice, d.tickSize)} ≈ ${d.impliedPct}% implied chance`;
+  const long = `${formatPrice(d.impliedPrice, d.tickSize)} ≈ ${d.impliedPct}% implied Yes chance`;
   return d.impliedSource === "last" ? `Last trade ${long}` : long;
 }
 
-/** Book spread row: `Spread 0.02 · 42% implied`; null when a side is empty. */
+/** Book spread row: `Spread 0.02 · 42% implied Yes`; null when a side is empty. */
 export function spreadText(d: PriceDisplay): string | null {
   if (!d.open || d.spread == null || d.impliedSource !== "mid") return null;
   return `Spread ${formatPrice(d.spread, d.tickSize)} · ${impliedText(d)}`;

@@ -41,7 +41,7 @@ export function OrderBook({
   const view = transformBook(book, perspective, tickSize);
   const bestBid = view.bids[0]?.price;
   const bestAsk = view.asks[0]?.price;
-  // DLV-116 (docs/ui/08): `Spread 0.02 · 42% implied` (Yes implied; spread is the same in both perspectives).
+  // DLV-116 (docs/ui/08): `Spread 0.02 · 42% implied Yes` (also in the No perspective; spread is the same in both perspectives).
   const spreadRow = spreadText(
     priceDisplay({ bestBid: book.bids[0]?.price, bestAsk: book.asks[0]?.price, tickSize }),
   );
