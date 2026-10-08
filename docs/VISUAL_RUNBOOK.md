@@ -1,10 +1,36 @@
 # Meridian visual test runbook (click-by-click)
 
+## Tester setup (do this first)
+
+For a first-time tester who isn't the operator. Do the part for the track you're testing (or both), then go on to **Before you start**.
+
+> **Never share your seed phrase (Secret Recovery Phrase) or private key** with anyone: not the operator, not an agent, not in chat or email. Nobody needs them. The only thing you ever send is your **public** wallet address.
+
+**Track A: localnet, on the operator's box**
+
+1. Ask the operator to **update the box to the latest `main`** and restart the local validator and the web app. Ask which commit (SHA) it's on and write it down.
+2. Open the **box desktop**: the operator's shared computer, which you can open from the Grok Bot app. The app at http://localhost:3000 and the **Localnet Dev Wallet** only exist there. `localhost:3000` on your own computer won't work.
+3. In the browser on the box desktop, open http://localhost:3000 and carry on with 0.1–0.2 below. There's nothing to install: the Localnet Dev Wallet signs by itself.
+
+**Track B: devnet staging, Phantom**
+
+1. Install the **Phantom** browser extension, only from the official site https://phantom.com.
+2. Create a new wallet (or import one you only use for testing). Phantom shows a seed phrase: write it down on paper and keep it to yourself. Never type it into a website, chat or email.
+3. Phantom → **Settings → Developer Settings** → turn on **Testnet Mode** → choose **Solana Devnet**.
+4. This first account is **wallet A**. In Phantom's account menu, add a **second account** and name it **wallet B**.
+5. Copy each account's **public** Solana address (32–44 letters and digits) and send both to the operator, labelled **A** and **B**.
+6. Wait until the operator has funded them (the operator's side is [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) **1.4** for wallet A and **1.5** for wallet B). Expect about **2 SOL** on wallet A (at least 1) and about **0.5 SOL** on wallet B, plus **mUSDC** on both (wallet B gets 1,000). This is devnet: none of it has real value.
+7. Recognise **mUSDC**. Phantom may show it as an **unknown token** with no name or logo (look in the token list, including hidden tokens, if it isn't on the main screen). Open it and compare its mint / token address with `GEBRsT3Nc3PaEio2qf3x4JUgFtPSYXr7bmVitMuzMBXq`: it must **start with `GEBRsT3N`** and **end with `MXq`**. Any other token isn't the test token, so don't use it.
+
+**Ready when:** **[A]** the box is on the latest `main` and http://localhost:3000 opens on the box desktop · **[B]** Phantom is on Devnet, and wallets A and B each show SOL (A ≥ 1, B ~0.5) and mUSDC (`GEBRsT3N…MXq`).
+
+---
+
 | Field | Value |
 | --- | --- |
 | **Owner** | Meridian Testers |
 | **For** | Debu, testing by hand. No terminal needed except where a step says **[operator]** |
-| **Written against** | main `7219ac1` (`7219ac1425c7d4197c3830045eadc1fcc52db693`, Merge !73 Phoenix pause at expiry, on top of !72 `578af22`). Every on-screen string below is copied from `apps/web/src` at that SHA |
+| **Written against** | main `7219ac1` (`7219ac1425c7d4197c3830045eadc1fcc52db693`, Merge !73 Phoenix pause at expiry, on top of !72 `578af22`). Every on-screen string below is copied from `apps/web/src` at that SHA. Updated for the !74 Reviewer nits at `fc862c2` (docs only, same code) |
 | **Track A** | **Localnet** at http://localhost:3000 with the **Localnet Dev Wallet**. Use it now: real localnet markets with Phoenix books and mock Pyth prices. The operator opens/closes sim sessions and settles from scripts (`docs/SIM_LIFECYCLE.md`) |
 | **Track B** | **Devnet staging** at https://web-production-77fbb.up.railway.app with **Phantom on devnet** (wallet A), plus **wallet B** for fills. Needs the program deployed and the markets bootstrapped (DLV-077). Full detail and operator steps: [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) |
 | **Not in scope** | Deploying, Railway changes, starting validators. This runbook is read-and-click |
@@ -178,23 +204,24 @@ Reference shots: `meridian-selection-portfolio.png`, `meridian-selection-portfol
 
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
-| 13.1 | **Before expiry**, on the short market, place three resting orders: **Buy Yes · Limit · 1** at **0.45**, **0.44** and **0.43**. | **Open orders (3)**. | [ ] |
-| 13.2 | Watch the page through expiry. | About **5 s before** expiry the ticket becomes **Trading closed** with `Redeem winning positions from Portfolio after settlement.` After expiry the countdown reads `Resolving with Pyth…`. The book and the Open orders tab are still visible (the market isn't settled yet). On `/markets` the market moves to Status **Closed**. | [ ] |
-| 13.3 | **[operator]** Confirm the book is **Paused** (`ops-cli pause-status`, or `solana account <phoenix pubkey> -u devnet`: header bytes 8–15 = status). | The 20-min book shows `status: "Paused"` (status byte **3**), paused by the pauser within seconds of expiry. A `[pause] ALERT …` line is a **FAIL**. | [ ] |
-| 13.4 | Try to trade on the short market. | You can't: the ticket is **Trading closed** with no buttons. (If another app or script tries, Phoenix rejects it with `Post only order is not allowed, market status is Paused` or `FOK and IOC orders are not allowed, market status is Paused`.) | [ ] |
-| 13.5 | Open orders → **Cancel** on the 0.45 order → approve. | `Cancelled 1 order; funds returned to your wallet. · <sig>…`. mUSDC +0.45. | [ ] |
-| 13.6 | Click **Cancel all (2)** → approve. | `Cancelled 2 orders; funds returned to your wallet. · <sig>…`. `No resting orders on this market.` | [ ] |
-| 13.7 | If the Position tab shows **Withdraw to wallet** (free Phoenix funds), click it → approve. | `Withdrew your Phoenix balance to your wallet. · <sig>…`. | [ ] |
-| 13.8 | Note anything that filled your orders after expiry. | Nothing should fill after the pause. A fill **between** expiry and the pause landing is the known short window; write down the time. | [ ] |
+| 13.1 | **Before expiry**, on the short market, with **wallet A**: place **Buy Yes · Limit · 2** at **0.50** (the middle tick between the 0.49 bid and the 0.51 ask), then **Buy Yes · Limit · 1** at **0.44** and at **0.43**. | **Open orders (3)**. Your 2 at 0.50 is the best bid. | [ ] |
+| 13.2 | **Before expiry: partial fill.** Switch Phantom to **wallet B** (holding No or nothing on this market) and do **Buy No · Market · 1**. Switch back to wallet A. After this, **don't place any new order** with wallet A on this market (a new order would sweep the Phoenix balance to the wallet). | Buy No sells 1 Yes into the best bid, so A's 0.50 level drops from 2 to **1**. A's Position tab: card **Phoenix trader account** `Free 1 Yes · 0.00 USDC — In orders 0 Yes · 1.37 USDC` with **Withdraw to wallet**. (No wallet B? Carry on and mark 13.6 N/A.) | [ ] |
+| 13.3 | Watch the page through expiry. | About **5 s before** expiry the ticket becomes **Trading closed** with `Redeem winning positions from Portfolio after settlement.` After expiry the countdown reads `Resolving with Pyth…`. The book and the Open orders tab are still visible (the market isn't settled yet). On `/markets` the market moves to Status **Closed**. | [ ] |
+| 13.4 | **[operator]** Confirm the book is **Paused**, one of: `ops-cli pause-status --state $STATE` (no pauser key needed), or `solana account <phoenix pubkey> -u devnet --output-file /tmp/hdr.bin && xxd -s 8 -l 8 /tmp/hdr.bin`. | The 20-min book shows `status: "Paused"`, or `xxd` prints `0300 0000 0000 0000` (status **3**), paused by the pauser within seconds of expiry. A `[pause] ALERT …` line is a **FAIL**. | [ ] |
+| 13.5 | Try to trade on the short market. | You can't: the ticket is **Trading closed** with no buttons. (If another app or script tries, Phoenix rejects it with `Post only order is not allowed, market status is Paused` or `FOK and IOC orders are not allowed, market status is Paused`.) | [ ] |
+| 13.6 | **Withdraw first:** Position tab → **Phoenix trader account** → **Withdraw to wallet** → approve. | `Withdrew your Phoenix balance to your wallet. · <sig>…`. Wallet Yes +1, the card shows `Free 0 Yes`, and all three orders are **still resting**. If 13.2 didn't happen there's nothing to withdraw (no button): tick **N/A**, not Pass. (Each Cancel below also sweeps the Phoenix balance, which is why Withdraw goes first.) | [ ] |
+| 13.7 | Open orders → **Cancel** on the 0.50 order (1 left) → approve. | `Cancelled 1 order; funds returned to your wallet. · <sig>…`. mUSDC +0.50. | [ ] |
+| 13.8 | Click **Cancel all (2)** → approve. | `Cancelled 2 orders; funds returned to your wallet. · <sig>…`. mUSDC +0.87. `No resting orders on this market.` | [ ] |
+| 13.9 | Note anything that filled your orders after expiry. | Nothing should fill after the pause. A fill **between** expiry and the pause landing is the known short window; write down the time. | [ ] |
 
-If 13.5–13.7 fail on a paused book, that's a **blocker for !73**: report it.
+If 13.6–13.8 fail on a paused book, that's a **blocker for !73**: report it.
 
 ## 14. Settle (Pyth first, admin fallback)
 
 **[B]** The operator pipeline settles the 20-min market (STAGING_TEST_PLAN 7.5 / 7.6). From expiry + 90 s it tries, in order:
 1. **Pyth pull settle**: the market's **sponsored** Pyth price account if it already holds the expiry price, otherwise the **Hermes** expiry price posted through the Pyth receiver (needs the Hermes API key). Signed by the low-balance **settler** key.
 2. The legacy permissionless settle against the sponsored account (settler).
-3. From expiry + 330 s, if still unsettled: **`admin_settle`** by the config authority at the last published AAPL Pyth price.
+3. From expiry + 330 s, if still unsettled: **`admin_settle`** by the config authority at the **last published mainnet** AAPL Pyth price, read at about expiry + 330 s. That isn't the price at expiry, so the proof card's price can differ a little from the AAPL price at expiry (or the 4:00 PM ET close). That's expected on staging.
 
 **[A]** The operator closes the sim session and settles against the mock Pyth price (`docs/SIM_LIFECYCLE.md`).
 
@@ -209,7 +236,7 @@ If 13.5–13.7 fail on a paused book, that's a **blocker for !73**: report it.
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
 | 15.1 | Settled market page → **Settlement proof** card. | Chip **Yes wins** / **No wins**, the line `AAPL $X ≥ $300.00 → Yes wins` (or `< … → No wins`), and rows **Settlement price**, **Confidence**, **Strike** `$300.00 (Yes if ≥, D-005)`, **Settled at** `… · slot N`, **Settle tx** `…↗`, **Pyth feed id** `0x…↗` · `price account …↗`. `On-chain outcome does not match price ≥ strike — investigate.` must **not** appear. | [ ] |
-| 15.2 | Read the price label and the note under the rows. | **Pyth settle:** price `$X Pyth` (**[A]** `$X mock Pyth (localnet)`), a Confidence like `± $0.04`, and the note `Pyth publish time isn't stored on-chain; settle required it within 150 slots (D-005).` **Admin settle:** `$X admin fallback`, Confidence `n/a (admin settle)`, and the note `Settled by admin fallback (no Pyth read; price checked against strike on-chain).` | [ ] |
+| 15.2 | Read the price label and the note under the rows. | **Pyth settle:** price `$X Pyth` (**[A]** `$X mock Pyth (localnet)`), a Confidence like `± $0.04`, and the note `Pyth publish time isn't stored on-chain; settle required it within 150 slots (D-005).` **Admin settle:** `$X admin fallback` (the mainnet Pyth price read at about expiry + 330 s, see 14), Confidence `n/a (admin settle)`, and the note `Settled by admin fallback (no Pyth read; price checked against strike on-chain).` | [ ] |
 | 15.3 | Click **Settle tx ↗**. | Explorer opens the operator's settle signature. If the RPC has pruned it: `Settle transaction not found in RPC history (pruned or not yet indexed); values are from the market account.` | [ ] |
 | 15.4 | Go to `/markets`. | A chip **Recently settled (N)**. Click it: the settled market is listed with **View settlement proof →** instead of Buy buttons. | [ ] |
 | 15.5 | With the **winning** wallet: look at the header. | A dot next to **Portfolio** (hover: `Redeemable: N.NN USDC`). | [ ] |
@@ -226,7 +253,7 @@ Reference shots: `meridian-settle-proof-card.png` (Pyth settle, localnet), `meri
 | 16.1 | Open `/markets/not-a-market`. | **Market not found**, `The page or market you requested does not exist.` and a **Browse markets** link. On [B], `curl -sI <staging>/markets/not-a-market` prints a `404` status line. | [ ] |
 | 16.2 | **[B]** Open `/markets/fixture-anything`. | Same **Market not found** page (HTTP 404). A sample/fixture market showing up is a **FAIL**. | [ ] |
 | 16.3 | **[B]** Open `/api/localnet-dev-wallet`. | `{"error":"not found"}` (HTTP 404). **Anything containing `secretKey` is a blocker: stop and report.** | [ ] |
-| 16.4 | **[A]** Same URL on localhost. | On a localnet dev setup it returns the dev wallet key. That's expected **only** on localnet: never share that output. | [ ] |
+| 16.4 | **[A]** (Optional) Check only the **HTTP status** of the same URL on localhost, in a terminal: `curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/api/localnet-dev-wallet`. **Don't open this URL in the browser** and don't run curl without `-o /dev/null`: on localnet it returns the dev wallet's secret key. | Prints only a number: `200` when the Localnet Dev Wallet is enabled (localnet only), `404` when it's off. Never print, copy or share the response body. | [ ] |
 
 ## 17. Mobile viewport
 
@@ -265,8 +292,8 @@ There are no screenshots yet for 5–7, 9–14 or 16. The paused-book flow (13) 
 
 > - **DLV-069: a resting (limit) Sell No doesn't merge on fill.** You end up holding Yes + No ("Both sides held") until you sell both (5.8).
 > - **Fills by others aren't in your History.** When another wallet fills your resting order, History doesn't show a fill row; you see it in the Phoenix balance and your later withdraw/cancel rows (11.7). TRACKER follow-up to DLV-088.
-> - **Pyth off-hours → admin fallback.** Permissionless settle needs the first AAPL Pyth update **within 60 s after expiry** (D-025). Equity prices don't update outside US market hours. The sponsored accounts are also stale on devnet (RAILWAY_STAGING §0), and Hermes needs an API key. So a market that expires off-hours (or without a usable Hermes post) settles by **`admin_settle`** at the last published price after the 5-min admin delay. The proof card then says `admin fallback` (15.2).
-> - **Short window at expiry.** The pause lands seconds after expiry (box) or by the next automation tick, not in the same instant. Cancel resting orders before expiry if you don't want them exposed (13.8). The app has no "Paused" badge.
+> - **Pyth off-hours → admin fallback.** Permissionless settle needs the first AAPL Pyth update **within 60 s after expiry** (D-025). Equity prices don't update outside US market hours. The sponsored accounts are also stale on devnet (RAILWAY_STAGING §0), and Hermes needs an API key. So a market that expires off-hours (or without a usable Hermes post) settles by **`admin_settle`** after the 5-min admin delay, at the last published mainnet Pyth price as read at about expiry + 330 s (not the price at expiry). The proof card then says `admin fallback` (15.2).
+> - **Short window at expiry.** The pause lands seconds after expiry (box) or by the next automation tick, not in the same instant. Cancel resting orders before expiry if you don't want them exposed (13.9). The app has no "Paused" badge.
 > - **Market orders are fill-or-kill.** If the book can't fill your whole size within the price limit, nothing trades (5.9). That's on purpose.
 
 ## Related
