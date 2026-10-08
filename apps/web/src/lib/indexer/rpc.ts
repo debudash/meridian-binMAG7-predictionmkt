@@ -8,6 +8,7 @@ import { MERIDIAN_IDL } from "@/lib/solana/idl";
 import { getProgramId, getRpcUrl } from "@/lib/solana/config";
 import { mapStrikeMarketToView, type RawStrikeMarket } from "./mapStrikeMarket";
 import type { MarketView } from "@/lib/market/types";
+import { decodePythPriceAccount } from "@/lib/pyth/priceAccount";
 
 /** Read-only wallet stub for Anchor Program fetches (SSR / no signer). */
 function readOnlyProvider(connection: Connection): AnchorProvider {
@@ -77,6 +78,44 @@ async function attachPhoenixQuotes(
   }
 }
 
+/**
+ * Underlying price from each market's `pyth_price_feed` account (mock Pyth on localnet,
+ * Pyth on devnet/mainnet) — one batched getMultipleAccountsInfo (≤100 per call).
+ * Undecodable / missing accounts leave `underlyingPrice` unset (UI shows "—").
+ */
+export async function attachUnderlyingPrices(
+  connection: Connection,
+  views: MarketView[],
+): Promise<void> {
+  const withFeed: { v: MarketView; key: PublicKey }[] = [];
+  for (const v of views) {
+    if (!v.pythFeedId) continue;
+    try {
+      withFeed.push({ v, key: new PublicKey(v.pythFeedId) });
+    } catch {
+      // not a pubkey (fixture) — skip
+    }
+  }
+  for (let i = 0; i < withFeed.length; i += 100) {
+    const chunk = withFeed.slice(i, i + 100);
+    try {
+      const infos = await connection.getMultipleAccountsInfo(
+        chunk.map((c) => c.key),
+        "confirmed",
+      );
+      infos.forEach((info, j) => {
+        const d = decodePythPriceAccount(info?.data);
+        if (d) {
+          chunk[j].v.underlyingPrice = d.price;
+          if (d.publishTime) chunk[j].v.underlyingPublishTs = d.publishTime;
+        }
+      });
+    } catch {
+      // price stays unset
+    }
+  }
+}
+
 export async function fetchMarketsViaRpc(
   rpcUrl = getRpcUrl(),
 ): Promise<MarketView[]> {
@@ -87,7 +126,10 @@ export async function fetchMarketsViaRpc(
   const views = all.map(({ publicKey, account }) =>
     mapStrikeMarketToView(publicKey.toBase58(), { ...account, treasury: account.treasury ?? treasury }),
   );
-  await attachPhoenixQuotes(connection, views);
+  await Promise.all([
+    attachPhoenixQuotes(connection, views),
+    attachUnderlyingPrices(connection, views),
+  ]);
   return views;
 }
 
@@ -102,7 +144,10 @@ export async function fetchMarketViaRpc(
     const acc = await (program.account as { strikeMarket: { fetch: (k: PublicKey) => Promise<RawStrikeMarket> } }).strikeMarket.fetch(pk);
     const treasury = await fetchTreasury(program);
     const view = mapStrikeMarketToView(pk.toBase58(), { ...acc, treasury: acc.treasury ?? treasury });
-    await attachPhoenixQuotes(connection, [view]);
+    await Promise.all([
+      attachPhoenixQuotes(connection, [view]),
+      attachUnderlyingPrices(connection, [view]),
+    ]);
     return view;
   } catch {
     // marketId might be numeric fixture id — RPC only accepts pubkeys

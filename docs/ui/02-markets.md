@@ -22,7 +22,7 @@ Mobile: search + filter sheet; card view only; ladder as accordion per underlyin
 | Question | "AAPL ≥ $230.00 at close Oct 16" |
 | Prices | "Yes 0.62 · No 0.38" (mid; fallback last; "—" if empty book) |
 | Implied | "62% implied Yes" |
-| Underlying | "$228.14" + distance to strike |
+| Underlying | "AAPL $225.00 · needs +2.2%" / "is 0.8% above strike" (DLV-075; mock Pyth on localnet, "—" if no feed) |
 | Countdown | per `06` §3 compact ("2d 4h", "42:18", "Closed", "Settled: Yes") |
 | Stats | 24h vol, OI |
 | Your position badge (connected) | "You: Yes 40" / "You: No 25" |

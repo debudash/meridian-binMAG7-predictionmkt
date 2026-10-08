@@ -8,7 +8,10 @@ import { PublicKey } from "@solana/web3.js";
 import type { Intent } from "@/lib/intents/types";
 import type { IntentAvailabilityMap, PositionSnapshot } from "@/lib/intents/types";
 import { getIntentAvailability } from "@/lib/intents/getIntentAvailability";
-import { buyPreview, sellPreview, oneLineExplainer } from "@/lib/copy/payoff";
+import { oneLineExplainer } from "@/lib/copy/payoff";
+import { whatIfPayoff } from "@/lib/copy/whatIf";
+import { DistanceReadout } from "@/components/trade/DistanceReadout";
+import type { UnderlyingQuote } from "@/hooks/useUnderlyingPrice";
 import {
   isPhoenixPlacementEnabled,
   placePhoenixOrder,
@@ -58,6 +61,7 @@ export function TradeTicket({
   liveBook,
   usdcBalance,
   onTicketChange,
+  underlying,
 }: {
   market: MarketView;
   perspective: Perspective;
@@ -77,6 +81,8 @@ export function TradeTicket({
   usdcBalance?: number;
   /** Reports intent/price/orderType so the book can highlight the matching level (DLV-071). */
   onTicketChange?: (s: { intent: Intent; price: number; orderType: "market" | "limit" }) => void;
+  /** Live underlying (mock Pyth on localnet / Pyth) for the distance-to-strike readout. */
+  underlying?: UnderlyingQuote | null;
 }) {
   const { connected, publicKey, sendTransaction } = useWallet();
   const anchorWallet = useAnchorWallet();
@@ -163,7 +169,24 @@ export function TradeTicket({
 
   const current = availability[intent];
   const isBuy = intent.startsWith("buy");
-  const preview = isBuy ? buyPreview(size, price) : sellPreview(size, price);
+  // What-if payoff (DLV-075): Market → live best price in the intent's terms; Limit → typed price.
+  const effectivePrice = orderType === "market" ? touchPrice : price;
+  const whenShort = new Date(market.settleTs * 1000).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "America/Chicago",
+  });
+  const whatIf =
+    effectivePrice != null
+      ? whatIfPayoff({
+          intent,
+          size,
+          price: effectivePrice,
+          symbol: market.underlyingSymbol,
+          strike: market.strike,
+          whenShort,
+        })
+      : null;
 
   const planPreview = useMemo(
     () =>
@@ -441,7 +464,14 @@ export function TradeTicket({
           border: "1px solid var(--border)",
         }}
       >
-        {preview}
+        <p className="tabular" data-testid="whatif-line" style={{ margin: 0, lineHeight: 1.4 }}>
+          {whatIf
+            ? whatIf.sentence
+            : orderType === "market"
+              ? "No live price on the book for a market order yet."
+              : "Enter a size and a price between 0.01 and 0.99."}
+        </p>
+        <DistanceReadout market={market} underlying={underlying} />
         {planPreview.needsMint && (
           <p className="muted" style={{ margin: "0.4rem 0 0", fontSize: "0.75rem" }}>
             Buy No: mint pair then ask Yes @ {planPreview.yesPrice.toFixed(2)} (multi-ix tx).
