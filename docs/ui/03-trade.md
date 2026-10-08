@@ -38,7 +38,7 @@ Normative rules: `06-trading-intents-and-constraints.md` (intents §1, constrain
 | Distance to strike | "−$1.86 (−0.8%) from strike" | derived |
 | Countdown | per `06` §3 — primary placement, right side of header, large tabular numerals | `tradingCloseTs`, `settleTs`, `status` |
 | Perspective toggle | Segmented `[Yes | No]`; persists in URL `?side=yes|no` and localStorage | client |
-| Prices | "Yes 0.62 · No 0.38" both always shown; selected perspective bold | book mid / last |
+| Prices | Pills `Buy Yes 0.43` / `Buy No 0.59` (executable; still the perspective toggle, selected perspective pressed) + a separate `42% implied` label. Never a bare mid (`08-price-display.md`) | best Yes ask / bid (live book, else market snapshot) |
 | Stats | 24h volume (USDC), open interest (contracts), # traders (optional) | indexer |
 
 ## 4. Dual perspective on one book
@@ -67,7 +67,7 @@ Rules:
 
 ## 5. Zone C — Order book & trades
 - 12 levels each side (desktop), 6 (mobile). Columns: Price · Size (contracts) · Total (USDC = cumulative `size × price` in current perspective).
-- Spread row: "Spread 0.02 · Mid 0.62".
+- Spread row: "Spread 0.02 · 42% implied" (`08`).
 - Trades tab: time, price (perspective), size, aggressor side. Last 50, live.
 - Live via Phoenix market account subscription; throttle render to 10 fps; flash changed levels 300ms.
 - Stale indicator if no websocket update for 10s and RPC slot advancing: "Book may be stale — reconnecting".
@@ -209,7 +209,7 @@ Shown at the top of the left column once a market is not Open (chart stub and or
 
 ## 13. Acceptance criteria
 - [ ] Yes/No toggle changes no subscriptions; book, mid, last, spread, depth, chart, ticket default intents transform exactly per §4 (unit tests with integer ticks).
-- [ ] Both Yes and No prices visible in header in either perspective; `Yes + No mid = 1.00`.
+- [ ] Both Buy Yes and Buy No executable prices visible in the header in either perspective (they sum to 1 + spread, never claimed as 1.00); only implied Yes + No = 100% (`08`).
 - [ ] Four intents present, each mapped per `06` §1; CTA label states intent, size, and price.
 - [ ] Buy No disabled with §2.3 copy + "Sell N Yes" CTA when `yesExposure > 0` (and mirror); Sell held side always enabled when available > 0.
 - [ ] Open Buy orders and pending txs count toward exposure.

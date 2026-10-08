@@ -20,8 +20,8 @@ Mobile: search + filter sheet; card view only; ladder as accordion per underlyin
 |---|---|
 | Ticker chip | AAPL |
 | Question | "AAPL ≥ $230.00 at close Oct 16" |
-| Prices | "Yes 0.62 · No 0.38" (mid; fallback last; "—" if empty book) |
-| Implied | "62% implied Yes" |
+| Prices | On the Buy buttons only, executable: `[Buy Yes 0.43] [Buy No 0.59]` (Buy Yes = best Yes ask, Buy No = 1 − best Yes bid; `—` if that side is empty, button stays enabled for a limit). Never a bare mid. Per `08-price-display.md` |
+| Implied | `42% implied` (mid, both sides only); else `42% implied (last trade)`; else `—`. Per `08` |
 | Underlying | "AAPL $225.00 · needs +2.2%" / "is 0.8% above strike" (DLV-075; mock Pyth on localnet, "—" if no feed) |
 | Countdown | per `06` §3 compact ("2d 4h", "42:18", "Closed", "Settled: Yes") |
 | Stats | 24h vol, OI |
@@ -31,7 +31,7 @@ Mobile: search + filter sheet; card view only; ladder as accordion per underlyin
 **One book rule:** each market appears **once**; Yes and No are shown as two prices in the same card/row, never as separate list entries.
 
 ### Table columns
-Underlying · Question · Yes bid/ask · No bid/ask (derived) · Last · 24h vol · OI · Closes (countdown) · Status · Your position.
+Underlying · Question · Yes bid/ask · No bid/ask (derived) · Implied (`08`) · Last · 24h vol · OI · Closes (countdown) · Status · Trade (`[Buy Yes 0.43] [Buy No 0.59]`, executable per `08`).
 
 ### Ladder view (one underlying + expiry)
 | Strike | Yes bid | Yes ask | No bid | No ask | Implied | Vol |
@@ -65,7 +65,7 @@ Top-of-book refresh: poll indexer 5s or subscribe to visible markets' Phoenix ac
 Short question form on cards ("AAPL ≥ $230.00 at close Oct 16"); full question on Trade. Times show absolute on hover.
 
 ## Acceptance criteria
-- [ ] Each market appears exactly once; Yes and No prices shown together; `No = 1 − Yes` derived.
+- [ ] Each market appears exactly once; Buy Yes and Buy No executable prices shown together (`Buy No = 1 − best Yes bid`, per `08`); mid only as `NN% implied`.
 - [ ] Default filter Open, sort Closing soonest; URL reflects state and is shareable.
 - [ ] Countdown on every card/row consistent with `06` §3.
 - [ ] Ladder groups strikes per underlying/expiry and highlights nearest strike.

@@ -53,7 +53,7 @@ Plain, numeric, no hype ("win big", "moon", emoji prohibited). Always show "1.00
 
 ## Acceptance criteria
 - [ ] Hero renders via SSR without wallet or RPC.
-- [ ] Featured card shows live Yes and No prices summing to 1.00 (mid) and a live countdown.
+- [ ] Featured card shows executable `[Buy Yes 0.43] [Buy No 0.59]` (they sum to 1 + spread, never claimed as 1.00) and `42% implied` (mid, per `08-price-display.md`), plus a live countdown.
 - [ ] Featured Buy buttons deep-link with `intent` and land on Trade with constraint validation.
 - [ ] Payoff and risk copy present above the fold or in rules strip.
 - [ ] Empty/error states as tabled; LCP < 2.5s on 4G.
