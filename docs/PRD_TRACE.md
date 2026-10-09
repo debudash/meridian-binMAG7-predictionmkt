@@ -37,7 +37,7 @@ Last reviewed: 2026-10-08 ~21:00 CT against `main` @ `4012bbd`. Live devnet evid
 | Frontend tests for UI flows | **Partial** | `apps/web` has 51 vitest files in a Node environment that test UI logic (intent availability, ticket wiring, price display, history, wallet picker, hydration guards) plus 2 opt-in E2E files that drive the web order path against real Phoenix books. There are no component (jsdom) or browser-automation tests in the repo. There are no browser UI-flow tests. UI flows were checked by a headless-browser smoke (not committed) and the manual [`VISUAL_RUNBOOK.md`](VISUAL_RUNBOOK.md) |
 | Invariant testing | **Met** | V-*, INV-*, I1–I4 helpers; 25 invariant checks per real-Phoenix E2E run ([`TEST_RESULTS.md`](TEST_RESULTS.md) §4) |
 | Clear documentation | **Met** | This docs set; map in the root [`README.md`](../README.md) |
-| Reproducible deployment scripts | **Partial** | `yarn build:prod` + fixture assert, `railway.json` per service, `ops/run-staging.sh` + `ops/devnet-bootstrap.cjs` (idempotent, `DRY_RUN=1`), local Docker compose and the Docker toolchain image. Devnet deploy and bootstrap ran on 2026-10-08 (program, Config, mUSDC, key funding); Railway services redeployed from `main` with `railway up` from a `git archive`. Gaps: `.gitlab-ci.yml` still pins Solana 2.1.0, which no longer builds the repo, and the project has no CI runners; the 2026-10-09 markets and books come from an ops job, not the worker (DLV-122) |
+| Reproducible deployment scripts | **Met** | `yarn build:prod` + fixture assert, `railway.json` per service, [`ops/docker-devnet.sh`](../ops/docker-devnet.sh) (deploy, bootstrap, daily markets; the commands used on 2026-10-08), `ops/devnet-bootstrap.cjs` (idempotent, `DRY_RUN=1`), `ops/run-staging.sh`, local Docker compose and the Docker toolchain image. Devnet deploy and bootstrap ran on 2026-10-08 (program, Config, mUSDC, key funding); Railway services redeployed from `main` with `railway up` from a `git archive`. Gaps: the project has no CI runners (the Docker image is the gate; `.gitlab-ci.yml` now pins the same Agave 4.3.0); the 2026-10-09 markets and books come from an ops job, not the worker (DLV-122) |
 
 ## 4. Time constraints
 
@@ -94,7 +94,7 @@ Last reviewed: 2026-10-08 ~21:00 CT against `main` @ `4012bbd`. Live devnet evid
 | History does not show other users' fills | Tracker Todo |
 | NYSE early-close days are refused (no market that day) | Tracker Todo |
 | Browser UI-flow tests (none today) | §3 |
-| `.gitlab-ci.yml` pins Solana 2.1.0 (stale) and the project has no CI runners; the Docker toolchain is the gate | [`DEPLOY.md`](DEPLOY.md) §8 |
+| The project has no CI runners (`.gitlab-ci.yml` pins Agave 4.3.0 like the Docker image); the Docker toolchain is the gate | [`DEPLOY.md`](DEPLOY.md) §8 |
 | Mainnet: PDA pauser authority, M1-closing conditions, external alert sink, deferred reviewer nits, external audit, production market maker | DLV-105, DLV-112, DLV-111, DLV-110 |
 | Record the demo video | DLV-038 (2026-10-09) |
 

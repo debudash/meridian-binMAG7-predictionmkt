@@ -7,9 +7,9 @@ stages:
   - test
 
 variables:
-  # Stale: 2.1.0 cannot build the edition-2024 crates in Cargo.lock, and this project has no runners.
-  # The reference toolchain is docker/toolchain.Dockerfile (Agave 4.3.0). See docs/DEPLOY.md §8.
-  SOLANA_VERSION: "2.1.0"
+  # Matches docker/toolchain.Dockerfile, the reference toolchain (2.1.0 cannot build the edition-2024 crates in
+  # Cargo.lock). This project has no runners on labs GitLab; the merge gate runs in that Docker image (docs/DEPLOY.md §8).
+  SOLANA_VERSION: "4.3.0"
   ANCHOR_VERSION: "0.31.1"
   AVM_VERSION: "0.31.1"
   CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
