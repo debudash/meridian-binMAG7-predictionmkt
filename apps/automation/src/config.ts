@@ -154,7 +154,7 @@ export interface AutomationConfig {
    * DLV-118 / D-026: operator-sourced prices (JSON {dateKey, source, pricesE6:{SYM:"<micro-USD>"}}), inline or a file
    * path read at use time. `strike` = the previous trading day's official closes for market day `dateKey` (required
    * `closeDateKey` = that previous day); `close` = admin_settle price at the close.
-   * Used while Hermes is 403 for equity feeds (DLV-106); a valid Hermes price always wins.
+   * Fallback only (D-027): a valid Hermes price always wins; set these only when Hermes fails for a day.
    */
   operatorStrikePricesRaw: string;
   operatorStrikePricesFile: string;

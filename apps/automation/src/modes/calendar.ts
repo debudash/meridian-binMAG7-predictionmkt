@@ -550,7 +550,7 @@ export async function runSettlePass(opts: {
     }
 
     if (tracked.settleAttempts >= opts.cfg.adminSettleAfterRetries) {
-      // DLV-118: admin_settle at the close via the OPERATOR-sourced close price while Hermes lacks equities (DLV-106).
+      // DLV-118: admin_settle at the close via the OPERATOR-sourced close price — fallback when the pull settle above fails (D-027).
       // decideAdminFallbackPrice (M3): a valid Hermes price wins; else an operator price bound to THIS market (its
       // symbol on its own ET day) with a source; else REFUSED + ALERT. Outcome = price ≥ strike (D-005).
       // The old unsourced static ADMIN_SETTLE_PRICE_E6 / _OUTCOME_YES path is localnet-only now.
