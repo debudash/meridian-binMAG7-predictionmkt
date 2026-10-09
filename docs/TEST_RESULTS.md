@@ -116,13 +116,15 @@ PHX cases use a simulated book fill inside the Anchor harness. Trading against r
 
 - **No browser UI-flow tests.** The vitest suites test UI logic in a Node environment; there are no component (jsdom) or browser-automation tests. UI flows were checked by the manual runbook and an uncommitted headless smoke (§5). PRD "frontend tests for UI flows" is Partial ([`PRD_TRACE.md`](PRD_TRACE.md)).
 - **Devnet lifecycle** not yet run: scheduled for 2026-10-09 (§8).
-- **Pyth pull settle on devnet** with a real Hermes equity price has not run: the Hermes key lacks the equity entitlement (403, DLV-106). Staging settles with operator close prices and `admin_settle`.
+- **Pyth pull settle on devnet** with a real Hermes equity price ran once, on a 5-min rehearsal market (§8); the worker's first pull settle at a 16:00 ET close is 2026-10-09.
 - History does not show fills by other traders; a resting Sell No does not merge on fill (DLV-069).
 - Not re-run in this pass: the opt-in localnet E2E suites (§1). Rust unit (6 / 6) and prod pull-oracle settle (22 / 22) were re-run on `4012bbd`.
 
 ## 8. Live devnet day 2026-10-09: results to be filled after the close
 
-Program `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` on devnet; app https://web-production-77fbb.up.railway.app. Markets for Friday 2026-10-09 are created by an operator ops job after 00:05 ET, with strikes from the official Nasdaq closes of 2026-10-08 (operator prior closes, D-026): AAPL ≥ 340, MSFT ≥ 525, GOOGL ≥ 350, AMZN ≥ 255, NVDA ≥ 230, META ≥ 720, TSLA ≥ 375. Settlement uses operator close prices with a logged source plus `admin_settle` (60 s delay, Policy A), because the Hermes key lacks equity access (DLV-106).
+Program `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` on devnet; app https://web-production-77fbb.up.railway.app. Markets for Friday 2026-10-09 are created by an operator ops job after 00:05 ET, with strikes from the official Nasdaq closes of 2026-10-08 (operator prior closes, D-026): AAPL ≥ 340, MSFT ≥ 525, GOOGL ≥ 350, AMZN ≥ 255, NVDA ≥ 230, META ≥ 720, TSLA ≥ 375. These strikes stay (the strike is a PDA seed, fixed at creation). Settlement at the 16:00 ET close is by the Railway worker's Pyth pull-oracle path; operator close prices with a logged source plus `admin_settle` (60 s delay, Policy A) are the fallback (D-027).
+
+Pull-oracle rehearsal (2026-10-09 ~09:10 ET, DLV-106): the Hermes key returned HTTP 200 with fresh prices for all 7 MAG7 feed ids (previously 403 "not entitled"). A 5-min AAPL ≥ 340 market `H7emK9LFiETTpVTvJGZGg5SAhw9YFFuNABHwY8AxmVeX` (no book) was settled by `ops-cli pull-settle` (Hermes update → Pyth Solana receiver post → permissionless `settle`, signed by the settler key): `PULL_SETTLE_OK via=posted` on the first attempt, settled **NO** at resolved price 330.94252, settled slot 509189340. Txs `AAN59hbUGPRQqwFxMULp7singZuweQWGCqvdAdhaPu6XbjFJ5j7vESKbTMMQd8kzaNMaPFc7ecJbKKF79mTPfAK`, `5xA2w93upzVmJioCUS8nuhk5WH5cQfm6HA6oRTw84ccwJwD8jFM9LBmuGHPgevRpbTaGuYLRPkZQAbXErBteav6W`.
 
 | Field | Result |
 | --- | --- |

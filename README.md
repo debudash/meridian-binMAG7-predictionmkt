@@ -8,7 +8,7 @@ Built for the Peak6 brief: [`docs/PEAK6_PRD.md`](docs/PEAK6_PRD.md).
 
 **Testnet demo (Solana devnet):** https://web-production-77fbb.up.railway.app (connect Phantom on devnet). The program `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` was deployed to devnet on 2026-10-08 and the Railway `web` and `automation` services run from `main`. The first live devnet trading day (create → trade → close → settle → redeem) is Friday 2026-10-09; its results are added to [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) §8 after the close. Mainnet production is future work (see [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md)).
 
-**Settlement on devnet today:** the automated Pyth pull-oracle settle path is built and tested (D-025), but the Hermes key does not yet have equity access (DLV-106). Until it does, staging settles with operator close prices (source logged) and `admin_settle`, whose outcome must match `price ≥ strike`. This is a recorded deviation.
+**Settlement on devnet today:** the automated Pyth pull-oracle settle path (D-025) is the primary path. The Hermes key has equity access since 2026-10-09 (DLV-106), and a devnet AAPL market was settled by the permissionless `settle` from a posted Hermes update. Operator close prices (source logged) with `admin_settle`, whose outcome must match `price ≥ strike`, remain only as the recorded fallback (D-027).
 
 ## Architecture in 60 seconds
 
@@ -16,7 +16,7 @@ Built for the Peak6 brief: [`docs/PEAK6_PRD.md`](docs/PEAK6_PRD.md).
 | --- | --- |
 | **Anchor program** (`programs/meridian`, Rust) | Holds USDC in a program vault, mints Yes+No pairs at $1, merges pairs back, settles each market from Pyth, redeems winners 1:1 |
 | **Phoenix** (external CLOB) | Matching. One Yes/USDC book per strike; Buy No / Sell No are composed from mint / merge plus a Yes order. Meridian never matches orders |
-| **Pyth** (external oracle) | Settlement price: the first verified update at or after the 16:00 ET close (pull oracle, D-025). On devnet, operator close prices stand in until the Hermes key has equity access (DLV-106) |
+| **Pyth** (external oracle) | Settlement price: the first verified update at or after the 16:00 ET close (pull oracle, D-025). On devnet this is the primary path (Hermes equity access since 2026-10-09, DLV-106); operator close prices are the fallback |
 | **Web app** (`apps/web`, Next.js) | Markets, Trade, Portfolio, History; Phantom / Solflare |
 | **Automation** (`apps/automation`, Node) | Creates the day's markets by 08:00 ET, pauses books at the close, settles. It does not create Phoenix books yet (DLV-122) |
 | **Ops scripts** (`ops/`) | Devnet bootstrap, Phoenix books, operator prices, settle checks |

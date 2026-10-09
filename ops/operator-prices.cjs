@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Set operator-sourced equity prices on Railway meridian-staging / automation (Debu-approved while Hermes
- * returns 403 for equities, DLV-106). Never invents prices: the operator types real ones plus where they came from.
+ * Set operator-sourced equity prices on Railway meridian-staging / automation (Debu-approved 2026-10-08; since D-027 a FALLBACK only —
+ * use it only when the Hermes pull settle fails, DLV-106). Never invents prices: the operator types real ones plus where they came from.
  *
  *   # strikes (D-026) = the PREVIOUS trading day's official closes, all 7 MAG7. Allowed from that close (16:00 ET; 13:00
  *   # after an early close) until the market day's 08:00 ET create deadline (07:00 CT) — e.g. the evening before:

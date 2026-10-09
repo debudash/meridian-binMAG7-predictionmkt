@@ -1,3 +1,14 @@
+## 2026-10-09T08:15:00-05:00 — Docs: DLV-106 resolved, Hermes equity access (D-027)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian docs owner (Claude Code subagent), facts verified by the orchestrating session; Debu decision |
+| **Branch** | `docs/dlv-106-pyth-equities` from `origin/main` @ `f4ed13b` |
+| **Finding** | 2026-10-09 ~09:10 ET: the Railway `automation` `PYTH_HERMES_API_KEY` returns HTTP 200 on `/v2/updates/price/latest` with fresh prices for all 7 MAG7 feed ids (was 403 "not entitled"). Devnet rehearsal: 5-min AAPL ≥ 340 market `H7emK9LFiETTpVTvJGZGg5SAhw9YFFuNABHwY8AxmVeX` (no book) settled by `ops-cli pull-settle`, `PULL_SETTLE_OK via=posted` first attempt, NO at 330.94252, slot 509189340 (txs in TEST_RESULTS §8). |
+| **Change** | Docs only, no code change. D-027 (pull oracle primary, operator prices fallback); D-026 note updated; TRACKER DLV-106 done, DLV-123 reworded; README, PRD_TRACE (oracle row Met), DEPLOY §6.2, TEST_RESULTS §7/§8, STAGING_TEST_PLAN, VISUAL_RUNBOOK, DEMO_SCRIPT, AI_USAGE, ops/README, automation README. Today's 7 markets keep the operator strikes (PDA seed) and settle by the worker's pull-oracle path at 16:00 ET. |
+| **Review fixes (2nd commit)** | Remaining stale text (ARCHITECTURE, DEMO_SCRIPT prereqs, STAGING_TEST_PLAN settle chain + worker order), PRD_TRACE worker sentence no longer present-tense, DEPLOY / TRACKER warning: with `ADMIN_SETTLE_AFTER_RETRIES=1` a set `OPERATOR_CLOSE_PRICES` pre-empts a late post-close Hermes update, so set it only after a failed pull settle. Stale code comments ("403 today") left for a follow-up chore (docs-only MR). |
+| **Related** | DLV-106 · DLV-123 · D-025 · D-026 · D-027 |
+
 ## 2026-10-08T21:00:00-05:00 — Docs: pre-submission accuracy pass (deliverables vs current facts)
 
 | Field | Value |

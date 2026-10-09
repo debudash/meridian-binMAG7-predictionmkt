@@ -20,7 +20,7 @@ Parts:
 | Stage | Cluster | Program build | Oracle | Phoenix | App hosting | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | Local (Docker or manual) | `solana-test-validator` | `localnet-test` | Mock Pyth (`upsert_mock_pyth`) | Real Phoenix V1 + Seat Manager loaded into the validator | `http://127.0.0.1:3000` | Working |
-| Devnet staging | devnet | prod (`yarn build:prod`) | Pyth pull oracle (D-025) or operator price (see §6) | Phoenix V1 on devnet | Railway staging | Program deployed and bootstrapped 2026-10-08; services run from `main`; first live trading day 2026-10-09 (DLV-077) |
+| Devnet staging | devnet | prod (`yarn build:prod`) | Pyth pull oracle (D-025); operator price as fallback (see §6.2) | Phoenix V1 on devnet | Railway staging | Program deployed and bootstrapped 2026-10-08; services run from `main`; first live trading day 2026-10-09 (DLV-077) |
 | Mainnet | mainnet-beta | prod | Pyth pull oracle | Phoenix V1 | Railway prod | Not started (out of V1 scope) |
 
 Order: local green → prod `.so` fixture assert → devnet program → Railway staging → (later) Railway prod.
@@ -137,7 +137,7 @@ No private key ever goes in a `NEXT_PUBLIC_*` variable. `NEXT_PUBLIC_LOCALNET_DE
 | `MODE` | no | `calendar` (default) |
 | `COLLATERAL_MINT`, `STRIKE_SYMBOLS` | no | All seven MAG7 for the PRD |
 | `PYTH_FEED_IDS`, `PYTH_PRICE_FEEDS`, `PYTH_HERMES_URL` | no | Feed ids are required off-localnet (D-025) |
-| `PYTH_HERMES_API_KEY` | **yes** | Hermes is key-gated. The current key lacks the equity entitlement (DLV-106) |
+| `PYTH_HERMES_API_KEY` | **yes** | Hermes is key-gated. The current key is entitled to equity feeds (checked 2026-10-09, DLV-106) |
 | `AUTOMATION_KEYPAIR` | **yes** | Config authority: create markets, `set_phoenix_market`, `admin_settle` |
 | `SETTLER_KEYPAIR` | **yes** | Low-balance key that signs and pays for permissionless `settle`. Must differ from the authority; required on mainnet |
 | `PHOENIX_PAUSER_KEYPAIR` | **yes** | Seat Manager authority of each book; pauses books at expiry. Not pause-only (it can also unpause and move authority), so treat a leak as an incident: [`runbooks/PAUSER_ROTATION.md`](runbooks/PAUSER_ROTATION.md) |
@@ -224,9 +224,9 @@ Key roles (all `chmod 600`, never in git): the full table is in [`ops/README.md`
 - Known gap: books are not gated to 09:30–16:00 ET; they trade from creation (DLV-121).
 - **2026-10-09 (first live devnet day):** an operator ops job creates the day's 7 markets after 00:05 ET from the official Nasdaq closes of 2026-10-08 (operator prior closes), and creates Phoenix books for as many of them as the payer SOL covers (1.18 SOL rent per book: 5 books now, 7 if topped up). Strikes: AAPL ≥ 340, MSFT ≥ 525, GOOGL ≥ 350, AMZN ≥ 255, NVDA ≥ 230, META ≥ 720, TSLA ≥ 375.
 
-### 6.2 Operator prices (while DLV-106 is open)
+### 6.2 Operator prices (fallback)
 
-The current Hermes key returns 403 for equity feeds, so staging uses operator-sourced prices with a logged source. This is a recorded, swappable deviation: once the key has an equity grant, the pull-oracle path (§6.1, §6.3) runs with no code change.
+Since 2026-10-09 the Hermes key is entitled to equity feeds (DLV-106), so the pull-oracle path (§6.1, §6.3) is the primary strike and settle source, with no code change: a valid Hermes price wins over operator prices. Operator-sourced prices with a logged source remain the recorded fallback (D-027), for example when Hermes has no usable price. Do not set `OPERATOR_CLOSE_PRICES` for a day unless the pull settle has failed: with `ADMIN_SETTLE_AFTER_RETRIES=1` the worker uses it after the first failed pull tick once the 60 s on-chain delay has passed, and setting it also redeploys `automation`.
 
 The variables are `OPERATOR_STRIKE_PRICES` and `OPERATOR_CLOSE_PRICES` on `automation` (JSON `{dateKey, source, pricesE6}`; the strike variable also needs `closeDateKey` = the previous trading day).
 
@@ -246,7 +246,7 @@ node ops/operator-prices.cjs close --source "<source, e.g. Nasdaq official closi
 1. **Pull oracle (D-025):** Hermes price at `expiry_ts` → Pyth receiver post (full verification) → permissionless `settle` → close the update accounts. Signed and paid by the settler.
 2. **Fallback:** `admin_settle` by the config authority after the on-chain `admin_settle_delay_secs`, at the operator close price bound to the market's day and symbol (source required). The outcome must equal `price ≥ strike` (D-018 Policy A).
 
-Settle-by-16:05 ET on the operator path: staging uses `admin_settle_delay_secs` 60 (the program minimum), `ADMIN_SETTLE_AFTER_RETRIES=1` and `WORKER_TICK_MS=30000` (DLV-123). It has not yet been shown on a live close; the first one is 2026-10-09.
+Settle by 16:05 ET: the pull oracle settles on the first worker tick that finds the first post-close update; for the operator-price fallback, staging uses `admin_settle_delay_secs` 60 (the program minimum), `ADMIN_SETTLE_AFTER_RETRIES=1` and `WORKER_TICK_MS=30000` (DLV-123). It has not yet been shown on a live close; the first one is 2026-10-09.
 
 ### 6.4 Pause at expiry and alerts
 

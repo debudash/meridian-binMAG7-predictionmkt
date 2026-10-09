@@ -1,5 +1,5 @@
 /**
- * Operator-entered equity prices (staging, while Hermes lacks equities — Debu-approved 2026-10-08).
+ * Operator-entered equity prices (staging fallback when the Hermes pull price fails — D-027; Debu-approved 2026-10-08).
  * Pure validation + the Railway call shape for ops/operator-prices.cjs. Unit-tested in
  * apps/automation/test/operator-prices-cli.test.ts. Output JSON = what the worker's loadOperatorDayPrices parses:
  *   {"dateKey":"YYYY-MM-DD","source":"<where the prices came from>","pricesE6":{"AAPL":"227310000",...}}

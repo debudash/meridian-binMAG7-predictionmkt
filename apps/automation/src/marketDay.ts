@@ -287,7 +287,7 @@ export type StrikeReferenceDecision = { ok: true; priceE6: bigint; source: strin
  *   3. else an operator prior close for THIS market day (dateKey must match; closeDateKey must be the prior day)
  *      with a non-empty source, within ±operatorBandBps of the last known Pyth price;
  *   4. else REFUSE — the caller skips that symbol and ALERTs. Never a static/hardcoded fallback.
- * Hermes is currently 403 for equity feeds (DLV-106), so (3) is the working path today.
+ * Hermes is entitled to equity feeds since 2026-10-09 (DLV-106 / D-027), so (1) is the normal path; (3) is the fallback.
  */
 export function decideStrikeReference(opts: {
   symbol: string;
