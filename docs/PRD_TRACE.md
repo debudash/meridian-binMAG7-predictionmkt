@@ -24,7 +24,7 @@ Last reviewed: 2026-10-09 ~20:30 CT against `main` @ `c9f6699` (live devnet day 
 | PRD line | Status | Evidence |
 | --- | --- | --- |
 | Sub-second finality for transactions | **Partial** | Solana property; the app confirms at `confirmed` commitment (`lib/solana/confirm.ts`) and shows success only after confirmation. Not measured in this repo |
-| Settlement within 10 minutes of market close | **Met** (live devnet close 2026-10-09) | Pull-oracle settle runs on the first worker tick that finds the first Pyth update after 16:00 ET. On 2026-10-09 the AAPL settle tx confirmed at **16:00:25 ET** (slot 509292416, settlement proof); all 7 markets were settled by the worker on the pull path with no ALERT (per-market times other than AAPL are not in this record; [`TEST_RESULTS.md`](TEST_RESULTS.md) §8). On the fallback path, settle waits for the operator close price plus the on-chain `admin_settle` delay, 60 s on staging (the program minimum, DLV-123) |
+| Settlement within 10 minutes of market close | **Met for AAPL** on the live devnet close 2026-10-09 (16:00:25 ET); the other 6 settled by the worker, times not recorded | Pull-oracle settle runs on the first worker tick that finds the first Pyth update after 16:00 ET. On 2026-10-09 the AAPL settle tx confirmed at **16:00:25 ET** (slot 509292416, settlement proof); all 7 markets were settled by the worker on the pull path (per-market times other than AAPL are not in this record; the worker raises no ALERT for a late pull settle, and the copilot read 7/7 settled only at ~19:03 ET after the deploy; [`TEST_RESULTS.md`](TEST_RESULTS.md) §8). On the fallback path, settle waits for the operator close price plus the on-chain `admin_settle` delay, 60 s on staging (the program minimum, DLV-123) |
 | Real-time order book updates | **Partial** | 6 s polling (see above) |
 | Oracle price staleness under 5 minutes | **Met** | On-chain: the price must be the first update at/after expiry and published within 60 s of it (D-025, D-005). PULL-* tests; the 2026-10-09 live settles passed these checks. Strike references come from the prior close within `PRIOR_CLOSE_MAX_SKEW_SECS` (300 s, D-026) |
 
@@ -45,7 +45,7 @@ Last reviewed: 2026-10-09 ~20:30 CT against `main` @ `c9f6699` (live devnet day 
 | --- | --- | --- |
 | Market creation by 8:00 AM ET | **Met in code, verified in tests**; on the 2026-10-09 devnet day the markets came from the ops job | D-026: create window from 07:00 ET, deadline 08:00 ET with an `ALERT` (retries until 16:00); strikes ATM on the previous session's close (13:00 after an early close), Hermes within `PRIOR_CLOSE_MAX_SKEW_SECS` (300 s) or operator prior closes. `apps/automation/src/modes/calendar.ts`, `marketDay.ts`; test `d026-create-0800.test.ts` ([`DEPLOY.md`](DEPLOY.md) §6.1). On 2026-10-09 the markets were created by the ops job (00:05 ET, completed by a 09:00 ET rerun), so that day does not show the worker's own create path. The copilot create check runs at 08:30 ET each trading day (D-030; first scheduled run Mon 2026-10-12) and logs an ALERT and shows **Needs attention** on `/status` if markets or books are missing |
 | Trading 9:30 AM – 4:00 PM ET | **Partial** | Close is enforced: mint is refused at/after `expiry_ts` (16:00 ET), the web closes the ticket 5 s early, and books are paused at expiry. There is no 09:30 open gate: books trade from creation (DLV-121, future work) |
-| Settlement by 4:05 PM ET | **Met** (live devnet close 2026-10-09) | See "Settlement within 10 minutes" above: AAPL settled at 16:00:25 ET by the pull oracle; all 7 settled by the worker with no ALERT (DLV-123) |
+| Settlement by 4:05 PM ET | **Met for AAPL** on the live devnet close 2026-10-09; other 6 times not recorded | See "Settlement within 10 minutes" above: AAPL settled at 16:00:25 ET by the pull oracle; all 7 settled by the worker, the other six settle times not recorded (DLV-123) |
 
 ## 5. Impact metrics
 
@@ -53,8 +53,8 @@ Last reviewed: 2026-10-09 ~20:30 CT against `main` @ `c9f6699` (live devnet day 
 | --- | --- | --- |
 | 100% accuracy in settlements | **Met (tests)** | Outcome = `price ≥ strike` (D-005); immutable once set; `admin_settle` must match the same rule (Policy A, A-05). Above / below / at-strike cases in S-*, E2E cases 8–9. Devnet 2026-10-09: 7 / 7 outcomes match the Pyth close vs strike (§9) |
 | Markets created before market open daily | **Met in code, verified in tests**; on 2026-10-09 the markets came from the ops job | See "Market creation by 8:00 AM ET" |
-| Settlements within 10 minutes of market close | **Met** (live devnet close 2026-10-09) | See §2 |
-| Full lifecycle demo on testnet | **Met** for create → trade → pause → settle (live 2026-10-09); devnet redeem not yet recorded | Program deployed to devnet 2026-10-08 (slot 508961032); Railway `web` and `automation` run from `main` against it; demo URL https://web-production-77fbb.up.railway.app. 2026-10-09: 7 markets with books, Phantom trades, books paused at 16:00 ET, 7 / 7 settled by the Pyth pull oracle (§9). A local Docker instance runs the full lifecycle including redeem any time ([`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)) |
+| Settlements within 10 minutes of market close | **Met for AAPL** on the live devnet close 2026-10-09 (other 6 times not recorded) | See §2 |
+| Full lifecycle demo on testnet | **Partial**: create → trade → pause → settle done live on 2026-10-09; devnet redeem not yet recorded | Program deployed to devnet 2026-10-08 (slot 508961032); Railway `web` and `automation` run from `main` against it; demo URL https://web-production-77fbb.up.railway.app. 2026-10-09: 7 markets with books, Phantom trades, books paused at 16:00 ET, 7 / 7 settled by the Pyth pull oracle (§9). A local Docker instance runs the full lifecycle including redeem any time ([`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)) |
 | $1.00 payout invariant maintained | **Met** | Vault = pairs × $1 and Yes supply = No supply after every step (V-*, MP-*, E2E); winners redeem exactly $1 |
 
 ## 6. Technology
@@ -76,7 +76,7 @@ Last reviewed: 2026-10-09 ~20:30 CT against `main` @ `c9f6699` (live devnet day 
 | --- | --- | --- |
 | Source code | **Met** | This repository |
 | Technical documentation | **Met** | [`SPEC.md`](SPEC.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), [`SCHEMA.md`](SCHEMA.md), [`ui/`](ui/README.md), [`DECISIONS.md`](DECISIONS.md), [`RED_TEAM.md`](RED_TEAM.md) |
-| Demo video | **Scheduled** | Recorded 2026-10-09 (link added at submission). Script: [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) (DLV-038) |
+| Demo video | **Scheduled** | Link added at submission. Script: [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) (DLV-038) |
 | Deployment guide | **Met** | [`DEPLOY.md`](DEPLOY.md) |
 | Test results | **Met** (live devnet day added 2026-10-09) | [`TEST_RESULTS.md`](TEST_RESULTS.md) |
 | AI usage log | **Met** | [`AI_USAGE.md`](AI_USAGE.md) + full log [`internal/AI_LOG.md`](internal/AI_LOG.md) |
@@ -124,5 +124,5 @@ Due Saturday 2026-10-10, 09:00 CT.
 | Test results on the current tip (Anchor, automation, web, prod build, deployed-binary check) | Done (2026-10-08) |
 | AI usage log | Done |
 | Live devnet day evidence (§9, [`TEST_RESULTS.md`](TEST_RESULTS.md) §8) | Done 2026-10-09 (create → trade → pause → settle); devnet redeem not yet recorded |
-| Demo video link in [`README.md`](../README.md) and §7 | Fill on 2026-10-09 |
+| Demo video link in [`README.md`](../README.md) and §7 | Not yet |
 | Final test refresh on the submission tip | Done 2026-10-08 on `4012bbd` (Rust unit and prod settle) and `594d41b` (Anchor). After the 2026-10-09 web / automation changes (no program change): copilot 18 / 18 and web 423 / 424 (pre-existing `siteMeta` timeout) on `c9f6699` |

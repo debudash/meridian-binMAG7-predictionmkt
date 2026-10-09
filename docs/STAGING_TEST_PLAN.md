@@ -112,7 +112,7 @@ Toasts: `Submitted — confirming…` first, then (only after the tx confirms wi
 
 On main via !63 (`components/portfolio/PhoenixActions.tsx`, `lib/phoenix/manage.ts`, `components/trade/PositionPanel.tsx`). Maker fills land in your **Phoenix trader account (seat)**, not your wallet.
 
-> **Run §4 before the Friday expiry (Fri 2026-10-09, 3:00 PM CT).** After a book's expiry it is **paused** (!73, §7 box): 4.1, 4.3, 4.9, 4.10, 4.11 and the Sell in 4.12 can't place orders any more (the ticket shows **Trading closed**), while **Withdraw to wallet** (4.6), **Cancel** / **Cancel all** (4.7, 4.12) and Portfolio → Phoenix balances (4.5, 4.8) keep working on a paused book. The post-expiry version of these checks is 7.3b.
+> **Run §4 before the day's expiry (16:00 ET / 15:00 CT).** After a book's expiry it is **paused** (!73, §7 box): 4.1, 4.3, 4.9, 4.10, 4.11 and the Sell in 4.12 can't place orders any more (the ticket shows **Trading closed**), while **Withdraw to wallet** (4.6), **Cancel** / **Cancel all** (4.7, 4.12) and Portfolio → Phoenix balances (4.5, 4.8) keep working on a paused book. The post-expiry version of these checks is 7.3b.
 
 | # | Action | Expected result | Pass / Fail |
 | --- | --- | --- | --- |

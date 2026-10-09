@@ -263,7 +263,7 @@ Settle by 16:05 ET: the pull oracle settles on the first worker tick that finds 
 - The worker runs read-only checks inside its own tick (no cron, no Slack, no API key required): **create check at 08:30 ET**, **settle check at 16:30 ET**, and one settle re-check at **17:30 ET** only if the 16:30 check needed attention. Facts come from chain (the day's StrikeMarkets, books, settled outcomes and close prices); code writes the message. It sends no transactions and holds no keys of its own.
 - Each report is logged as `[copilot]` lines (`ALERT` when not ok) and kept in memory (last 20), served as `GET /copilot` on `HEALTH_PORT` 8080, reachable only on Railway's private network.
 - The web **Status** page (`/status`, footer link) reads it server-side through `AUTOMATION_STATUS_URL` (§5.2). It shows **OK** / **Needs attention** per checkpoint and says when the feed is unset or unreachable.
-- Optional: with `ANTHROPIC_API_KEY` set on `automation`, Claude writes the headline sentence only, checked by `verifyHeadline` (code headline on any mismatch). Not set on staging.
+- Optional: with `ANTHROPIC_API_KEY` set on `automation`, Claude writes only a short headline (one or two sentences, ≤ 300 characters), checked by `verifyHeadline` (code headline on any mismatch). Not set on staging.
 - After a redeploy the current session's checks rerun once. First scheduled run after the 2026-10-09 deploy: Mon 2026-10-12 08:30 ET.
 
 ## 7. Pre-deploy checklist

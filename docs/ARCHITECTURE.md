@@ -41,7 +41,7 @@ flowchart TB
 | Component | Code | Job |
 | --- | --- | --- |
 | Program | `programs/meridian` | Holds collateral in a PDA vault; mints Yes+No pairs at $1; merges pairs back; settles from Pyth; redeems winners 1:1 |
-| Web app | `apps/web` | Markets, Trade, Portfolio, History, Landing. Maps four intents (Buy/Sell Yes/No) onto the single Yes/USDC book |
+| Web app | `apps/web` | Markets, Trade, Portfolio, History, Landing, Status (`/status`, copilot reports). Maps four intents (Buy/Sell Yes/No) onto the single Yes/USDC book |
 | Automation | `apps/automation` | Creates the day's MAG7 markets, pauses books at expiry, settles (pull oracle, else `admin_settle`). Also runs the read-only operator copilot (§3.1) |
 | Operator scripts | `ops/` | Devnet bootstrap, operator prices, settle checks, pause watcher backstop |
 | Phoenix | external | Matching. Meridian never matches orders (D-002 / D-015) |
@@ -79,7 +79,7 @@ sequenceDiagram
 
 The worker creates the day's markets from 07:00 ET, by 08:00 ET, with strikes ATM on the previous session's close (D-026). Details: [`DEPLOY.md`](DEPLOY.md) §6.
 
-Current gaps in this lifecycle (future work): the worker does not create Phoenix books (DLV-122; on devnet an operator ops job creates the markets and books for 2026-10-09); books are not gated to 09:30–16:00 ET and trade from creation (DLV-121); a resting Sell No does not merge on fill (DLV-069). On devnet the settle step is the Pyth pull oracle (Hermes equity access since 2026-10-09, DLV-106); `admin_settle` at an operator close price is the recorded fallback (D-027).
+Current gaps in this lifecycle (future work): the worker does not create Phoenix books (DLV-122; on devnet an operator ops job created the markets and books for 2026-10-09, [`DEPLOY.md`](DEPLOY.md) §6.1); books are not gated to 09:30–16:00 ET and trade from creation (DLV-121); a resting Sell No does not merge on fill (DLV-069). On devnet the settle step is the Pyth pull oracle (Hermes equity access since 2026-10-09, DLV-106); `admin_settle` at an operator close price is the recorded fallback (D-027).
 
 ### 3.1 Operator copilot (D-029 / D-030)
 
@@ -93,7 +93,7 @@ flowchart LR
   R -->|GET /copilot on HEALTH_PORT, private network| S[web /status page]
 ```
 
-Read-only: the copilot reads accounts and never signs or sends a transaction. It runs inside the worker's tick in the background and is never awaited, so it cannot delay create, pause or settle. Code decides every fact and writes the message; Claude, only when a key is set, writes one headline sentence that `verifyHeadline` must accept. Live since 2026-10-09 (Railway; first scheduled run Mon 2026-10-12 08:30 ET).
+Read-only: the copilot reads accounts and never signs or sends a transaction. It runs inside the worker's tick in the background and is never awaited, so it cannot delay create, pause or settle. Code decides every fact and writes the message; Claude, only when a key is set, writes a short headline (one or two sentences, ≤ 300 characters) that `verifyHeadline` must accept. Live since 2026-10-09 (Railway; first scheduled run Mon 2026-10-12 08:30 ET).
 
 ## 4. Trust boundaries
 

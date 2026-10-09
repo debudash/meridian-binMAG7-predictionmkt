@@ -48,7 +48,7 @@ Or on a host with the same toolchain: `yarn install && yarn test`, `npm test --p
 | --- | --- | --- |
 | Source code | This repository: `programs/`, `apps/`, `ops/`, `scripts/`, `tests/`, `docker/` | Done (`main` @ `c9f6699`) |
 | Technical documentation | [`docs/SPEC.md`](docs/SPEC.md) (locked V1 spec) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/SCHEMA.md`](docs/SCHEMA.md) with [`accounts`](docs/accounts.md), [`flows`](docs/flows.md), [`units`](docs/units.md), [`sim-clock`](docs/sim-clock.md) · [`docs/ui/`](docs/ui/README.md) · [`docs/DECISIONS.md`](docs/DECISIONS.md) · [`docs/RED_TEAM.md`](docs/RED_TEAM.md) | Done |
-| Demo video | Recorded 2026-10-09 (link added at submission). Script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | Recorded 2026-10-09 |
+| Demo video | Link added at submission. Script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | Not yet linked |
 | Deployment guide | [`docs/DEPLOY.md`](docs/DEPLOY.md) · [`docker/README.md`](docker/README.md) · runbook [`docs/runbooks/PAUSER_ROTATION.md`](docs/runbooks/PAUSER_ROTATION.md) | Done; devnet deployed 2026-10-08 |
 | Test results | [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) · case catalogue [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) · manual test procedures (working records): [`docs/VISUAL_RUNBOOK.md`](docs/VISUAL_RUNBOOK.md), [`docs/STAGING_TEST_PLAN.md`](docs/STAGING_TEST_PLAN.md) | Done for 2026-10-08 runs; live devnet day and copilot tests added 2026-10-09 |
 | AI usage log | [`docs/AI_USAGE.md`](docs/AI_USAGE.md) · full chronological log [`docs/internal/AI_LOG.md`](docs/internal/AI_LOG.md) | Done |
@@ -65,7 +65,7 @@ Due Saturday 2026-10-10, 09:00 CT.
 - [x] Code merged 2026-10-09: DLV-106 docs (!100), market palette D-028 (!101), operator copilot D-029 (!102), copilot in the worker + Status page D-030 (!103); Railway `web` and `automation` redeployed from `c9f6699`.
 - [x] Friday 2026-10-09: live devnet day (create → trade → pause → settle by the Pyth pull oracle, 7 / 7); [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) §8 and [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md) §9 filled. Devnet redeem not yet recorded.
 - [ ] Friday 2026-10-09: record the demo video and add the link above.
-- [ ] Final test refresh on the submission tip: all suites ran on 2026-10-08 (`4012bbd`, Rust unit and prod pull-oracle settle included); after the 2026-10-09 web / automation changes (no program change) copilot 18 / 18 and web 423 / 424 (pre-existing `siteMeta` timeout) on `c9f6699`.
+- [ ] Final test refresh on the submission tip: all suites ran on 2026-10-08 (Anchor on `594d41b`, the others incl. Rust unit and prod pull-oracle settle on `4012bbd`); after the 2026-10-09 web / automation changes (no program change) copilot 18 / 18 and web 423 / 424 (pre-existing `siteMeta` timeout) on `c9f6699`.
 
 ## Repository map
 
