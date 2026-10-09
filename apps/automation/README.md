@@ -46,6 +46,16 @@ See [`docs/DEPLOY.md`](../../docs/DEPLOY.md) §3.3.
 - Env table: `docs/DEPLOY.md` §5.2 + `.env.example`
 - Program id default: `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj`
 
+## Operator copilot (D-029, read-only)
+
+`node dist/copilot-cli.js --checkpoint create|settle [--date YYYY-MM-DD] [--no-ai] [--json]` checks the day's markets on chain and sends the on-call operator a short summary. Run it after 08:00 ET (`create`) and after 16:05 ET (`settle`).
+
+1. **Facts** (`src/copilot/facts.ts`, plain code): every MAG7 market exists for the day with an order book; after the close, every one is settled, with its close price and outcome. Anything wrong is an issue.
+2. **Words** (`src/copilot/summarize.ts`): Claude (`COPILOT_MODEL`, default `claude-opus-5-5`, low effort) writes the message from the facts JSON only. Every number in its reply must appear in the facts, otherwise the plain template is sent. No API key, a failed call or a refusal also sends the template.
+3. **Delivery** (`src/copilot/notify.ts`): stdout always; Slack when `COPILOT_SLACK_WEBHOOK_URL` is set.
+
+Exit code 2 when there are issues, so a scheduler can alert even if Slack or the AI is down. It needs no keypairs and sends no transactions. Env: the worker's `SOLANA_RPC_URL` / `MERIDIAN_PROGRAM_ID` / `MERIDIAN_IDL_PATH` / `STRIKE_SYMBOLS`, plus optional `ANTHROPIC_API_KEY`, `COPILOT_MODEL`, `COPILOT_SLACK_WEBHOOK_URL`. Tests: `test/copilot.test.ts` (the real 2026-10-09 day as fixture; Claude stubbed).
+
 ## Tests
 
 ```bash

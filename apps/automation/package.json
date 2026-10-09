@@ -2,7 +2,7 @@
   "name": "@peak6/meridian-automation",
   "version": "0.1.0",
   "private": true,
-  "description": "Meridian Railway Node automation \u2014 calendar (prod/devnet) + localnet-only sim lifecycle (D-017)",
+  "description": "Meridian Railway Node automation — calendar (prod/devnet) + localnet-only sim lifecycle (D-017)",
   "main": "dist/worker.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -13,6 +13,7 @@
     "build:railway": "rm -rf dist && tsc -p tsconfig.prod.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@coral-xyz/anchor": "0.31.1",
     "@pythnetwork/pyth-solana-receiver": "0.16.0",
     "@solana/spl-token": "^0.4.9",
