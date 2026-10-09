@@ -96,5 +96,5 @@ Notes from the 2026-10-08 runs (results: [`docs/TEST_RESULTS.md`](../docs/TEST_R
   on a Linux volume, for example by adding `-v anchor-ledger:/repo/.anchor` after `run --rm`. Three web `siteMeta`
   tests may also need `npm test --prefix apps/web -- --testTimeout=60000`.
 - The image sets `NODE_OPTIONS=--no-experimental-strip-types` so Node 22 leaves `.ts` files to ts-node.
-- `.gitlab-ci.yml` still pins Solana 2.1.0, which cannot build the edition-2024 crates now in `Cargo.lock`. This image is
+- `.gitlab-ci.yml` pins the same Agave 4.3.0; the earlier 2.1.0 pin could not build the edition-2024 crates now in `Cargo.lock`. This image is
   the reference toolchain.

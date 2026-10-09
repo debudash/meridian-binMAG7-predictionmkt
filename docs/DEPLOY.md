@@ -172,7 +172,20 @@ Staging was re-bootstrapped on 2026-10-08 with new keys and a new program id (DL
 
 **Pyth accounts.** The D-019 shard-0 MAG7 push accounts are stale on both clusters; devnet shard-1 accounts were fresh when checked (SCHEMA §3.1.1). Settlement does not depend on them: the settler posts the expiry price (§6.3).
 
-### 5.4 Bootstrap from the operator box
+### 5.4 Bootstrap from the operator PC (Docker), as deployed on 2026-10-08
+
+[`ops/docker-devnet.sh`](../ops/docker-devnet.sh) runs inside the Docker toolchain image. It reads keys and the RPC URL from
+a host folder mounted at `/secrets` (`env` with `DEVNET_RPC_URL`, `keys/devnet/*.json`, `state/`), never from the repo.
+
+| Step | Command (inside the image) | What it does |
+| --- | --- | --- |
+| 1 | `bash /repo/ops/docker-devnet.sh deploy` | Prod `.so` without fixtures, deploy or upgrade, dump it back from chain, fixture assert |
+| 2 | `bash /repo/ops/docker-devnet.sh phase-a` | Config (admin delay 60 s), mUSDC, role-key and tester funding; no markets |
+| 3 | operator writes `state/strike-prices.json` | Prior closes with a source and `closeDateKey` (D-026) |
+| 4 | `bash /repo/ops/docker-devnet.sh wait-phase-b` (detached, the evening before) | After 00:05 ET: the day's 7 markets, Phoenix books (as many as the payer SOL covers), pauser handoff, maker ladders |
+| 5 | `railway up --service web` / `automation` from a `git archive` of `main` | Variables in §5.2; values for this staging in §5.3 |
+
+### 5.5 Bootstrap from the old operator box (`run-staging.sh`)
 
 The operator scripts in [`ops/`](../ops/README.md) hold no keys or box paths; everything comes from env or an untracked `ops/staging.env` (template `ops/staging.env.example`).
 
@@ -254,4 +267,4 @@ Settle-by-16:05 ET on the operator path: staging uses `admin_settle_delay_secs` 
 
 ## 8. CI
 
-[`.gitlab-ci.yml`](../.gitlab-ci.yml) defines `prod-build-no-fixtures` (`yarn build:prod` + fixture assert) and `localnet-anchor-test` (`anchor test -- --features localnet-test`). Labs GitLab has no CI runners for this project; the merge gate is local (and now the Docker toolchain). Note: `.gitlab-ci.yml` still pins Solana 2.1.0, which no longer builds this repo; the Docker toolchain (Agave 4.3.0) is the reference. Results: [`TEST_RESULTS.md`](TEST_RESULTS.md).
+[`.gitlab-ci.yml`](../.gitlab-ci.yml) defines `prod-build-no-fixtures` (`yarn build:prod` + fixture assert) and `localnet-anchor-test` (`anchor test -- --features localnet-test`). Labs GitLab has no CI runners for this project; the merge gate is local (and now the Docker toolchain). Note: `.gitlab-ci.yml` pins Agave 4.3.0 to match the Docker toolchain (2.1.0, the earlier pin, cannot build the edition-2024 crates now in `Cargo.lock`); the Docker toolchain is the reference. Results: [`TEST_RESULTS.md`](TEST_RESULTS.md).
