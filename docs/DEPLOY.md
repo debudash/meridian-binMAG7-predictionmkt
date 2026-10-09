@@ -226,7 +226,7 @@ Key roles (all `chmod 600`, never in git): the full table is in [`ops/README.md`
 
 ### 6.2 Operator prices (fallback)
 
-Since 2026-10-09 the Hermes key is entitled to equity feeds (DLV-106), so the pull-oracle path (§6.1, §6.3) is the primary strike and settle source, with no code change: a valid Hermes price wins over operator prices. Operator-sourced prices with a logged source remain the recorded fallback (D-027), for example when Hermes has no usable price.
+Since 2026-10-09 the Hermes key is entitled to equity feeds (DLV-106), so the pull-oracle path (§6.1, §6.3) is the primary strike and settle source, with no code change: a valid Hermes price wins over operator prices. Operator-sourced prices with a logged source remain the recorded fallback (D-027), for example when Hermes has no usable price. Do not set `OPERATOR_CLOSE_PRICES` for a day unless the pull settle has failed: with `ADMIN_SETTLE_AFTER_RETRIES=1` the worker uses it after the first failed pull tick once the 60 s on-chain delay has passed, and setting it also redeploys `automation`.
 
 The variables are `OPERATOR_STRIKE_PRICES` and `OPERATOR_CLOSE_PRICES` on `automation` (JSON `{dateKey, source, pricesE6}`; the strike variable also needs `closeDateKey` = the previous trading day).
 
@@ -246,7 +246,7 @@ node ops/operator-prices.cjs close --source "<source, e.g. Nasdaq official closi
 1. **Pull oracle (D-025):** Hermes price at `expiry_ts` → Pyth receiver post (full verification) → permissionless `settle` → close the update accounts. Signed and paid by the settler.
 2. **Fallback:** `admin_settle` by the config authority after the on-chain `admin_settle_delay_secs`, at the operator close price bound to the market's day and symbol (source required). The outcome must equal `price ≥ strike` (D-018 Policy A).
 
-Settle-by-16:05 ET on the operator path: staging uses `admin_settle_delay_secs` 60 (the program minimum), `ADMIN_SETTLE_AFTER_RETRIES=1` and `WORKER_TICK_MS=30000` (DLV-123). It has not yet been shown on a live close; the first one is 2026-10-09.
+Settle by 16:05 ET: the pull oracle settles on the first worker tick that finds the first post-close update; for the operator-price fallback, staging uses `admin_settle_delay_secs` 60 (the program minimum), `ADMIN_SETTLE_AFTER_RETRIES=1` and `WORKER_TICK_MS=30000` (DLV-123). It has not yet been shown on a live close; the first one is 2026-10-09.
 
 ### 6.4 Pause at expiry and alerts
 

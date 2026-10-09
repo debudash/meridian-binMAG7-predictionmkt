@@ -11,7 +11,7 @@ Target length: 6–8 minutes. Keep one browser window and one terminal on screen
 
 | Path A | Path B |
 | --- | --- |
-| `docker compose -f docker/compose.localnet.yml up --build`, then open http://127.0.0.1:3000 ([`docker/README.md`](../docker/README.md)) | Program deployed and bootstrapped ([`DEPLOY.md`](DEPLOY.md) §4–§5); today's markets created before 08:00 ET on the prior close (§6.1); operator close prices ready for settle while Hermes is not entitled (§6.2) |
+| `docker compose -f docker/compose.localnet.yml up --build`, then open http://127.0.0.1:3000 ([`docker/README.md`](../docker/README.md)) | Program deployed and bootstrapped ([`DEPLOY.md`](DEPLOY.md) §4–§5); today's markets created before 08:00 ET on the prior close (§6.1); operator close prices only as the fallback if the pull settle fails (§6.2) |
 | Connect the **Localnet Dev Wallet** (no extension needed) | Phantom on **Devnet** with SOL and test mUSDC; a second wallet for the counterparty |
 | Wait for `[meridian-local] ready`: the seed creates the 7 MAG7 markets with books (same-day before 16:00 ET, otherwise "anytime" markets expiring in 120 min) | At least one market with a Phoenix book |
 
