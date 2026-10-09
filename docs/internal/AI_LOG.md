@@ -1,3 +1,14 @@
+## 2026-10-08T21:00:00-05:00 — Docs: pre-submission accuracy pass (deliverables vs current facts)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian docs owner (Claude Code subagent), facts supplied by the orchestrating session; Debu decisions |
+| **Branch** | `docs/submission-accuracy` from `origin/main` @ `4012bbd`; committed locally, not pushed, no MR |
+| **Why** | Submission due 2026-10-10 09:00 CT, graded against `docs/PEAK6_PRD.md`. After !93–!97 the deliverable docs still said the program was not on devnet, quoted 109/109 @ `dd46769` as current and a 300 s staging admin delay. |
+| **Change** | README: demo status, devnet settlement deviation, deliverables table with status, submission checklist. PRD_TRACE: counts, devnet deploy facts, oracle row Partial with the DLV-106 explanation, lifecycle rows "Scheduled 2026-10-09", open items / future work (DLV-121, DLV-122, DLV-069, early closes, no browser UI-flow tests, stale CI pin, mainnet items), live-day placeholder §9, submission checklist §10. TEST_RESULTS: Docker run counts with SHAs, the 23 pending explained (prod pull-oracle file skips itself without `target/prod/meridian.so`: 22 `describe.skip` + 1 placeholder), bind-mount timeouts, not-re-run rows labelled, live-day placeholder §8. DEPLOY: ladder, Railway redeploy, 2026-10-09 ops-job markets, DLV-123 timing. AI_USAGE: phase 1 (Grok Bot) / phase 2 (Claude Code) working model, phase-2 catches. ARCHITECTURE, DEMO_SCRIPT, SPEC §3.2, STAGING_TEST_PLAN header + 60 s delay, docker/README test notes. Comment-only: `.gitlab-ci.yml` stale-pin note, toolchain Dockerfile header. TRACKER: DLV-077 In Progress (re-bootstrapped, live day 2026-10-09), DLV-120 / DLV-119 to Done, header refreshed. |
+| **Tests** | Docs only. Relative-link check over all `.md` files; grep for stale facts (`9Rb7nx` outside history, 2.1.0 as current, 109/109 as current, `localhost:3000` for the Docker instance, "pending (DLV-124)"). |
+| **Related** | DLV-077 · DLV-106 · DLV-121 · DLV-122 · DLV-123 · DLV-124 · DLV-125 · DLV-038 |
+
 ## 2026-10-08T20:30:00-05:00 — Engineers: program id rotation + devnet re-bootstrap (DLV-124, DLV-077, DLV-123)
 
 | Field | Value |

@@ -78,6 +78,8 @@ sequenceDiagram
 
 The worker creates the day's markets from 07:00 ET, by 08:00 ET, with strikes ATM on the previous session's close (D-026). Details: [`DEPLOY.md`](DEPLOY.md) §6.
 
+Current gaps in this lifecycle (future work): the worker does not create Phoenix books (DLV-122; on devnet an operator ops job creates the markets and books for 2026-10-09); books are not gated to 09:30–16:00 ET and trade from creation (DLV-121); a resting Sell No does not merge on fill (DLV-069). On devnet the settle step uses `admin_settle` at an operator close price until the Hermes key has equity access (DLV-106).
+
 ## 4. Trust boundaries
 
 | Boundary | Assumption |
