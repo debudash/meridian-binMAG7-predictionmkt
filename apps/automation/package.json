@@ -13,6 +13,7 @@
     "build:railway": "rm -rf dist && tsc -p tsconfig.prod.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@coral-xyz/anchor": "0.31.1",
     "@pythnetwork/pyth-solana-receiver": "0.16.0",
     "@solana/spl-token": "^0.4.9",
