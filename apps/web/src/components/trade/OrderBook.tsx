@@ -157,7 +157,8 @@ function BookRow({
         background: selected
           ? `color-mix(in srgb, ${color} 18%, transparent)`
           : `linear-gradient(to left, color-mix(in srgb, ${color} 13%, transparent) ${pct}%, transparent ${pct}%)`,
-        boxShadow: selected ? `inset 3px 0 0 ${color}` : undefined,
+        // Selected also gets a full outline: a cue the depth bar never uses (a full-depth bar is 13% tint only).
+        boxShadow: selected ? `inset 3px 0 0 ${color}, inset 0 0 0 1px ${color}` : undefined,
         fontWeight: selected ? 600 : undefined,
         color: "var(--text)",
         padding: "0.28rem 0.85rem",

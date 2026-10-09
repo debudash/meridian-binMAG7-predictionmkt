@@ -64,7 +64,7 @@ All tx actions follow the tx status flow in `03` §6.3.
 | Error | per-section retry |
 
 ## Copy
-"Payout if right", "Redeem 40.00 USDC", "Settled: Yes". Avoid "winnings". P&L signed with +/− and color; never color side chips red/green.
+"Payout if right", "Redeem 40.00 USDC", "Settled: Yes". Avoid "winnings". P&L signed with +/− and color; never color side chips red/green. *(Superseded by D-028: side chips are green Yes / red No; P&L always carries its +/− sign so it stays readable next to side colour.)*
 
 ## Acceptance criteria
 - [ ] One row per market; side chip reflects held side; legacy both-sides handled.

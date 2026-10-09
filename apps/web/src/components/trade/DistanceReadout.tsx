@@ -45,7 +45,7 @@ export function DistanceReadout({
           {" · "}
           <span style={{ color: d.leading === "yes" ? "var(--yes)" : "var(--no)", fontWeight: 600 }}>
             {/* D-028: arrow repeats the colour cue (above strike ▲ = Yes leading, below ▼ = No leading) */}
-            <span aria-hidden="true">{d.leading === "yes" ? "▲ " : "▼ "}</span>
+            <span aria-hidden="true">{d.leading === "yes" ? "▲ " : "▼ below · "}</span>
             {d.distanceLabel}
           </span>
           {!compact && underlying && <span> · {sourceLabel(underlying)}</span>}
