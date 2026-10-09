@@ -151,6 +151,8 @@ export function Footer() {
         <Link href="/terms">Terms</Link>
         {" · "}
         <Link href="/risk">Risk</Link>
+        {" · "}
+        <Link href="/status">Status</Link>
       </div>
       <div style={{ fontFamily: "var(--mono)", fontSize: "0.75rem" }}>
         Program · see env NEXT_PUBLIC_MERIDIAN_PROGRAM_ID

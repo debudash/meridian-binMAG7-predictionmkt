@@ -3,7 +3,7 @@
  *
  * Given the day's StrikeMarkets read from the chain, decide what an on-call operator needs to know at a checkpoint:
  *   create (by 08:00 ET): every expected symbol has `perSymbol` markets expiring at today's close, each with a book;
- *   settle (after 16:05 ET): every one of those markets is settled, with its close price and outcome.
+ *   settle (16:30 ET in the worker, D-030): every one of those markets is settled, with its close price and outcome.
  * Anything wrong becomes an `issue`. Code writes every status and market line; the AI only adds a headline.
  */
 
@@ -116,7 +116,7 @@ export function buildFacts(o: {
     if (!late) issues.push(`settle check ran before 16:05 ET; results may still be landing`);
     for (const m of markets) {
       if (m.state === "void") issues.push(`${m.symbol} ≥ $${m.strike.toFixed(2)}: market is void`);
-      else if (m.closePrice === null && late) issues.push(`${m.symbol} ≥ $${m.strike.toFixed(2)}: not settled 5 min after the close`);
+      else if (m.closePrice === null && late) issues.push(`${m.symbol} ≥ $${m.strike.toFixed(2)}: not settled yet (close was 16:00 ET)`);
     }
   }
 
