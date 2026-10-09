@@ -19,7 +19,7 @@ Source spec: [`docs/ui/03-trade.md`](../03-trade.md) · rules [`docs/ui/06-tradi
 2. **Four intents** — never raw bid/ask.
 3. **No Yes+No from UI** — sample shows Buy No disabled while holding Yes + "Sell N Yes" path.
 4. **Countdown** primary in header; trading disables near close per `06`.
-5. Side colors teal/violet — not red/green for Yes/No.
+5. Side colors teal/violet — not red/green for Yes/No. *(Superseded by D-028: Yes = green, No = red, bid = green, ask = red.)*
 
 ## Approval checklist
 - [ ] Layout density OK for Engineers (chart | book | ticket)

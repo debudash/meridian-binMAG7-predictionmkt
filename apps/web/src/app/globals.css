@@ -1,20 +1,24 @@
+/* D-028 market palette: neutral graphite ground; green = Yes / bid / above strike / success, red = No / ask / below strike / error.
+   Plain buttons, links, selection and focus use the neutral blue accent; filled accent buttons use dark text (AA). */
 :root {
-  --bg: #0b0f14;
-  --bg-elevated: #121820;
-  --bg-card: #161d27;
-  --border: #243041;
-  --text: #e8eef7;
-  --text-muted: #8b9bb0;
-  --accent: #3d9cf0;
-  --yes: #2dd4bf;
-  --no: #a78bfa;
+  --bg: #0c0e12;
+  --bg-elevated: #14171d;
+  --bg-card: #111419;
+  --border: #22272f;
+  --border-strong: #353c47;
+  --text: #e7eaee;
+  --text-muted: #8c95a2;
+  --accent: #4a8dff;
+  --on-accent: #0b1220;
+  --yes: #22c55e;
+  --no: #ff5c5c;
   --amber: #f5a623;
-  --green: #34d399;
-  --red: #f87171;
-  --danger: #f87171;
-  --radius: 10px;
-  --font: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --green: #22c55e;
+  --red: #ff5c5c;
+  --danger: #ff5c5c;
+  --radius: 6px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, Consolas, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -55,11 +59,11 @@ button, input, select {
   cursor: pointer;
   font-weight: 560;
 }
-.btn:hover { border-color: #3a4d66; }
+.btn:hover { border-color: var(--border-strong); }
 .btn-primary {
   background: var(--accent);
   border-color: transparent;
-  color: #041018;
+  color: var(--on-accent);
 }
 .btn-yes { background: color-mix(in srgb, var(--yes) 22%, transparent); border-color: var(--yes); color: var(--yes); }
 .btn-no { background: color-mix(in srgb, var(--no) 22%, transparent); border-color: var(--no); color: var(--no); }
@@ -112,7 +116,7 @@ button, input, select {
 .toast-error { border-color: var(--red); }
 .toast-success { border-color: var(--green); }
 .skeleton {
-  background: linear-gradient(90deg, #1a222e 25%, #243041 50%, #1a222e 75%);
+  background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--border) 50%, var(--bg-elevated) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.2s infinite;
   border-radius: 8px;
@@ -123,15 +127,16 @@ button, input, select {
   100% { background-position: -200% 0; }
 }
 
-/* Book bid/ask — distinct from Yes/No side accents (docs/ui/03 §4, nit #5) */
+/* Book bid/ask = green/red like a trading screen (D-028 supersedes nit #5: price column + aria-label still say Bid/Ask) */
 :root {
-  --bid: #38bdf8;
-  --ask: #fb923c;
+  --bid: var(--yes);
+  --ask: var(--no);
 }
 
 /* Book rows: hover + keyboard focus (selected tint/accent is inline, DLV-071) */
+/* Hover tint layered over the depth bar (inline background), not replacing it */
 .book-row:hover:not(.book-row-selected) {
-  background: color-mix(in srgb, var(--text) 6%, transparent) !important;
+  box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--text) 6%, transparent);
 }
 .book-row:focus-visible {
   outline: var(--focus-ring);
@@ -267,7 +272,7 @@ button, input, select {
   --sel-color: var(--accent);
   --sel-tint: 18%;
   --sel-ring-width: 2px;
-  --focus-color: #8cc8ff;
+  --focus-color: #9cc0ff;
   --focus-ring: 2px solid var(--focus-color);
 }
 .sel-yes { --sel-color: var(--yes); }
@@ -306,7 +311,7 @@ button, input, select {
 /* Unselected hover (not on disabled) */
 .btn:not(:disabled):not([aria-disabled="true"]):hover,
 .filter-chip:hover,
-.view-toggle button:hover { border-color: #4a6283; }
+.view-toggle button:hover { border-color: var(--border-strong); }
 .btn:not(:disabled):not([aria-disabled="true"]):active { transform: translateY(1px); }
 
 /* Yes/No choice buttons (ticket intents): outlined when unselected, filled + ring when selected */
@@ -339,7 +344,7 @@ button, input, select {
   opacity: 0.6;
   filter: grayscale(1);
   border-style: dashed;
-  border-color: #3a4656;
+  border-color: var(--border-strong);
   background: transparent;
   color: var(--text-muted);
   box-shadow: none;
@@ -394,15 +399,14 @@ tr.row-selectable:focus-visible { outline: var(--focus-ring); outline-offset: -2
   box-shadow: 0 0 0 var(--sel-ring-width) color-mix(in srgb, var(--sel-color) 45%, transparent);
 }
 .card.selectable { cursor: pointer; }
-.card.selectable:hover:not(.is-selected) { border-color: #3a4d66; }
+.card.selectable:hover:not(.is-selected) { border-color: var(--border-strong); }
 
 /* Market cards: hover lift, pressed, keyboard focus-within, last viewed */
 .market-card { transition: border-color 120ms, transform 120ms, box-shadow 120ms; }
-.market-card:hover { border-color: #3a4d66; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
-.market-card:active { transform: translateY(0); }
+.market-card:hover { border-color: var(--border-strong); }
 .market-card:focus-within { border-color: var(--focus-color); }
 .market-card-title { color: var(--text); }
-.market-card-title:visited { color: #c3cddb; }
+.market-card-title:visited { color: var(--text); }
 .market-card-title:hover { text-decoration: underline; }
 .chip-current {
   color: var(--text);
@@ -414,19 +418,20 @@ tr.row-selectable:focus-visible { outline: var(--focus-ring); outline-offset: -2
 .markets-table tbody tr:hover > td { background: color-mix(in srgb, var(--text) 5%, transparent); }
 
 /* Wallet adapter (button, dropdown, modal list) */
-.wallet-adapter-button:not([disabled]):hover { background-color: color-mix(in srgb, var(--accent) 22%, #512da8); }
+.wallet-adapter-button.wallet-adapter-button-trigger:not([disabled]) { background-color: var(--accent); color: var(--on-accent); }
+.wallet-adapter-button.wallet-adapter-button-trigger:not([disabled]):hover { background-color: color-mix(in srgb, var(--accent) 85%, #000000); }
 .wallet-adapter-button:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .wallet-adapter-button[aria-expanded="true"] {
   box-shadow: 0 0 0 var(--sel-ring-width) color-mix(in srgb, var(--sel-color) 70%, transparent);
 }
 .wallet-adapter-dropdown-list-item:hover,
 .wallet-adapter-dropdown-list-item:focus-visible {
-  background: color-mix(in srgb, var(--sel-color) 25%, #2c2d30) !important;
+  background: color-mix(in srgb, var(--sel-color) 25%, var(--bg-elevated)) !important;
   box-shadow: inset 3px 0 0 var(--sel-color);
 }
 .wallet-adapter-modal-list .wallet-adapter-button:hover,
 .wallet-adapter-modal-list .wallet-adapter-button:focus-visible {
-  background: color-mix(in srgb, var(--sel-color) 22%, #1a1f2e) !important;
+  background: color-mix(in srgb, var(--sel-color) 22%, var(--bg-card)) !important;
   box-shadow: inset 3px 0 0 var(--sel-color);
 }
 
