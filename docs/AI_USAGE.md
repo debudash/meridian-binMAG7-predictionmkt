@@ -76,6 +76,7 @@ All work landed through merge requests on the project's GitLab (D-001, D-014).
 | The Agave 4.x validator needs io_uring (blocked by Docker's default seccomp) and refuses to bind 0.0.0.0 | Starting the local instance | `seccomp:unconfined` on the local container only; RPC / WebSocket relayed with socat (`docker/compose.localnet.yml`, `docker/localnet/start.sh`) |
 | 7 Anchor tests timed out with the test ledger on the Windows bind mount | Docker test run | Ledger on a Linux volume: 87 passing / 0 failing; `startup_wait` raised |
 | The public devnet RPC rate-limited (429) the program deploy, leaving a half-written buffer | Devnet deploy, 2026-10-08 | Buffer closed and refunded; deploy and both Railway services moved to a dedicated devnet RPC |
+| A new React hook (`useSolBalance`) was first placed after an early return in the Portfolio page, which breaks the rules of hooks | `next lint` in the local gate (DLV-125, 2026-10-08) | Hook moved above the early return before merge (!97) |
 
 ## 6. Where to look
 

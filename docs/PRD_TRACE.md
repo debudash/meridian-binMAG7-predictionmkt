@@ -32,7 +32,7 @@ Last reviewed: 2026-10-08 ~21:00 CT against `main` @ `4012bbd`. Live devnet evid
 
 | PRD line | Status | Evidence |
 | --- | --- | --- |
-| Unit tests for all core functions | **Met** | Anchor localnet 87 passing / 23 pending / 0 failing (the pending are the prod pull-oracle file, which runs separately: 22 / 22, last @ `ab3b57c`), automation 263 passing, web 421 passing; Rust `cargo test` not re-run ([`TEST_RESULTS.md`](TEST_RESULTS.md) §1) |
+| Unit tests for all core functions | **Met** | Anchor localnet 87 passing / 23 pending / 0 failing (the pending are the prod pull-oracle file, which runs separately: 22 / 22 @ `4012bbd`; Rust unit 6 / 6 @ `4012bbd`), automation 263 passing, web 421 passing; Rust `cargo test` not re-run ([`TEST_RESULTS.md`](TEST_RESULTS.md) §1) |
 | Integration tests for full lifecycle | **Met** | Localnet create → mint → trade → settle → redeem: X-04 / X-05, SIM-*, SC-*; real Phoenix E2E 10/10 (opt-in) |
 | Frontend tests for UI flows | **Partial** | `apps/web` has 51 vitest files in a Node environment that test UI logic (intent availability, ticket wiring, price display, history, wallet picker, hydration guards) plus 2 opt-in E2E files that drive the web order path against real Phoenix books. There are no component (jsdom) or browser-automation tests in the repo. There are no browser UI-flow tests. UI flows were checked by a headless-browser smoke (not committed) and the manual [`VISUAL_RUNBOOK.md`](VISUAL_RUNBOOK.md) |
 | Invariant testing | **Met** | V-*, INV-*, I1–I4 helpers; 25 invariant checks per real-Phoenix E2E run ([`TEST_RESULTS.md`](TEST_RESULTS.md) §4) |
@@ -126,4 +126,4 @@ Due Saturday 2026-10-10, 09:00 CT.
 | AI usage log | Done |
 | Live devnet day evidence (§9, [`TEST_RESULTS.md`](TEST_RESULTS.md) §8) | Fill on 2026-10-09 after the close |
 | Demo video link in [`README.md`](../README.md) and §7 | Fill on 2026-10-09 |
-| Final test refresh on the submission tip (incl. Rust unit and prod pull-oracle settle) | Fill on 2026-10-09 |
+| Final test refresh on the submission tip | Done 2026-10-08 on `4012bbd` (Rust unit and prod settle) and `594d41b` (Anchor); re-check if code changes before submission |

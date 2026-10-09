@@ -11,8 +11,8 @@ Current as of 2026-10-08 ~21:00 CT, `main` @ `4012bbd`.
 | Suite | What it covers | Latest result | Ran on |
 | --- | --- | --- | --- |
 | Anchor localnet (`anchor test -- --features localnet-test`, `tests/**/*.ts`) | Program: mint, settle, admin_settle, redeem, merge_pair, pause, fees, $1 vault invariants, sim session, SimClock, Phoenix on-book sim, prod IDL gates | **87 passing, 23 pending, 0 failing** (29 min). The 23 pending are the prod pull-oracle file, which skips itself when the prod `.so` is not built (see below) | `594d41b` (!96 branch head; same program code as `main`) |
-| Prod pull-oracle settle (`yarn build:prod-so && yarn test:prod-settle`, LiteSVM on the prod `.so`) | D-025 accept / reject rules incl. real devnet and mainnet account bytes | **22 / 22** — **not re-run** in this pass; last recorded result | `ab3b57c` |
-| Rust unit (`cargo test`) | Pyth parser helpers (5 `#[test]`) | **not re-run**; no recorded count in this document | — |
+| Prod pull-oracle settle (`yarn build:prod-so && yarn test:prod-settle`, LiteSVM on the prod `.so`) | D-025 accept / reject rules incl. real devnet and mainnet account bytes | **22 / 22**, re-run 2026-10-08 in the Docker toolchain on the prod `.so` built from main | `4012bbd` |
+| Rust unit (`cargo test`) | Pyth parser helpers + program id check | **6 / 6**, re-run 2026-10-08. Needs a host Rust newer than the image's 1.85 for its test-only dependencies (`rustup toolchain install stable`; ran on 1.99) | `4012bbd` |
 | Prod build + asserts (`npm run build:prod`, `assert-prod-no-fixtures`, `assert-idl-sync`) | No `sim_*` / `upsert_mock_pyth` / `test_drain_vault` / SimClock in the prod `.so` or IDL; IDL copies in sync | **PASS** | 2026-10-08 Docker run (program code = `main`) |
 | Deployed devnet binary | `solana program dump` of `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` | **Byte-identical to the build; fixture assert PASS** | Deployed 2026-10-08, slot 508961032 |
 | Automation (`apps/automation`, mocha) | Market-day calendar (DST, holidays, early closes), D-026 create window and deadline, prior-close strikes, operator prices, pull settle, settler / pauser keys, pause monitoring, sim/prod isolation, ops script guards | **263 passing, 13 pending, 0 failing** (pending = opt-in localnet file) | `4012bbd` (automation unchanged since !96) |
@@ -44,7 +44,7 @@ yarn build:prod
 yarn build:prod-so && yarn test:prod-settle
 
 # Rust unit tests
-cargo test --manifest-path programs/meridian/Cargo.toml
+cargo +stable test --manifest-path programs/meridian/Cargo.toml --lib   # host Rust > 1.85 for test deps
 
 # Automation
 npm test --prefix apps/automation
@@ -118,7 +118,7 @@ PHX cases use a simulated book fill inside the Anchor harness. Trading against r
 - **Devnet lifecycle** not yet run: scheduled for 2026-10-09 (§8).
 - **Pyth pull settle on devnet** with a real Hermes equity price has not run: the Hermes key lacks the equity entitlement (403, DLV-106). Staging settles with operator close prices and `admin_settle`.
 - History does not show fills by other traders; a resting Sell No does not merge on fill (DLV-069).
-- Not re-run in this pass: Rust unit tests, prod pull-oracle settle (LiteSVM), and the opt-in localnet E2E suites (§1).
+- Not re-run in this pass: the opt-in localnet E2E suites (§1). Rust unit (6 / 6) and prod pull-oracle settle (22 / 22) were re-run on `4012bbd`.
 
 ## 8. Live devnet day 2026-10-09: results to be filled after the close
 
