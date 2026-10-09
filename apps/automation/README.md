@@ -48,13 +48,13 @@ See [`docs/DEPLOY.md`](../../docs/DEPLOY.md) §3.3.
 
 ## Operator copilot (D-029, read-only)
 
-`node dist/copilot-cli.js --checkpoint create|settle [--date YYYY-MM-DD] [--no-ai] [--json]` checks the day's markets on chain and sends the on-call operator a short summary. Run it after 08:00 ET (`create`) and after 16:05 ET (`settle`).
+`node dist/copilot-cli.js --checkpoint create|settle [--date YYYY-MM-DD] [--per-symbol N] [--no-ai] [--json]` checks the day's markets on chain and sends the on-call operator a short summary. Run it after 08:00 ET (`create`) and after 16:05 ET (`settle`). `--per-symbol` defaults to the worker's `STRIKE_OFFSETS_E6` length (3); use 1 for a day created by the ops bootstrap with single operator strikes.
 
-1. **Facts** (`src/copilot/facts.ts`, plain code): every MAG7 market exists for the day with an order book; after the close, every one is settled, with its close price and outcome. Anything wrong is an issue.
-2. **Words** (`src/copilot/summarize.ts`): Claude (`COPILOT_MODEL`, default `claude-opus-5-5`, low effort) writes the message from the facts JSON only. Every number in its reply must appear in the facts, otherwise the plain template is sent. No API key, a failed call or a refusal also sends the template.
-3. **Delivery** (`src/copilot/notify.ts`): stdout always; Slack when `COPILOT_SLACK_WEBHOOK_URL` is set.
+1. **Facts** (`src/copilot/facts.ts`, plain code): every expected symbol has its markets for the day, each with an order book; after the close, every one is settled, with its close price and outcome. Anything wrong is an issue.
+2. **Message** (`src/copilot/summarize.ts`): code writes the ✅/⚠️ mark, every issue, the runbook pointer and every market line. Claude (`COPILOT_MODEL`, default `claude-opus-5-5`, low effort) writes only the headline sentence; `verifyHeadline` rejects it (and the code headline is used) if it has a number outside the counts / issues / schedule, a percentage, a spelled-out number, wrong YES/NO counts, all-clear wording while there are issues, or more than 300 characters. No API key, an API error, a refusal or a truncated reply also use the code headline.
+3. **Delivery** (`src/copilot/notify.ts`): stdout always; Slack when `COPILOT_SLACK_WEBHOOK_URL` is set (the URL is never printed).
 
-Exit code 2 when there are issues, so a scheduler can alert even if Slack or the AI is down. It needs no keypairs and sends no transactions. Env: the worker's `SOLANA_RPC_URL` / `MERIDIAN_PROGRAM_ID` / `MERIDIAN_IDL_PATH` / `STRIKE_SYMBOLS`, plus optional `ANTHROPIC_API_KEY`, `COPILOT_MODEL`, `COPILOT_SLACK_WEBHOOK_URL`. Tests: `test/copilot.test.ts` (the real 2026-10-09 day as fixture; Claude stubbed).
+Exit code 2 when there are issues, so a scheduler can alert even if Slack or the AI is down. It needs no keypairs and sends no transactions. Env: the worker's `SOLANA_RPC_URL` / `MERIDIAN_PROGRAM_ID` / `MERIDIAN_IDL_PATH` / `STRIKE_SYMBOLS` / `STRIKE_OFFSETS_E6`, plus optional `ANTHROPIC_API_KEY`, `COPILOT_MODEL`, `COPILOT_SLACK_WEBHOOK_URL`. Tests: `test/copilot.test.ts` (the real 2026-10-09 day as fixture; Claude stubbed).
 
 ## Tests
 

@@ -1,3 +1,14 @@
+## 2026-10-09T19:30:00-05:00 — Engineers: operator copilot, read-only AI checkpoint summaries (D-029)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Claude Code (orchestrating session), independent review subagent; Debu decision ("build the operator copilot in a branch") |
+| **Branch** | `feat/operator-copilot` from `origin/main` @ `a28b8e0` · draft MR !102 (not merged, not deployed) |
+| **Change** | `apps/automation/src/copilot/` + `copilot-cli.ts`: code reads the day's StrikeMarkets (memcmp on expiry), checks the create / settle checkpoint and writes the whole message; Claude (`claude-opus-5-5`, low effort, server-side refusal fallback) writes only the headline, which `verifyHeadline` checks (numbers from counts / issues / schedule only, no %, no spelled-out numbers, YES/NO counts must match, no all-clear wording with issues, ≤ 300 chars). Stdout + optional Slack webhook; exit 2 on issues. `@anthropic-ai/sdk` ^0.133.0. |
+| **Review fixes (2nd commit)** | H1 a worker day has `STRIKE_OFFSETS_E6` strikes per symbol (3), so `--per-symbol` (default = offsets length); H2 the AI no longer writes status or market lines (code does), guard extended; M1 prompt line cap removed; M2 webhook URL never echoed (URL pre-check, error name / code only); M3 addresses and timestamps removed from the prompt; L1 unknown status, L2 extra symbols, L3 calendar ALERT exit 2, L4 only `end_turn` accepted, L5 memcmp filter, create-before-08:00 warning; 15 tests. |
+| **Verification** | tsc (dev + prod config) OK; `test/copilot.test.ts` 15/15 (2026-10-09 day as fixture, Claude stubbed); live read-only devnet run for 2026-10-09: settle 7/7 (4 YES / 3 NO, close prices match chain), create with default 3 per symbol reports 7/21 (correct: that day was bootstrapped with single strikes). AI headline not run live (no `ANTHROPIC_API_KEY` on the operator PC). |
+| **Related** | D-029 · MR !102 |
+
 ## 2026-10-09T08:15:00-05:00 — Docs: DLV-106 resolved, Hermes equity access (D-027)
 
 | Field | Value |
