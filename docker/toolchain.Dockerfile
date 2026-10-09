@@ -1,5 +1,5 @@
 # Meridian toolchain image: everything needed to build the program, run every suite,
-# run a local validator and run the ops/ staging scripts. Versions match .gitlab-ci.yml.
+# run a local validator and run the ops/ staging scripts. Anchor matches .gitlab-ci.yml; Solana is newer (see below).
 # Ubuntu 24.04 because the prebuilt Anchor 0.31.1 binary needs glibc >= 2.39.
 FROM ubuntu:24.04
 

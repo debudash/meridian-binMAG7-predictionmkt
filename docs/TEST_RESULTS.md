@@ -2,27 +2,34 @@
 
 What is tested, how to run it, and the latest recorded result per suite. Case catalogue: [`TEST_MATRIX.md`](TEST_MATRIX.md). Suite layout: [`tests/README.md`](../tests/README.md).
 
-**Gate:** labs GitLab has no CI runners for this project; the merge gate is local (and now the Docker toolchain). Counts below are the latest recorded runs, with the commit they ran on. Rows marked **to refresh** must be re-run on the final submission tip before hand-in; they are not re-run in this document.
+**Gate:** labs GitLab has no CI runners for this project, so the merge gate is local: every suite runs in the Docker toolchain image (Ubuntu 24.04, Rust 1.85, Agave 4.3.0, Anchor 0.31.1, Node 22, `NODE_OPTIONS=--no-experimental-strip-types`; [`docker/README.md`](../docker/README.md)). Each row gives the latest recorded run and the commit it ran on. Rows marked **not re-run** keep an older result, labelled with its commit.
+
+Current as of 2026-10-08 ~21:00 CT, `main` @ `4012bbd`.
 
 ## 1. Summary
 
-| Suite | What it covers | Latest result | Ran on | Refresh |
-| --- | --- | --- | --- | --- |
-| Anchor localnet (`tests/**/*.ts`) | Program: mint, settle, admin_settle, redeem, merge_pair, pause, fees, $1 vault invariants, sim session, SimClock, Phoenix on-book sim, prod IDL gates, prod pull-oracle settle | **109 / 109** passing | `dd46769` | to refresh |
-| Prod pull-oracle settle (`tests/prod/settle_pull_oracle.ts`, LiteSVM on the prod `.so`) | D-025 accept / reject rules incl. real devnet and mainnet account bytes | **22 / 22** (included in the 109) | `ab3b57c` | to refresh |
-| Rust unit (`cargo test`) | Pyth parser helpers | to refresh (5 `#[test]` in the repo) | — | to refresh |
-| Prod build + fixture assert (`yarn build:prod`) | No `sim_*` / `upsert_mock_pyth` / `test_drain_vault` / SimClock in the prod `.so` or IDL | **PASS** | `0ef2626` | to refresh |
-| Automation (`apps/automation`, mocha) | Market-day calendar (DST, holidays, early closes), strikes, operator prices, pull settle, settler / pauser keys, pause monitoring, sim/prod isolation, ops script guards | **228 passing + 13 pending** (pending = opt-in localnet) | MR !92 head (merged as `a5146d4`) | to refresh |
-| Automation opt-in localnet (`phoenix-pause.localnet.test.ts`, real Phoenix + Seat Manager) | Handoff, pause at expiry, paused book = cancel / withdraw only | **13 / 13** | DLV-109 (`7e00a6b`) | to refresh |
-| Web (`apps/web`, vitest) | Intent availability, ticket wiring, Phoenix sizing / compose / errors, price display, history classification, portfolio reads, fixture gates, dev-wallet gates, hydration guards | **418 passing + 14 skipped** (skipped = opt-in E2E) | MR !92 head (merged as `a5146d4`) | to refresh |
-| Web opt-in real-Phoenix E2E (`localnet.hardening.e2e.test.ts`) | Four intents, partial fill, slippage / fill-or-kill, opposite-side block, settle above / below strike, pause; 25 invariant checks per run | **10 / 10** | 2026-10-07 hardening pass (`1915bb7`) | to refresh |
-| Web opt-in account E2E (`localnet.account.e2e.test.ts`) | Seat balances, cancel / withdraw, sweep, History from chain | **4 / 4** | `7f8e766` | to refresh |
-| Typecheck + lint (web, automation) | `tsc`, `next lint`, `next build` | clean | MR !92 head | to refresh |
-| Devnet staging acceptance ([`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md)) | Phantom, real devnet program and books | **Not run** (program not yet on devnet, DLV-077) | — | — |
+| Suite | What it covers | Latest result | Ran on |
+| --- | --- | --- | --- |
+| Anchor localnet (`anchor test -- --features localnet-test`, `tests/**/*.ts`) | Program: mint, settle, admin_settle, redeem, merge_pair, pause, fees, $1 vault invariants, sim session, SimClock, Phoenix on-book sim, prod IDL gates | **87 passing, 23 pending, 0 failing** (29 min). The 23 pending are the prod pull-oracle file, which skips itself when the prod `.so` is not built (see below) | `594d41b` (!96 branch head; same program code as `main`) |
+| Prod pull-oracle settle (`yarn build:prod-so && yarn test:prod-settle`, LiteSVM on the prod `.so`) | D-025 accept / reject rules incl. real devnet and mainnet account bytes | **22 / 22** — **not re-run** in this pass; last recorded result | `ab3b57c` |
+| Rust unit (`cargo test`) | Pyth parser helpers (5 `#[test]`) | **not re-run**; no recorded count in this document | — |
+| Prod build + asserts (`npm run build:prod`, `assert-prod-no-fixtures`, `assert-idl-sync`) | No `sim_*` / `upsert_mock_pyth` / `test_drain_vault` / SimClock in the prod `.so` or IDL; IDL copies in sync | **PASS** | 2026-10-08 Docker run (program code = `main`) |
+| Deployed devnet binary | `solana program dump` of `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` | **Byte-identical to the build; fixture assert PASS** | Deployed 2026-10-08, slot 508961032 |
+| Automation (`apps/automation`, mocha) | Market-day calendar (DST, holidays, early closes), D-026 create window and deadline, prior-close strikes, operator prices, pull settle, settler / pauser keys, pause monitoring, sim/prod isolation, ops script guards | **263 passing, 13 pending, 0 failing** (pending = opt-in localnet file) | `4012bbd` (automation unchanged since !96) |
+| Automation opt-in localnet (`phoenix-pause.localnet.test.ts`, real Phoenix + Seat Manager) | Handoff, pause at expiry, paused book = cancel / withdraw only | **13 / 13** — not re-run; last recorded result | DLV-109 (`7e00a6b`) |
+| Web (`apps/web`, vitest) | Intent availability, ticket wiring, Phoenix sizing / compose / errors, price display, history classification, portfolio reads (incl. SOL-for-fees tile), fixture gates, dev-wallet gates, hydration guards | **421 passing, 14 skipped, 0 failing** (skipped = opt-in real-Phoenix E2E). Three `siteMeta` tests need `--testTimeout=60000` on a slow Windows bind mount | `4012bbd` |
+| Web opt-in real-Phoenix E2E (`localnet.hardening.e2e.test.ts`) | Four intents, partial fill, slippage / fill-or-kill, opposite-side block, settle above / below strike, pause; 25 invariant checks per run | **10 / 10** — not re-run; last recorded result | 2026-10-07 hardening pass (`1915bb7`) |
+| Web opt-in account E2E (`localnet.account.e2e.test.ts`) | Seat balances, cancel / withdraw, sweep, History from chain | **4 / 4** — not re-run; last recorded result | `7f8e766` |
+| Typecheck + lint (web) | `tsc`, `next lint` | clean | `4012bbd` |
+| Devnet staging lifecycle ([`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md), §8 below) | Phantom, real devnet program and Phoenix books: trade → close → settle → redeem | **Scheduled 2026-10-09** (program deployed and bootstrapped 2026-10-08) | — |
+
+**The 23 pending Anchor tests.** `tests/**/*.ts` includes `tests/prod/settle_pull_oracle.ts`. That file runs against the prod `.so` at `target/prod/meridian.so` (built by `yarn build:prod-so`). When that file is missing, as in an `anchor test` run, its 22 cases are wrapped in `describe.skip` and one placeholder test calls `this.skip()` with the message "prod .so missing … run `yarn build:prod-so`". 22 + 1 = 23 pending. No program test is disabled: the 87 passing are every other case (§3), and the 22 pull-oracle cases run in their own command (row 2). The old build box ran both together as 109 / 109 on `dd46769`; that run is history.
+
+**Ledger timeouts.** An earlier Anchor run in Docker with the test ledger on the Windows bind mount timed out 7 tests. With the ledger on a Linux volume the same suite passed 87 / 0. `Anchor.toml` `[test] startup_wait = 120000` covers slow ledger start-up.
 
 ## 2. How to run
 
-All commands below also run inside the Docker toolchain image (Rust 1.85, Agave 4.3.0, Anchor 0.31.1), which is now the reference toolchain: prefix them with `docker compose -f docker/compose.localnet.yml run --rm local bash -lc "…"` ([`docker/README.md`](../docker/README.md)).
+All commands below also run inside the Docker toolchain image (Rust 1.85, Agave 4.3.0, Anchor 0.31.1, Node 22), which is the reference toolchain: prefix them with `docker compose -f docker/compose.localnet.yml run --rm local bash -lc "…"` ([`docker/README.md`](../docker/README.md)).
 
 ```bash
 yarn install
@@ -56,7 +63,7 @@ cd apps/web && LOCALNET_E2E=1 npx vitest run src/lib/portfolio/localnet.account.
 
 The program keypair is not in git. Restore or generate `keys/meridian-keypair.json` whose pubkey matches `declare_id!` ([`keys/README.md`](../keys/README.md)).
 
-## 3. Anchor suite breakdown (109 on `dd46769`)
+## 3. Anchor suite breakdown (87 passing on `594d41b`, plus 22 PULL run separately)
 
 | Prefix | File | Cases | Covers |
 | --- | --- | ---: | --- |
@@ -71,7 +78,7 @@ The program keypair is not in git. Restore or generate `keys/meridian-keypair.js
 | SC | `sim_clock.ts` | 4 | SimClock warp → settle, mint after expiry, admin delay without wall-clock waits; prod IDL strip |
 | PHX + U | `phoenix_onbook_e2e.ts`, `unit/phoenix_compose.ts` | 9 | Four intents composed against a simulated book fill; real mint / merge |
 | INV | `p2_gates.ts` | 3 | Prod IDL has no fixtures, fee truncation, burn preserves I3 |
-| PULL | `prod/settle_pull_oracle.ts` | 22 | D-025 rules on the prod `.so`, including a non-authority settler |
+| PULL | `prod/settle_pull_oracle.ts` | 22 | D-025 rules on the prod `.so`, including a non-authority settler. Pending in `anchor test`; run with `yarn test:prod-settle` (last 22 / 22 @ `ab3b57c`) |
 
 PHX cases use a simulated book fill inside the Anchor harness. Trading against real Phoenix V1 books on a local validator is covered by the web opt-in E2E (§1) and by `scripts/localnet/today-markets.cjs`, which creates real books.
 
@@ -107,6 +114,25 @@ PHX cases use a simulated book fill inside the Anchor harness. Trading against r
 
 ## 7. Known gaps
 
-- No component (jsdom) or browser-automation tests for UI flows in the repo; UI flows are covered by logic tests, the opt-in E2E and the manual runbook. See [`PRD_TRACE.md`](PRD_TRACE.md).
-- Devnet end-to-end (pull settle with a real Hermes price) not yet run.
-- History does not show maker fills by other traders; a resting Sell No does not merge on fill (DLV-069).
+- **No browser UI-flow tests.** The vitest suites test UI logic in a Node environment; there are no component (jsdom) or browser-automation tests. UI flows were checked by the manual runbook and an uncommitted headless smoke (§5). PRD "frontend tests for UI flows" is Partial ([`PRD_TRACE.md`](PRD_TRACE.md)).
+- **Devnet lifecycle** not yet run: scheduled for 2026-10-09 (§8).
+- **Pyth pull settle on devnet** with a real Hermes equity price has not run: the Hermes key lacks the equity entitlement (403, DLV-106). Staging settles with operator close prices and `admin_settle`.
+- History does not show fills by other traders; a resting Sell No does not merge on fill (DLV-069).
+- Not re-run in this pass: Rust unit tests, prod pull-oracle settle (LiteSVM), and the opt-in localnet E2E suites (§1).
+
+## 8. Live devnet day 2026-10-09: results to be filled after the close
+
+Program `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` on devnet; app https://web-production-77fbb.up.railway.app. Markets for Friday 2026-10-09 are created by an operator ops job after 00:05 ET, with strikes from the official Nasdaq closes of 2026-10-08 (operator prior closes, D-026): AAPL ≥ 340, MSFT ≥ 525, GOOGL ≥ 350, AMZN ≥ 255, NVDA ≥ 230, META ≥ 720, TSLA ≥ 375. Settlement uses operator close prices with a logged source plus `admin_settle` (60 s delay, Policy A), because the Hermes key lacks equity access (DLV-106).
+
+| Field | Result |
+| --- | --- |
+| Markets created at (ET) | _to fill_ |
+| Phoenix books (count, symbols) | _to fill_ (5 planned, 7 if the payer is topped up; 1.18 SOL rent per book) |
+| Trades (wallets, intents, tx) | _to fill_ |
+| Books paused at (ET) | _to fill_ |
+| Close prices used (source) | _to fill_ |
+| Settled at (ET), per market | _to fill_ (target: by 16:05 ET) |
+| Outcome per market (close vs strike → Yes / No) | _to fill_ |
+| Redeem tx | _to fill_ |
+| Invariants checked after redeem | _to fill_ |
+| Issues seen | _to fill_ |

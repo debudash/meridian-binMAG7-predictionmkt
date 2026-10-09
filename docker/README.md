@@ -87,3 +87,14 @@ docker compose -f docker/compose.localnet.yml run --rm local bash -lc "npm test 
 
 `anchor build` without features overwrites `target/deploy/meridian.so` with the prod build. Start the local instance
 with `REBUILD=1` afterwards.
+
+Notes from the 2026-10-08 runs (results: [`docs/TEST_RESULTS.md`](../docs/TEST_RESULTS.md)):
+
+- **Expected Anchor result:** 87 passing, 23 pending. The 23 pending are `tests/prod/settle_pull_oracle.ts`, which skips
+  itself when `target/prod/meridian.so` is absent; the second command above runs those 22 cases.
+- **Slow Windows bind mount.** With the test ledger on the Windows bind mount, 7 Anchor tests timed out. Keep the ledger
+  on a Linux volume, for example by adding `-v anchor-ledger:/repo/.anchor` after `run --rm`. Three web `siteMeta`
+  tests may also need `npm test --prefix apps/web -- --testTimeout=60000`.
+- The image sets `NODE_OPTIONS=--no-experimental-strip-types` so Node 22 leaves `.ts` files to ts-node.
+- `.gitlab-ci.yml` still pins Solana 2.1.0, which cannot build the edition-2024 crates now in `Cargo.lock`. This image is
+  the reference toolchain.

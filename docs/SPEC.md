@@ -64,7 +64,7 @@ Full rows: [`DECISIONS.md`](DECISIONS.md).
 ### 3.2 $1 invariant
 
 - After mint / Phoenix trade / redeem (fee=0): vault and supplies satisfy TEST_MATRIX I1–I4 (and fee cases when bps ≠ 0).
-- Proof: unit/integration tests on main (P0/P1 green; see [`TEST_RESULTS.md`](TEST_RESULTS.md) — **74/74** @ `65c1ddf`; +PHX after !38).
+- Proof: unit/integration tests on main; current counts in [`TEST_RESULTS.md`](TEST_RESULTS.md). (At the SPEC freeze: 74/74 @ `65c1ddf`.)
 
 ### 3.3 MAG7 0DTE lifecycle
 

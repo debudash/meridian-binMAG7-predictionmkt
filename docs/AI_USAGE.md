@@ -4,12 +4,14 @@ How AI was used to build Meridian, who decided what, and how AI output was check
 
 ## 1. Tools and roles
 
-| Period | Tool | Role |
-| --- | --- | --- |
-| 2026-10-06 onward | **Grok Bot** (orchestrator agent) | Chief of staff: split work into slices, briefed specialist agents, enforced the land path and locks, owned completeness and security (D-008) |
-| 2026-10-06 onward | Specialist agents spawned by Grok Bot (D-009) | **PM** (SPEC, acceptance, tracker) · **Schema** (accounts, instructions, units, flows) · **UI** (page specs, wireframes) · **Engineers** (Anchor program, Next.js app, Node automation, ops scripts) · **Testers** (test matrix, failing suites first, test plans) · **Reviewers** (security and architecture reviews, demo readiness) |
-| 2026-10-08 onward | **Claude Code** (Anthropic) | Coding and docs agent working in git worktrees under the same rules |
-| Throughout | **Debu Dash** (human owner) | Product and risk decisions, locks, approvals, merges, hands-on testing |
+The work ran in two phases.
+
+| Phase | Period | Tool | Role |
+| --- | --- | --- | --- |
+| 1 | 2026-10-06 to 2026-10-08 ~14:30 CT | **Grok Bot** (orchestrator agent) | Chief of staff: split work into slices, briefed specialist agents, enforced the land path and locks, owned completeness and security (D-008) |
+| 1 | same | Specialist agents spawned by Grok Bot (D-009) | **PM** (SPEC, acceptance, tracker) · **Schema** (accounts, instructions, units, flows) · **UI** (page specs, wireframes) · **Engineers** (Anchor program, Next.js app, Node automation, ops scripts) · **Testers** (test matrix, failing suites first, test plans) · **Reviewers** (security and architecture reviews, demo readiness) |
+| 2 | 2026-10-08 onward | **Claude Code** (Anthropic, Opus 5.5) | Took over after Debu stopped the Grok agents. Coding, ops and docs agent working in git worktrees under the same rules |
+| Both | Throughout | **Debu Dash** (human owner) | Product and risk decisions, locks, approvals, merges, hands-on testing |
 
 All work landed through merge requests on the project's GitLab (D-001, D-014).
 
@@ -22,6 +24,13 @@ All work landed through merge requests on the project's GitLab (D-001, D-014).
 5. **Human decision.** Debu (or Grok Bot on an explicit instruction from Debu) decided scope, accepted or declined review findings, and merged.
 6. **Record.** Each slice appended an entry to `AI_LOG.md` and moved its tracker card; durable decisions became rows in [`DECISIONS.md`](DECISIONS.md).
 
+**Phase 2 (Claude Code, from 2026-10-08).** The same steps, run this way:
+
+- Background subagents did the larger pieces of work: the D-026 create-by-08:00 change (!93), the docs refactor (!95) and repo mapping.
+- An independent review subagent reviewed every MR before merge. Its findings were fixed in the same MR (e.g. D-026 review M1 / M2, !95 review M1–M3).
+- The Docker toolchain (!94) was the local merge gate, because the project has no CI runners.
+- Debu approved every merge and made the decisions: markets created by 08:00 ET on the prior close (D-026), operator prices while Hermes lacks equities, a new program id instead of recovering the lost one (DLV-124), the demo URL, and the cut line for the submission.
+
 ## 3. What the human decided vs what agents did
 
 | Debu decided | Agents did |
@@ -33,13 +42,15 @@ All work landed through merge requests on the project's GitLab (D-001, D-014).
 | Product simplifications: hide post-only (D-021); "anything selected must be clearly highlighted" (D-022) | Implemented and tested them |
 | Declined a git-history rewrite after the committed-keypair finding | Rotated the program id and removed the key from the tree |
 | Approved operator-sourced prices with a logged source while the Hermes key lacks equities; one market creator (worker, not the box) | Built `ops/operator-prices.cjs`, the source-required checks and the creator switch |
-| Flagged issues from hands-on use (e.g. could not place an order on localnet; markets expiring days later instead of today) | Root-caused and fixed them with tests (DLV-066, DLV-118) |
+| Flagged issues from hands-on use (e.g. could not place an order on localnet; markets expiring days later instead of today; no SOL balance shown on Portfolio) | Root-caused and fixed them with tests (DLV-066, DLV-118, DLV-125) |
+| Phase 2: create by 08:00 ET on the prior close (D-026); a new program id (DLV-124); 60 s staging `admin_settle` delay (DLV-123); demo URL; what is cut for the submission (DLV-121, DLV-122, DLV-069, mainnet items) | Implemented, reviewed, deployed to devnet and documented them |
 
 ## 4. How AI output was verified
 
 - **TDD:** failing tests first on every core path; suites must stay green before merge.
 - **Reviewer agents:** separate agents with a security brief reviewed MRs; findings tracked to closure (e.g. review "mr72-73" M1–M3, "!91" M-1 and L-1…L-9).
-- **Local gates:** labs GitLab has no CI runners for this project; the merge gate is local (and now the Docker toolchain): a local run of every suite, `tsc`, lint, `next build` and the prod fixture assert, with counts recorded in the MR and the log.
+- **Local gates:** labs GitLab has no CI runners for this project, so the merge gate is local. Since !94 it is the Docker toolchain (Agave 4.3.0): every suite, `tsc`, lint and the prod fixture assert, with counts recorded in the MR and the log ([`TEST_RESULTS.md`](TEST_RESULTS.md)).
+- **Independent review before merge (phase 2):** a separate review subagent read each diff before Debu merged it.
 - **Real-system checks:** real Phoenix V1 and Seat Manager programs loaded into a local validator; prod `.so` tested in LiteSVM with real devnet and mainnet Pyth account bytes; a dry run of the prod build against cloned devnet accounts.
 - **Hardening passes:** end-to-end, UI smoke and security sweeps on 2026-10-07 ([`TEST_RESULTS.md`](TEST_RESULTS.md)).
 - **Human testing:** Debu clicked through the app on localnet; manual runbooks for localnet and devnet.
@@ -59,6 +70,12 @@ All work landed through merge requests on the project's GitLab (D-001, D-014).
 | Docs called the pauser key "low privilege"; it is a full Seat Manager authority | Reviewer agent (review mr72-73 M1) | Docs corrected (tests now check the wording), rotation runbook, PDA design for mainnet |
 | Test-count breakdowns that did not add up to their headline totals | Reviewer agent | Counts re-derived from the mocha logs |
 | Flaky timing tests (X-03, SIM-08) | Suite runs | Harness-only slack and clock-sysvar polling (MR !34) |
+| D-026 first version: a worker restart after 08:00 ET raised a false "create deadline missed" ALERT even with every market on-chain (M1); an operator strike for today could not be set after 08:00 (M2) | Independent review subagent (phase 2) | ALERT decided after the on-chain scan and create pass; late `--date <today>` strikes accepted until 16:00 ET with a warning (commit `a77325e`, !93) |
+| Shell scripts checked out with CRLF line endings on Windows broke in Linux containers | Running the Docker toolchain | `.gitattributes` forces LF (!94) |
+| The CI pin, Solana 2.1.0, cannot build the edition-2024 crates now in `Cargo.lock` | Docker toolchain build | Toolchain moved to Agave 4.3.0 (`docker/toolchain.Dockerfile`); `.gitlab-ci.yml` pin is still stale |
+| The Agave 4.x validator needs io_uring (blocked by Docker's default seccomp) and refuses to bind 0.0.0.0 | Starting the local instance | `seccomp:unconfined` on the local container only; RPC / WebSocket relayed with socat (`docker/compose.localnet.yml`, `docker/localnet/start.sh`) |
+| 7 Anchor tests timed out with the test ledger on the Windows bind mount | Docker test run | Ledger on a Linux volume: 87 passing / 0 failing; `startup_wait` raised |
+| The public devnet RPC rate-limited (429) the program deploy, leaving a half-written buffer | Devnet deploy, 2026-10-08 | Buffer closed and refunded; deploy and both Railway services moved to a dedicated devnet RPC |
 
 ## 6. Where to look
 
