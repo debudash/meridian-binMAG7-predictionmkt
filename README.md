@@ -63,7 +63,7 @@ Due Saturday 2026-10-10, 09:00 CT.
 - [x] Program deployed to devnet (2026-10-08, slot 508961032); Railway `web` and `automation` redeployed from `main`.
 - [x] Test runs on the current code: Anchor localnet 87 passing / 23 pending / 0 failing, automation 263 passing, web 421 passing, prod build and fixture asserts, deployed binary byte-identical to the build ([`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md)).
 - [x] Code merged 2026-10-09: DLV-106 docs (!100), market palette D-028 (!101), operator copilot D-029 (!102), copilot in the worker + Status page D-030 (!103); Railway `web` and `automation` redeployed from `c9f6699`.
-- [x] Friday 2026-10-09: live devnet day (create → trade → pause → settle by the Pyth pull oracle, 7 / 7); [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) §8 and [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md) §9 filled. Devnet redeem not yet recorded.
+- [x] Friday 2026-10-09: live devnet day (create → trade → pause → settle by the Pyth pull oracle, 7 / 7); [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) §8 and [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md) §9 filled; AAPL No redeemed on devnet at 16:08:32 ET.
 - [ ] Friday 2026-10-09: record the demo video and add the link above.
 - [ ] Final test refresh on the submission tip: all suites ran on 2026-10-08 (Anchor on `594d41b`, the others incl. Rust unit and prod pull-oracle settle on `4012bbd`); after the 2026-10-09 web / automation changes (no program change) copilot 18 / 18 and web 423 / 424 (pre-existing `siteMeta` timeout) on `c9f6699`.
 

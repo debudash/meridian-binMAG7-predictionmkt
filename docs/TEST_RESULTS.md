@@ -117,7 +117,7 @@ PHX cases use a simulated book fill inside the Anchor harness. Trading against r
 ## 7. Known gaps
 
 - **No browser UI-flow tests.** The vitest suites test UI logic in a Node environment; there are no component (jsdom) or browser-automation tests. UI flows were checked by the manual runbook and an uncommitted headless smoke (§5). PRD "frontend tests for UI flows" is Partial ([`PRD_TRACE.md`](PRD_TRACE.md)).
-- **Devnet redeem** after the 2026-10-09 settle is not yet recorded here (§8).
+- **Devnet redeem** after the 2026-10-09 settle: Debu redeemed the AAPL No position (20 → 20 mUSDC) at 16:08:32 ET (§8). The TSLA Yes position (20) was still unredeemed when this was written.
 - **Pre-existing test issues (not caused by the 2026-10-09 changes):** web `siteMeta` 404 test times out (423 / 424 on `c9f6699`; passes with `--testTimeout=60000`, §1); automation `test/ops-staging-nits.test.ts` fails to load on `main` (ESM `__dirname`) in the 2026-10-09 run outside the Docker gate, also before the copilot MRs; it was part of the 0-failing Docker run at `4012bbd`.
 - History does not show fills by other traders; a resting Sell No does not merge on fill (DLV-069).
 - Not re-run in this pass: the opt-in localnet E2E suites (§1). Rust unit (6 / 6) and prod pull-oracle settle (22 / 22) were re-run on `4012bbd`.
@@ -139,6 +139,6 @@ Pull-oracle rehearsal (2026-10-09 ~09:10 ET, DLV-106): the Hermes key returned H
 | Debu's results | AAPL No won · NVDA Yes lost (229.34 vs 230) · TSLA Yes won · MSFT No lost. Winning tokens (40) redeem for 40.00 mUSDC against 40.80 spent |
 | Settlement proof | Each market page shows **View settlement proof** (price, confidence, slot, settle tx). An ad-hoc operator checker outside the repo printed 7 / 7 settled |
 | Copilot cross-check | The worker's operator copilot (D-030, deployed ~19:05 ET) logged create ✅ 7/7 (7 with an order book) and settle ✅ 7/7 (4 YES, 3 NO) for 2026-10-09, shown on `/status` |
-| Redeem tx | Not yet recorded |
-| Invariants checked after redeem | Not yet recorded |
+| Redeem tx | AAPL No ×20 → 20 mUSDC: `413o6eq2d2QbdPyVBbVFL1sXfCKDtxSUkMgnYDuX4px3X4PEw2BBcx2DqcAWX3ce4X4edKyFbkYSHBbNbGiqDXoe` (slot 509294452, 16:08:32 ET). TSLA Yes ×20 not yet redeemed |
+| Invariants checked after redeem | Wallet mUSDC 9,959.20 → 9,979.20 (+20.00 = 20 winning tokens × $1). Vault / supply invariant after redeem not separately recorded on devnet (covered by the Anchor suite) |
 | Issues seen | AMZN seat-manager handoff failure and the 5-book SOL cap at 00:05 ET, both cleared by the idempotent 09:00 ET rerun. Lesson: the bootstrap is safe to rerun after a partial failure |

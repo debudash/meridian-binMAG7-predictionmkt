@@ -54,7 +54,7 @@ Last reviewed: 2026-10-09 ~20:30 CT against `main` @ `c9f6699` (live devnet day 
 | 100% accuracy in settlements | **Met (tests)** | Outcome = `price ≥ strike` (D-005); immutable once set; `admin_settle` must match the same rule (Policy A, A-05). Above / below / at-strike cases in S-*, E2E cases 8–9. Devnet 2026-10-09: 7 / 7 outcomes match the Pyth close vs strike (§9) |
 | Markets created before market open daily | **Met in code, verified in tests**; on 2026-10-09 the markets came from the ops job | See "Market creation by 8:00 AM ET" |
 | Settlements within 10 minutes of market close | **Met for AAPL** on the live devnet close 2026-10-09 (other 6 times not recorded) | See §2 |
-| Full lifecycle demo on testnet | **Partial**: create → trade → pause → settle done live on 2026-10-09; devnet redeem not yet recorded | Program deployed to devnet 2026-10-08 (slot 508961032); Railway `web` and `automation` run from `main` against it; demo URL https://web-production-77fbb.up.railway.app. 2026-10-09: 7 markets with books, Phantom trades, books paused at 16:00 ET, 7 / 7 settled by the Pyth pull oracle (§9). A local Docker instance runs the full lifecycle including redeem any time ([`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)) |
+| Full lifecycle demo on testnet | **Met**: create → trade → pause → settle → redeem done live on 2026-10-09 (AAPL No redeemed 16:08:32 ET, TEST_RESULTS §8) | Program deployed to devnet 2026-10-08 (slot 508961032); Railway `web` and `automation` run from `main` against it; demo URL https://web-production-77fbb.up.railway.app. 2026-10-09: 7 markets with books, Phantom trades, books paused at 16:00 ET, 7 / 7 settled by the Pyth pull oracle (§9). A local Docker instance runs the full lifecycle including redeem any time ([`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)) |
 | $1.00 payout invariant maintained | **Met** | Vault = pairs × $1 and Yes supply = No supply after every step (V-*, MP-*, E2E); winners redeem exactly $1 |
 
 ## 6. Technology
@@ -85,7 +85,7 @@ Last reviewed: 2026-10-09 ~20:30 CT against `main` @ `c9f6699` (live devnet day 
 
 | Item | Ref |
 | --- | --- |
-| Live devnet day: create → trade → close → settle done 2026-10-09; devnet redeem not yet recorded | DLV-077, [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) |
+| Live devnet day: create → trade → close → settle → redeem done 2026-10-09 | DLV-077, [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) |
 | Copilot checks are read-only and only logged / shown on `/status`; nobody is paged (no external alert sink) | DLV-111, D-030 |
 | Phoenix books gated to the 09:30–16:00 session (today they trade from creation) | DLV-121 |
 | Worker creates the daily Phoenix books (today an ops job does) | DLV-122 |
@@ -110,7 +110,7 @@ Strikes (official Nasdaq closes of 2026-10-08, operator prior closes): AAPL ≥ 
 | Settled | All 7 by the worker's Pyth pull oracle (no `admin_settle`, no ALERT); AAPL at 16:00:25 ET, slot 509292416 |
 | Outcome per market (Pyth close) | AAPL 336.51 NO · AMZN 262.43 YES · GOOGL 351.60 YES · META 718.38 NO · MSFT 535.08 YES · NVDA 229.34 NO · TSLA 382.75 YES |
 | Copilot check | `/status`: create ✅ 7/7 with books, settle ✅ 7/7 (4 YES, 3 NO) |
-| Redeem tx | Not yet recorded |
+| Redeem tx | AAPL No ×20 → 20 mUSDC: `413o6eq2…iqDXoe` (slot 509294452, 16:08:32 ET; full signature in TEST_RESULTS §8) |
 
 ## 10. Submission checklist
 
@@ -123,6 +123,6 @@ Due Saturday 2026-10-10, 09:00 CT.
 | Deployment guide; devnet program deployed and staging bootstrapped | Done (2026-10-08) |
 | Test results on the current tip (Anchor, automation, web, prod build, deployed-binary check) | Done (2026-10-08) |
 | AI usage log | Done |
-| Live devnet day evidence (§9, [`TEST_RESULTS.md`](TEST_RESULTS.md) §8) | Done 2026-10-09 (create → trade → pause → settle); devnet redeem not yet recorded |
+| Live devnet day evidence (§9, [`TEST_RESULTS.md`](TEST_RESULTS.md) §8) | Done 2026-10-09 (create → trade → pause → settle → redeem) |
 | Demo video link in [`README.md`](../README.md) and §7 | Not yet |
 | Final test refresh on the submission tip | Done 2026-10-08 on `4012bbd` (Rust unit and prod settle) and `594d41b` (Anchor). After the 2026-10-09 web / automation changes (no program change): copilot 18 / 18 and web 423 / 424 (pre-existing `siteMeta` timeout) on `c9f6699` |
