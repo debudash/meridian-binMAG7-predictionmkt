@@ -29,7 +29,7 @@ All work landed through merge requests on the project's GitLab (D-001, D-014).
 - Background subagents did the larger pieces of work: the D-026 create-by-08:00 change (!93), the docs refactor (!95) and repo mapping.
 - An independent review subagent reviewed every MR before merge. Its findings were fixed in the same MR (e.g. D-026 review M1 / M2, !95 review M1–M3).
 - The Docker toolchain (!94) was the local merge gate, because the project has no CI runners.
-- Debu approved every merge and made the decisions: markets created by 08:00 ET on the prior close (D-026), operator prices while Hermes lacks equities, a new program id instead of recovering the lost one (DLV-124), the demo URL, and the cut line for the submission.
+- Debu approved every merge and made the decisions: markets created by 08:00 ET on the prior close (D-026), operator prices while Hermes lacked equities (now only a fallback, D-027), a new program id instead of recovering the lost one (DLV-124), the demo URL, and the cut line for the submission.
 
 ## 3. What the human decided vs what agents did
 
@@ -41,7 +41,7 @@ All work landed through merge requests on the project's GitLab (D-001, D-014).
 | Phoenix V1 spot as a working assumption, no extra confirmation step (D-015) | Wired one Yes/USDC book per strike and mapped four intents onto it |
 | Product simplifications: hide post-only (D-021); "anything selected must be clearly highlighted" (D-022) | Implemented and tested them |
 | Declined a git-history rewrite after the committed-keypair finding | Rotated the program id and removed the key from the tree |
-| Approved operator-sourced prices with a logged source while the Hermes key lacks equities; one market creator (worker, not the box) | Built `ops/operator-prices.cjs`, the source-required checks and the creator switch |
+| Approved operator-sourced prices with a logged source while the Hermes key lacked equities (fallback only since 2026-10-09, D-027); one market creator (worker, not the box) | Built `ops/operator-prices.cjs`, the source-required checks and the creator switch |
 | Flagged issues from hands-on use (e.g. could not place an order on localnet; markets expiring days later instead of today; no SOL balance shown on Portfolio) | Root-caused and fixed them with tests (DLV-066, DLV-118, DLV-125) |
 | Phase 2: create by 08:00 ET on the prior close (D-026); a new program id (DLV-124); 60 s staging `admin_settle` delay (DLV-123); demo URL; what is cut for the submission (DLV-121, DLV-122, DLV-069, mainnet items) | Implemented, reviewed, deployed to devnet and documented them |
 

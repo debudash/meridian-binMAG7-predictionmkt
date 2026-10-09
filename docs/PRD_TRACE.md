@@ -5,7 +5,7 @@ Every line of the Peak6 PRD ([`PEAK6_PRD.md`](PEAK6_PRD.md)) with its status and
 **Status key:** **Met** = built and tested · **Partial** = built, with a stated gap · **Scheduled** = set up, runs on the live devnet day 2026-10-09 · **Not yet** = not done.
 "Staging" = Railway services pointed at Solana devnet (the PRD's "testnet").
 
-Last reviewed: 2026-10-08 ~21:00 CT against `main` @ `4012bbd`. Live devnet evidence is added after the 2026-10-09 close (§9).
+Last reviewed: 2026-10-09 ~08:15 CT (DLV-106 / D-027 update); before that 2026-10-08 ~21:00 CT against `main` @ `4012bbd`. Live devnet evidence is added after the 2026-10-09 close (§9).
 
 ## 1. Functional requirements
 
@@ -13,7 +13,7 @@ Last reviewed: 2026-10-08 ~21:00 CT against `main` @ `4012bbd`. Live devnet evid
 | --- | --- | --- |
 | Daily market creation for 7 stocks (AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA) | **Partial** | Worker creates the day's MAG7 markets by 08:00 ET (D-026), expiry 16:00 ET same day (`apps/automation/src/marketDay.ts`, `modes/calendar.ts`; tests `market-day.test.ts`, `same-day-calendar.test.ts`, `d026-create-0800.test.ts`). Localnet: the Docker instance (`docker/localnet/seed.cjs` → `scripts/localnet/today-markets.cjs`) creates all 7 with books. Gaps: the worker does not create Phoenix books (DLV-122). For the 2026-10-09 devnet day, an operator ops job creates the 7 markets after 00:05 ET from the 2026-10-08 official closes, plus Phoenix books for as many markets as the payer SOL covers (5, or 7 if topped up) ([`DEPLOY.md`](DEPLOY.md) §6.1) |
 | Yes / No token trading | **Met** | Four intents on one Yes/USDC Phoenix book ([`ARCHITECTURE.md`](ARCHITECTURE.md) §2, D-004, D-018). Program `mint` / `merge_pair`; web `lib/phoenix/compose.ts`. Tests: MP-*, PHX-*, web E2E cases 1–7 ([`TEST_RESULTS.md`](TEST_RESULTS.md)) |
-| Automated settlement via oracle | **Partial** | Built: Pyth pull oracle (D-025) in the program (`instructions/settle.rs`, `tests/prod/settle_pull_oracle.ts` 22 cases) and in automation (`solana/pullSettle.ts`, `pull-oracle.test.ts`). Deviation: the Hermes key lacks the equity entitlement (403, DLV-106); Debu has asked Pyth for access. Until then staging settles by `admin_settle` (60 s delay) at an operator close price with a logged source, and the outcome must equal `price ≥ strike` (Policy A). This is a recorded, swappable deviation, not automated oracle settlement on devnet: no code change is needed once the key is entitled ([`DEPLOY.md`](DEPLOY.md) §6.2) |
+| Automated settlement via oracle | **Met** | Built: Pyth pull oracle (D-025) in the program (`instructions/settle.rs`, `tests/prod/settle_pull_oracle.ts` 22 cases) and in automation (`solana/pullSettle.ts`, `pull-oracle.test.ts`). The Hermes key is entitled to equity feeds since 2026-10-09 (DLV-106). Devnet rehearsal 2026-10-09: a 5-min AAPL ≥ 340 market was settled by `ops-cli pull-settle` (Hermes update → Pyth receiver post → permissionless `settle`), NO at 330.94252 ([`TEST_RESULTS.md`](TEST_RESULTS.md) §8). The Railway worker runs the same pull settle at the 16:00 ET close; the first live close is 2026-10-09, where the first post-close equity update is not yet shown (results in [`TEST_RESULTS.md`](TEST_RESULTS.md) §8). `admin_settle` at an operator close price with a logged source (outcome must equal `price ≥ strike`, Policy A) remains only as the fallback (D-027, [`DEPLOY.md`](DEPLOY.md) §6.2) |
 | Position management | **Met** | Portfolio: positions, open orders, Phoenix seat balances, cancel / cancel all / withdraw, redeem (DLV-087, DLV-088). Tests: `lib/portfolio/*.test.ts`, `lib/phoenix/manage*.test.ts`, account E2E 4/4 |
 | Real-time order book | **Partial** | Live Phoenix ladder on the trade page, refreshed by polling every 6 s (`lib/rpc/pollPolicy.ts`) and right after your own trades. No websocket streaming |
 | Wallet integration | **Met** | Solana wallet adapter: Phantom, Solflare; localnet-only dev wallet behind strict gates (`lib/solana/walletPicker.ts`, `localnetDevWallet.test.ts`, `devServerExposure.test.ts`) |
@@ -65,7 +65,7 @@ Last reviewed: 2026-10-08 ~21:00 CT against `main` @ `4012bbd`. Live devnet evid
 | React, Next.js, Node.js, Anchor, Git | **Met** | `apps/web` (Next.js 14), `apps/automation` (Node), Anchor 0.31.1, GitLab |
 | Cloud hosting for the automation service | **Met** | Railway `automation` + `web` services ([`DEPLOY.md`](DEPLOY.md) §5) |
 | Solana | **Met** | Anchor program `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj`, deployed to devnet 2026-10-08 |
-| Price oracle integration | **Met** in code and tests | Pyth pull oracle (D-025); MAG7 feed ids pinned (D-019, [`SCHEMA.md`](SCHEMA.md) §3.1). On devnet the operator-price path is used until the Hermes key has equity access (DLV-106) |
+| Price oracle integration | **Met** in code and tests | Pyth pull oracle (D-025); MAG7 feed ids pinned (D-019, [`SCHEMA.md`](SCHEMA.md) §3.1). On devnet the pull-oracle path settles since the Hermes key gained equity access on 2026-10-09 (DLV-106); operator prices are the fallback |
 | USDC integration | **Met** | SPL collateral mint; a test mint ("mUSDC") on devnet |
 | Central Limit Order Book | **Met** | Phoenix V1 (integrated, not built: D-002) |
 | Environment variables for secrets | **Met** | All keys and tokens via Railway variables / untracked env files ([`DEPLOY.md`](DEPLOY.md) §5.2); CI asserts no fixtures in prod artifacts |
@@ -86,8 +86,7 @@ Last reviewed: 2026-10-08 ~21:00 CT against `main` @ `4012bbd`. Live devnet evid
 | Item | Ref |
 | --- | --- |
 | Live devnet day: trade → close → settle by 16:05 ET → redeem | Scheduled 2026-10-09 (DLV-077, [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md)) |
-| Hermes key with equity entitlement (removes the operator-price deviation) | DLV-106 (Debu has asked Pyth) |
-| Settle by 16:05 ET on the operator path: staging delay set to 60 s, to prove on a live close | DLV-123 |
+| Settle by 16:05 ET on a live close (pull oracle first; operator-price fallback with the 60 s staging delay) | DLV-123 |
 | Phoenix books gated to the 09:30–16:00 session (today they trade from creation) | DLV-121 |
 | Worker creates the daily Phoenix books (today an ops job does) | DLV-122 |
 | Resting Sell No does not merge on fill | DLV-069 |

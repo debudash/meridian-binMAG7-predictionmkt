@@ -20,7 +20,7 @@
 # ── TODAY'S MARKETS (DLV-118, SPEC §1 / §3.3) ───────────────────────────────────────────────────────────────────────
 #   `ops-cli market-day --strikes` → $RUN_TMP/today-plan.json: expiry = 16:00 America/New_York TODAY (DST-aware), one ATM
 #   strike per STRIKE_SYMBOLS (default MAG7) on the previous trading day's close (D-026): Hermes at that close (if the key
-#   is entitled; equities are 403 today, DLV-106) → a sponsored Pyth account (PYTH_PRICE_FEEDS) posted at that close → the
+#   is entitled; equities since 2026-10-09, DLV-106 / D-027) → a sponsored Pyth account (PYTH_PRICE_FEEDS) posted at that close → the
 #   operator file $STRIKE_PRICES_FILE (default $OPS_DIR/STRIKE_PRICES_TODAY.json:
 #   {"dateKey":"<market day>","closeDateKey":"<previous trading day>","source":"…","pricesE6":{"AAPL":"227310000",…}}).
 #   After the close / weekend / NYSE holiday it REFUSES (exit 7, nothing created) — never next-close books.

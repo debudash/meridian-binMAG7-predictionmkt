@@ -75,8 +75,8 @@ SOLANA_RPC_URL=… PHOENIX_PAUSER_KEYPAIR=… SEAT_MANAGER_AUTHORITY_KEYPAIR=$KE
    valid Hermes price still wins), logged with its source, and renamed `.consumed-…`.
 3. `settle-test.cjs settle` gets `ADMIN_PRICE_E6` **and** `ADMIN_PRICE_SOURCE`; without a source it refuses.
 
-Checked 2026-10-08: the current Hermes key returns 403 "Not entitled" for equity feeds, so until it has an equity grant
-the operator price is the path that settles the AAPL market.
+Since 2026-10-09 the Hermes key is entitled to equity feeds (DLV-106; 403 "Not entitled" on 2026-10-08), so a valid
+Hermes price settles first and the operator price is only the fallback.
 
 ## Seat-manager handoff repair
 
