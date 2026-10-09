@@ -19,8 +19,8 @@ Parts:
 
 | Stage | Cluster | Program build | Oracle | Phoenix | App hosting | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| Local (Docker or manual) | `solana-test-validator` | `localnet-test` | Mock Pyth (`upsert_mock_pyth`) | Real Phoenix V1 + Seat Manager loaded into the validator | `localhost:3000` | Working |
-| Devnet staging | devnet | prod (`yarn build:prod`) | Pyth pull oracle (D-025) or operator price (see §6) | Phoenix V1 on devnet | Railway staging | Services up; program + markets not yet bootstrapped (DLV-077) |
+| Local (Docker or manual) | `solana-test-validator` | `localnet-test` | Mock Pyth (`upsert_mock_pyth`) | Real Phoenix V1 + Seat Manager loaded into the validator | `http://127.0.0.1:3000` | Working |
+| Devnet staging | devnet | prod (`yarn build:prod`) | Pyth pull oracle (D-025) or operator price (see §6) | Phoenix V1 on devnet | Railway staging | Program deployed and bootstrapped 2026-10-08; services run from `main`; first live trading day 2026-10-09 (DLV-077) |
 | Mainnet | mainnet-beta | prod | Pyth pull oracle | Phoenix V1 | Railway prod | Not started (out of V1 scope) |
 
 Order: local green → prod `.so` fixture assert → devnet program → Railway staging → (later) Railway prod.
@@ -135,7 +135,7 @@ No private key ever goes in a `NEXT_PUBLIC_*` variable. `NEXT_PUBLIC_LOCALNET_DE
 | --- | --- | --- |
 | `SOLANA_RPC_URL`, `SOLANA_CLUSTER`, `MERIDIAN_PROGRAM_ID`, `MERIDIAN_IDL_PATH` | RPC URL if keyed | `MERIDIAN_IDL_PATH=idl/meridian.prod.json` |
 | `MODE` | no | `calendar` (default) |
-| `COLLATERAL_MINT`, `STRIKE_SYMBOLS` | no | All seven MAG7 for the PRD (staging is set to `AAPL` today) |
+| `COLLATERAL_MINT`, `STRIKE_SYMBOLS` | no | All seven MAG7 for the PRD |
 | `PYTH_FEED_IDS`, `PYTH_PRICE_FEEDS`, `PYTH_HERMES_URL` | no | Feed ids are required off-localnet (D-025) |
 | `PYTH_HERMES_API_KEY` | **yes** | Hermes is key-gated. The current key lacks the equity entitlement (DLV-106) |
 | `AUTOMATION_KEYPAIR` | **yes** | Config authority: create markets, `set_phoenix_market`, `admin_settle` |
@@ -163,7 +163,7 @@ Staging was re-bootstrapped on 2026-10-08 with new keys and a new program id (DL
 | Collateral: test mint "mUSDC", 6 decimals, mint authority (`admin`) on the operator PC only | `6U34yus6KeBUduvfdw8eR7QrKzpah3sqhMCc4R9ZJLHh` |
 | Config values (`ops/devnet-bootstrap.cjs`) | fees 0 / 0 bps · `settle_max_staleness_slots` 150 · `settle_max_conf_ratio_bps` 200 · `admin_settle_delay_secs` 60 (`ADMIN_SETTLE_DELAY_SECS`, the program's production minimum; DLV-123) |
 | Phoenix | V1 `PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY` + Seat Manager; tick $0.01, 1 lot = 1 contract, 0 bps |
-| Railway services | `web` (URL above), `automation` (no public domain); in the 2026-10-07 setup also a `devnet-faucet` helper that retried public `requestAirdrop` for the payer and exited when funded or timed out (confirm whether it still exists) |
+| Railway services | `web` (URL above), `automation` (no public domain). Both redeployed from `main` on 2026-10-08 with `railway up` from a `git archive`; the web bundle carries the new program id and mint and `/api/health` returns 200; the worker logs `cluster=devnet program=3X3E… create=[07:00, 16:00) ET deadline=08:00 ET`; in the 2026-10-07 setup also a `devnet-faucet` helper that retried public `requestAirdrop` for the payer and exited when funded or timed out (confirm whether it still exists) |
 | Tester wallet funding | bootstrap sends the tester's Phantom wallet `DEBU_SOL` (default 2; 0.5 used) SOL + 10,000 mUSDC; wallet B `WALLET_B_SOL` (0.2 used) + 1,000 mUSDC |
 | Reference Pyth feeds | devnet shard-1 sponsored accounts (`PYTH_REF_SHARD=1`), fresh on devnet; display only, settle never trusts the address |
 | RPC | dedicated devnet RPC (Helius) on both services; the public endpoint rate-limits program deploys and polling (429) |
@@ -207,7 +207,9 @@ Key roles (all `chmod 600`, never in git): the full table is in [`ops/README.md`
 - One creator: the Railway `automation` worker creates each trading day's MAG7 markets (`BOOTSTRAP_DAILY_MARKETS=0` on the box).
 - Strike = ATM on the **previous trading day's close** (13:00 ET after an early close). Reference, in order: the Hermes price at that close (publish time within `PRIOR_CLOSE_MAX_SKEW_SECS`, default 300 s) → a receiver-owned, Full-verified `PYTH_PRICE_FEEDS` account posted at that close → the operator prior closes (§6.2) → otherwise no market and an `ALERT`.
 - Weekends, NYSE holidays and NYSE early-close days (no market created that day; 13:00 handling is a mainnet Todo) are refused with an `ALERT`. After the close the worker never creates (no roll to the next day).
-- Known gap: worker-created markets have no Phoenix book yet (mint / redeem / settle work; book trading needs the bootstrap books). Keep `PHOENIX_MARKETS` empty.
+- Known gap: the worker does not create Phoenix books (DLV-122); worker-created markets support mint / redeem / settle but not book trading. Keep `PHOENIX_MARKETS` empty.
+- Known gap: books are not gated to 09:30–16:00 ET; they trade from creation (DLV-121).
+- **2026-10-09 (first live devnet day):** an operator ops job creates the day's 7 markets after 00:05 ET from the official Nasdaq closes of 2026-10-08 (operator prior closes), and creates Phoenix books for as many of them as the payer SOL covers (1.18 SOL rent per book: 5 books now, 7 if topped up). Strikes: AAPL ≥ 340, MSFT ≥ 525, GOOGL ≥ 350, AMZN ≥ 255, NVDA ≥ 230, META ≥ 720, TSLA ≥ 375.
 
 ### 6.2 Operator prices (while DLV-106 is open)
 
@@ -231,7 +233,7 @@ node ops/operator-prices.cjs close --source "<source, e.g. Nasdaq official closi
 1. **Pull oracle (D-025):** Hermes price at `expiry_ts` → Pyth receiver post (full verification) → permissionless `settle` → close the update accounts. Signed and paid by the settler.
 2. **Fallback:** `admin_settle` by the config authority after the on-chain `admin_settle_delay_secs`, at the operator close price bound to the market's day and symbol (source required). The outcome must equal `price ≥ strike` (D-018 Policy A).
 
-Settle-by-16:05 ET on the operator path is not yet guaranteed (DLV-123, open).
+Settle-by-16:05 ET on the operator path: staging uses `admin_settle_delay_secs` 60 (the program minimum), `ADMIN_SETTLE_AFTER_RETRIES=1` and `WORKER_TICK_MS=30000` (DLV-123). It has not yet been shown on a live close; the first one is 2026-10-09.
 
 ### 6.4 Pause at expiry and alerts
 
