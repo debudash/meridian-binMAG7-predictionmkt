@@ -18,7 +18,8 @@ const WalletMultiButton = dynamic(
     ),
   },
 );
-import { getCluster } from "@/lib/solana/config";
+import { explorerAddress, getCluster, getProgramId } from "@/lib/solana/config";
+import { truncateAddress } from "@/lib/format";
 import { isNavActive } from "@/lib/ui/selection";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { POLL_MS } from "@/lib/rpc/pollPolicy";
@@ -154,9 +155,30 @@ export function Footer() {
         {" · "}
         <Link href="/status">Status</Link>
       </div>
-      <div style={{ fontFamily: "var(--mono)", fontSize: "0.75rem" }}>
-        Program · see env NEXT_PUBLIC_MERIDIAN_PROGRAM_ID
-      </div>
+      <FooterProgramId />
     </footer>
+  );
+}
+
+/** The deployed program id (NEXT_PUBLIC_MERIDIAN_PROGRAM_ID, inlined at build), linked to the explorer.
+ *  Never fatal: the footer is in the root layout, so a bad env value must not take down every page. */
+function FooterProgramId() {
+  let id: string | null = null;
+  try {
+    id = getProgramId().toBase58();
+  } catch {
+    // invalid NEXT_PUBLIC_MERIDIAN_PROGRAM_ID: pages that need the program report it themselves
+  }
+  return (
+    <div style={{ fontFamily: "var(--mono)", fontSize: "0.75rem" }}>
+      Program{" "}
+      {id ? (
+        <a href={explorerAddress(id)} target="_blank" rel="noreferrer" title={id} aria-label={`Program ${id} on Solana Explorer (opens in a new tab)`}>
+          {truncateAddress(id, 4, 5)}
+        </a>
+      ) : (
+        "id not configured"
+      )}
+    </div>
   );
 }
