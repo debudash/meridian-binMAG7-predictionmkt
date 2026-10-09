@@ -18,7 +18,7 @@ const WalletMultiButton = dynamic(
     ),
   },
 );
-import { getCluster } from "@/lib/solana/config";
+import { explorerAddress, getCluster, getProgramId } from "@/lib/solana/config";
 import { isNavActive } from "@/lib/ui/selection";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { POLL_MS } from "@/lib/rpc/pollPolicy";
@@ -154,9 +154,20 @@ export function Footer() {
         {" · "}
         <Link href="/status">Status</Link>
       </div>
-      <div style={{ fontFamily: "var(--mono)", fontSize: "0.75rem" }}>
-        Program · see env NEXT_PUBLIC_MERIDIAN_PROGRAM_ID
-      </div>
+      <FooterProgramId />
     </footer>
+  );
+}
+
+/** The deployed program id (NEXT_PUBLIC_MERIDIAN_PROGRAM_ID, inlined at build), linked to the explorer. */
+function FooterProgramId() {
+  const id = getProgramId().toBase58();
+  return (
+    <div style={{ fontFamily: "var(--mono)", fontSize: "0.75rem" }}>
+      Program{" "}
+      <a href={explorerAddress(id)} target="_blank" rel="noreferrer" title={id} data-testid="footer-program-id">
+        {id.slice(0, 4)}…{id.slice(-5)}
+      </a>
+    </div>
   );
 }
