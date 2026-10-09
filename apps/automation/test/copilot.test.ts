@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { buildFacts, fromAnchorAccount, type ChainMarket } from "../src/copilot/facts";
 import { composeMessage, promptFacts, summarize, templateHeadline, verifyHeadline, type CopilotClient } from "../src/copilot/summarize";
-import { notify } from "../src/copilot/notify";
+import { dueCheckpoints, latestSessionDay, runCopilotPass, createCopilotState } from "../src/copilot/runner";
 
 // Fixture = the real 2026-10-09 devnet day (TEST_RESULTS §8): 7 MAG7 markets (1 operator strike each), all settled by
 // the Pyth pull oracle.
@@ -158,26 +158,39 @@ describe("operator copilot — message and headline guard", () => {
   });
 });
 
-describe("operator copilot — delivery", () => {
-  it("prints always; posts to Slack only when a webhook is set; never throws", async () => {
-    const lines: string[] = [];
-    expect(await notify("hi", { log: (l) => lines.push(l) })).to.contain("skipped");
-    const posted: string[] = [];
-    const ok = await notify("hi", { slackWebhookUrl: "https://hooks.example/x", log: () => {}, fetchImpl: async (_u, i) => (posted.push(i.body), { ok: true, status: 200 }) });
-    expect(ok).to.equal("slack sent");
-    expect(JSON.parse(posted[0])).to.deep.equal({ text: "hi" });
-    expect(lines).to.deep.equal(["hi"]);
+describe("operator copilot — inside the worker (D-030)", () => {
+  const ET = (h: number, m = 0) => CLOSE - (16 - h) * 3600 + m * 60; // 2026-10-09 wall time ET
+  const run = (state: ReturnType<typeof createCopilotState>, nowSec: number, lines: string[] = []) =>
+    runCopilotPass({ state, nowSec, expectedSymbols: MAG7, perSymbol: 1, fetchMarkets: async () => chain({ settled: true }), client: null, log: (l) => lines.push(l) });
+
+  it("nothing before 08:30 ET; create at 08:30; settle at 16:30; each once per day", async () => {
+    const st = createCopilotState();
+    expect(dueCheckpoints(ET(8, 29), st)).to.deep.equal([]);
+    expect((await run(st, ET(8, 30))).map((r) => r.checkpoint)).to.deep.equal(["create"]);
+    expect(await run(st, ET(12))).to.deep.equal([]);
+    const settle = await run(st, ET(16, 30));
+    expect(settle.map((r) => r.checkpoint)).to.deep.equal(["settle"]);
+    expect(settle[0]).to.include({ dateKey: DATE, ok: true, headline: "template" });
+    expect(await run(st, ET(16, 31))).to.deep.equal([]);
+    expect(st.reports.map((r) => r.checkpoint)).to.deep.equal(["settle", "create"]);
   });
-  it("never echoes the webhook URL, even when it is malformed or the request throws", async () => {
-    const secret = "https://hooks.slack.com/services/T000/B000/SECRETSECRET";
-    const outs = [
-      await notify("hi", { slackWebhookUrl: `"${secret}"`, log: () => {} }),
-      await notify("hi", { slackWebhookUrl: "hooks.slack.com/services/T000/B000/SECRETSECRET", log: () => {} }),
-      await notify("hi", { slackWebhookUrl: secret, log: () => {}, fetchImpl: async () => { throw new TypeError(`Failed to parse URL from ${secret}`); } }),
-    ];
-    for (const o of outs) {
-      expect(o).to.contain("failed");
-      expect(o).to.not.contain("SECRET");
-    }
+  it("after a weekend restart both checks for Friday run once, so the Status page is not blank", async () => {
+    const sat = CLOSE + 20 * 3600; // Sat 2026-10-10 12:00 ET
+    expect(latestSessionDay(sat)).to.equal(DATE);
+    const st = createCopilotState();
+    const lines: string[] = [];
+    const r = await run(st, sat, lines);
+    expect(r.map((x) => `${x.checkpoint}:${x.dateKey}`)).to.deep.equal([`create:${DATE}`, `settle:${DATE}`]);
+    expect(lines).to.include("[copilot] ✅ Settle check 2026-10-09: 7/7 settled (4 YES, 3 NO).");
+    expect(await run(st, sat + 60)).to.deep.equal([]);
+  });
+  it("a failing chain read becomes one ALERT report, not a retry every tick", async () => {
+    const st = createCopilotState();
+    const lines: string[] = [];
+    const fail = () => runCopilotPass({ state: st, nowSec: ET(8, 31), expectedSymbols: MAG7, perSymbol: 1, fetchMarkets: async () => { throw new Error("fetch failed"); }, client: null, log: (l) => lines.push(l) });
+    const r = await fail();
+    expect(r[0]).to.include({ ok: false, headline: "error" });
+    expect(lines[0]).to.equal("[copilot] ALERT ⚠️ create check 2026-10-09 could not run: fetch failed");
+    expect(await fail()).to.deep.equal([]);
   });
 });

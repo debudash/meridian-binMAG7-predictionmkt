@@ -1,3 +1,13 @@
+## 2026-10-09T20:15:00-05:00 — Engineers: copilot in the worker + web Status page (D-030)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Claude Code (orchestrating session), independent review subagent; Debu decision ("logged and shown in a page, run daily 30 min after the event, managed internally, no Slack") |
+| **Branch** | `feat/copilot-in-worker` from `origin/main` @ `2231647` |
+| **Change** | `src/copilot/runner.ts`: due checkpoints (08:30 create / 16:30 settle ET, latest session day), `fetchDayMarkets` (memcmp on expiry), `runCopilotPass` (log + last 20 reports, failure = one ALERT report). `worker.ts`: pass in the tick, `GET /copilot` on the health port. Slack removed (`notify.ts` deleted). Web: `/status` page (server component, `AUTOMATION_STATUS_URL` server-only), `lib/ops/copilotStatus.ts` + test, footer link. DEPLOY env row, README, D-030. |
+| **Verification** | automation tsc (dev + prod) OK, `test/copilot.test.ts` 16/16 (timing, weekend restart, single failure report); web typecheck OK, vitest 423/424 (pre-existing `siteMeta` 404 timeout), `next build` OK with dynamic `/status`. End to end on a Docker network: the copilot pass against devnet logged create ✅ 7/7 and settle ✅ 7/7 (4 YES / 3 NO, close prices match chain) and served them; a local web build with `AUTOMATION_STATUS_URL` rendered both on `/status` (screenshot). |
+| **Related** | D-029 · D-030 |
+
 ## 2026-10-09T19:30:00-05:00 — Engineers: operator copilot, read-only AI checkpoint summaries (D-029)
 
 | Field | Value |

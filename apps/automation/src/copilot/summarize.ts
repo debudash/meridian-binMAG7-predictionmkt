@@ -15,7 +15,7 @@ import type { CopilotFacts, MarketFact } from "./facts";
 export const DEFAULT_COPILOT_MODEL = "claude-opus-5-5";
 export const MAX_HEADLINE_CHARS = 300;
 
-const SYSTEM = `You write the headline of the status message that the on-call operator of Meridian reads in Slack. Meridian runs daily Yes/No markets on whether each MAG7 stock closes at or above a strike, on Solana devnet; markets are created by 08:00 ET and settle from the Pyth price at the 16:00 ET close.
+const SYSTEM = `You write the headline of the status message that the on-call operator of Meridian reads in the worker log and on the Status page. Meridian runs daily Yes/No markets on whether each MAG7 stock closes at or above a strike, on Solana devnet; markets are created by 08:00 ET and settle from the Pyth price at the 16:00 ET close; this check runs at 08:30 ET (create) or 16:30 ET (settle).
 
 The user message is a JSON facts object computed by code. Write one or two short plain sentences (at most ${MAX_HEADLINE_CHARS} characters) saying what this checkpoint found and, when "ok" is false, what the operator should look at first. The runbook is docs/DEPLOY.md section 6.
 
@@ -73,7 +73,7 @@ export function verifyHeadline(text: string, f: CopilotFacts): string[] {
   const word = NUMBER_WORDS.exec(text);
   if (word) problems.push(`spelled-out number "${word[0]}"`);
 
-  const allowed = new Set<number>([...Object.values(f.counts), ...f.dateKey.split("-").map(Number), 0, 5, 6, 7, 8, 16]);
+  const allowed = new Set<number>([...Object.values(f.counts), ...f.dateKey.split("-").map(Number), 0, 5, 6, 7, 8, 16, 30]);
   for (const i of f.issues) for (const n of i.match(/\d+(?:\.\d+)?/g) ?? []) allowed.add(Number(n));
   const nums = text.replace(/(\d),(\d{3})/g, "$1$2").match(/\d+(?:\.\d+)?/g) ?? [];
   const unknown = nums.filter((n) => !allowed.has(Number(n)));

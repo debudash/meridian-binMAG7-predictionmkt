@@ -126,6 +126,7 @@ Set secrets only as Railway variables. Templates: [`apps/web/.env.railway.stagin
 | `NEXT_PUBLIC_MERIDIAN_PROGRAM_ID` | Deployed program id |
 | `NEXT_PUBLIC_USDC_MINT` | Staging collateral mint (test "mUSDC", 6 decimals) |
 | `NEXT_PUBLIC_EXPLORER_URL`, `NEXT_PUBLIC_PHOENIX_ENABLED`, `NEXT_PUBLIC_PHOENIX_PROGRAM_ID`, `NEXT_PUBLIC_INDEXER_URL` | Optional |
+| `AUTOMATION_STATUS_URL` | Server-only. The worker's copilot feed for the `/status` page (D-030), over Railway private networking: `http://automation.railway.internal:8080/copilot`. Unset = the page says the feed is not configured |
 
 No private key ever goes in a `NEXT_PUBLIC_*` variable. `NEXT_PUBLIC_LOCALNET_DEV_WALLET` stays unset.
 

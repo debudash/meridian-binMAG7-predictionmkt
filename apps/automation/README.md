@@ -46,15 +46,15 @@ See [`docs/DEPLOY.md`](../../docs/DEPLOY.md) §3.3.
 - Env table: `docs/DEPLOY.md` §5.2 + `.env.example`
 - Program id default: `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj`
 
-## Operator copilot (D-029, read-only)
+## Operator copilot (D-029 / D-030, read-only)
 
-`node dist/copilot-cli.js --checkpoint create|settle [--date YYYY-MM-DD] [--per-symbol N] [--no-ai] [--json]` checks the day's markets on chain and sends the on-call operator a short summary. Run it after 08:00 ET (`create`) and after 16:05 ET (`settle`). `--per-symbol` defaults to the worker's `STRIKE_OFFSETS_E6` length (3); use 1 for a day created by the ops bootstrap with single operator strikes.
+The worker runs two checks per trading day inside its own tick (no cron): **create at 08:30 ET** (30 min after the 08:00 deadline) and **settle at 16:30 ET** (30 min after the close). Each logs a `[copilot]` report (lines with `ALERT` when something needs attention) and is kept in memory (last 20) for `GET /copilot` on the health port, which the web `/status` page reads over Railway private networking (`AUTOMATION_STATUS_URL`). After a restart, the latest session day's due checks run on the next tick, so on a weekend the page shows Friday.
 
-1. **Facts** (`src/copilot/facts.ts`, plain code): every expected symbol has its markets for the day, each with an order book; after the close, every one is settled, with its close price and outcome. Anything wrong is an issue.
-2. **Message** (`src/copilot/summarize.ts`): code writes the ✅/⚠️ mark, every issue, the runbook pointer and every market line. Claude (`COPILOT_MODEL`, default `claude-opus-5-5`, low effort) writes only the headline sentence; `verifyHeadline` rejects it (and the code headline is used) if it has a number outside the counts / issues / schedule, a percentage, a spelled-out number, wrong YES/NO counts, all-clear wording while there are issues, or more than 300 characters. No API key, an API error, a refusal or a truncated reply also use the code headline.
-3. **Delivery** (`src/copilot/notify.ts`): stdout always; Slack when `COPILOT_SLACK_WEBHOOK_URL` is set (the URL is never printed).
+1. **Facts** (`src/copilot/facts.ts`, plain code): every expected symbol has its markets for the day (`STRIKE_OFFSETS_E6` strikes each; staging: 1), each with an order book; after the close, every one is settled, with its close price and outcome. Anything wrong is an issue.
+2. **Message** (`src/copilot/summarize.ts`): code writes the ✅/⚠️ mark, every issue, the runbook pointer and every market line. **No API key is needed.** With `ANTHROPIC_API_KEY` set, Claude (`COPILOT_MODEL`, default `claude-opus-5-5`, low effort) also writes the headline sentence; `verifyHeadline` rejects it (code headline used) for a number outside the counts / issues / schedule, a percentage, a spelled-out number, wrong YES/NO counts, all-clear wording while there are issues, or more than 300 characters.
+3. **Where it shows**: the worker log and the web Status page. Nothing is sent anywhere else.
 
-Exit code 2 when there are issues, so a scheduler can alert even if Slack or the AI is down. It needs no keypairs and sends no transactions. Env: the worker's `SOLANA_RPC_URL` / `MERIDIAN_PROGRAM_ID` / `MERIDIAN_IDL_PATH` / `STRIKE_SYMBOLS` / `STRIKE_OFFSETS_E6`, plus optional `ANTHROPIC_API_KEY`, `COPILOT_MODEL`, `COPILOT_SLACK_WEBHOOK_URL`. Tests: `test/copilot.test.ts` (the real 2026-10-09 day as fixture; Claude stubbed).
+`src/copilot/runner.ts` schedules and stores; `src/copilot-cli.ts` (`--checkpoint create|settle [--date] [--per-symbol N] [--no-ai] [--json]`) runs one check by hand. No keypairs, no transactions. Tests: `test/copilot.test.ts` (the real 2026-10-09 day as fixture; Claude stubbed).
 
 ## Tests
 
