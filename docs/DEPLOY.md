@@ -20,7 +20,7 @@ Parts:
 | Stage | Cluster | Program build | Oracle | Phoenix | App hosting | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | Local (Docker or manual) | `solana-test-validator` | `localnet-test` | Mock Pyth (`upsert_mock_pyth`) | Real Phoenix V1 + Seat Manager loaded into the validator | `http://127.0.0.1:3000` | Working |
-| Devnet staging | devnet | prod (`yarn build:prod`) | Pyth pull oracle (D-025); operator price as fallback (see §6.2) | Phoenix V1 on devnet | Railway staging | Program deployed and bootstrapped 2026-10-08; services run from `main`; first live trading day 2026-10-09 (DLV-077) |
+| Devnet staging | devnet | prod (`yarn build:prod`) | Pyth pull oracle (D-025); operator price as fallback (see §6.2) | Phoenix V1 on devnet | Railway staging | Program deployed and bootstrapped 2026-10-08; services run from `main`; first live trading day 2026-10-09 ran create → trade → pause → settle by the pull oracle ([`TEST_RESULTS.md`](TEST_RESULTS.md) §8, DLV-077) |
 | Mainnet | mainnet-beta | prod | Pyth pull oracle | Phoenix V1 | Railway prod | Not started (out of V1 scope) |
 
 Order: local green → prod `.so` fixture assert → devnet program → Railway staging → (later) Railway prod.
@@ -106,12 +106,13 @@ solana program deploy target/deploy/meridian.so \
 
 | Service | Root | Config | Build | Start | Health |
 | --- | --- | --- | --- | --- | --- |
-| `web` | `apps/web` | [`apps/web/railway.json`](../apps/web/railway.json) | `npm install && npm run build` | `npm run start` | `GET /api/health` |
-| `automation` | `apps/automation` | [`apps/automation/railway.json`](../apps/automation/railway.json) | `npm install && npm run build:railway` | `node dist/worker.js` | `GET /health` (`HEALTH_PORT` / `PORT`, default 8080) |
+| `web` | `apps/web` (uploaded as `git archive <sha>:apps/web`; the service has no root directory set) | [`apps/web/railway.json`](../apps/web/railway.json) | `npm install && npm run build` | `npm run start` | `GET /api/health` |
+| `automation` | `apps/automation` (uploaded as `git archive <sha>:apps/automation`) | [`apps/automation/railway.json`](../apps/automation/railway.json) | `npm install && npm run build:railway` | `node dist/worker.js` | `GET /health` (`HEALTH_PORT` / `PORT`, default 8080); also `GET /copilot` (D-030), private network only |
 
 - Railway project `meridian-staging` (its default environment is named `production`; it is the staging environment). Web: https://web-production-77fbb.up.railway.app.
-- Railway has no GitLab integration here. Deploy with `railway up` from a `git archive` of the `main` commit you want, per service. Railway builds with Railpack and ignores the `NIXPACKS` hint.
-- `build:railway` leaves the sim entry out of `dist/`. Before deploying automation, bake the prod IDL into the package: `yarn build:prod-idl && yarn assert:idl-sync`.
+- Railway has no GitLab integration here. Deploy with `railway up` from a `git archive` of the `main` commit you want, per service: `git archive <sha>:apps/web` for `web`, `git archive <sha>:apps/automation` for `automation`. Railway builds with Railpack and ignores the `NIXPACKS` hint.
+- `build:railway` leaves the sim entry out of `dist/`. The automation package's `idl/` holds the prod IDL; check it before deploying automation (`yarn build:prod-idl && yarn assert:idl-sync`, or `scripts/assert-idl-sync.sh`).
+- **Rollback:** in the Railway dashboard, redeploy the service's previous deployment, or `railway up` a `git archive` of an earlier `main` commit. Current rollback points: §5.3.
 
 ### 5.2 Environment variables (names only)
 
@@ -166,12 +167,12 @@ Staging was re-bootstrapped on 2026-10-08 with new keys and a new program id (DL
 | Collateral: test mint "mUSDC", 6 decimals, mint authority (`admin`) on the operator PC only | `6U34yus6KeBUduvfdw8eR7QrKzpah3sqhMCc4R9ZJLHh` |
 | Config values (`ops/devnet-bootstrap.cjs`) | fees 0 / 0 bps · `settle_max_staleness_slots` 150 · `settle_max_conf_ratio_bps` 200 · `admin_settle_delay_secs` 60 (`ADMIN_SETTLE_DELAY_SECS`, the program's production minimum; DLV-123) |
 | Phoenix | V1 `PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY` + Seat Manager; tick $0.01, 1 lot = 1 contract, 0 bps |
-| Railway services | `web` (URL above), `automation` (no public domain). Both redeployed from `main` on 2026-10-08 with `railway up` from a `git archive`; the web bundle carries the new program id and mint and `/api/health` returns 200; the worker logs `cluster=devnet program=3X3E… create=[07:00, 16:00) ET deadline=08:00 ET`; in the 2026-10-07 setup also a `devnet-faucet` helper that retried public `requestAirdrop` for the payer and exited when funded or timed out (confirm whether it still exists) |
+| Railway services | `web` (URL above), `automation` (no public domain). Both redeployed on 2026-10-09 (~19:05 ET) from `main` @ `c9f6699` with `railway up` from a `git archive`: **automation deployment `1d2a0427`** (Railway build dry-run and `scripts/assert-idl-sync.sh` OK first; worker started normally, `cluster=devnet program=3X3E… create=[07:00, 16:00) ET deadline=08:00 ET`, and logged copilot create ✅ 7/7 and settle ✅ 7/7 for 2026-10-09) and **web deployment `41cd409b`** (`/status` shows both reports). `AUTOMATION_STATUS_URL=http://automation.railway.internal:8080/copilot` set on `web` (server-only) on 2026-10-09. Rollback points: automation `20819005` (2026-10-08), web `9750a081` (palette D-028, 2026-10-09). The 2026-10-08 deploys carried the new program id and mint (web `/api/health` 200); in the 2026-10-07 setup also a `devnet-faucet` helper that retried public `requestAirdrop` for the payer and exited when funded or timed out (confirm whether it still exists) |
 | Tester wallet funding | bootstrap sends the tester's Phantom wallet `DEBU_SOL` (default 2; 0.5 used) SOL + 10,000 mUSDC; wallet B `WALLET_B_SOL` (0.2 used) + 1,000 mUSDC |
 | Reference Pyth feeds | devnet shard-1 sponsored accounts (`PYTH_REF_SHARD=1`), fresh on devnet; display only, settle never trusts the address |
 | RPC | dedicated devnet RPC (Helius) on both services; the public endpoint rate-limits program deploys and polling (429) |
 
-**Devnet funding.** The payer needs about **13 SOL**: program rent ≈ 2.7 SOL + a transient upgrade buffer ≈ 2.7 SOL, ≈ 1.18 SOL rent per Phoenix book (232,544-byte market account), and 2 SOL for the tester's wallet. `run-staging.sh` waits until the payer holds at least `MIN_SOL` (default **9**) before it starts and creates fewer books on a smaller balance. Public `requestAirdrop` is rate-limited (429); fund the payer from a faucet first.
+**Devnet funding.** The payer held 8.07 SOL after the 2026-10-09 bootstrap (Debu added 10 devnet SOL that morning so all 7 books could be created). The payer needs about **13 SOL**: program rent ≈ 2.7 SOL + a transient upgrade buffer ≈ 2.7 SOL, ≈ 1.18 SOL rent per Phoenix book (232,544-byte market account), and 2 SOL for the tester's wallet. `run-staging.sh` waits until the payer holds at least `MIN_SOL` (default **9**) before it starts and creates fewer books on a smaller balance. Public `requestAirdrop` is rate-limited (429); fund the payer from a faucet first.
 
 **Pyth accounts.** The D-019 shard-0 MAG7 push accounts are stale on both clusters; devnet shard-1 accounts were fresh when checked (SCHEMA §3.1.1). Settlement does not depend on them: the settler posts the expiry price (§6.3).
 
@@ -185,7 +186,7 @@ a host folder mounted at `/secrets` (`env` with `DEVNET_RPC_URL`, `keys/devnet/*
 | 1 | `bash /repo/ops/docker-devnet.sh deploy` | Prod `.so` without fixtures, deploy or upgrade, dump it back from chain, fixture assert |
 | 2 | `bash /repo/ops/docker-devnet.sh phase-a` | Config (admin delay 60 s), mUSDC, role-key and tester funding; no markets |
 | 3 | operator writes `state/strike-prices.json` | Prior closes with a source and `closeDateKey` (D-026) |
-| 4 | `bash /repo/ops/docker-devnet.sh wait-phase-b` (detached, the evening before) | After 00:05 ET: the day's 7 markets, Phoenix books (as many as the payer SOL covers), pauser handoff, maker ladders |
+| 4 | `bash /repo/ops/docker-devnet.sh wait-phase-b` (detached, the evening before) | After 00:05 ET: the day's 7 markets, Phoenix books (as many as the payer SOL covers), pauser handoff, maker ladders. **Safe to rerun after a partial failure** (2026-10-09): `devnet-bootstrap.cjs` with the same `today-plan.json` reuses existing markets (same PDA, never duplicated), skips the handoff where the pauser already holds the authority and only adds what is missing; raise `NBOOKS` after topping up the payer |
 | 5 | `railway up --service web` / `automation` from a `git archive` of `main` | Variables in §5.2; values for this staging in §5.3 |
 
 ### 5.5 Bootstrap from the old operator box (`run-staging.sh`)
@@ -225,7 +226,7 @@ Key roles (all `chmod 600`, never in git): the full table is in [`ops/README.md`
 - Weekends, NYSE holidays and NYSE early-close days (no market created that day; 13:00 handling is a mainnet Todo) are refused with an `ALERT`. After the close the worker never creates (no roll to the next day).
 - Known gap: the worker does not create Phoenix books (DLV-122); worker-created markets support mint / redeem / settle but not book trading. Keep `PHOENIX_MARKETS` empty.
 - Known gap: books are not gated to 09:30–16:00 ET; they trade from creation (DLV-121).
-- **2026-10-09 (first live devnet day):** an operator ops job creates the day's 7 markets after 00:05 ET from the official Nasdaq closes of 2026-10-08 (operator prior closes), and creates Phoenix books for as many of them as the payer SOL covers (1.18 SOL rent per book: 5 books now, 7 if topped up). Strikes: AAPL ≥ 340, MSFT ≥ 525, GOOGL ≥ 350, AMZN ≥ 255, NVDA ≥ 230, META ≥ 720, TSLA ≥ 375.
+- **2026-10-09 (first live devnet day):** an operator ops job created the day's 7 markets from the official Nasdaq closes of 2026-10-08 (operator prior closes). The 00:05 ET run stopped at AMZN's seat-manager handoff with books capped at 5 by payer SOL; after a payer top-up an idempotent 09:00 ET rerun finished AMZN and the NVDA, META and TSLA books, so all 7 had books. Strikes: AAPL ≥ 340, MSFT ≥ 525, GOOGL ≥ 350, AMZN ≥ 255, NVDA ≥ 230, META ≥ 720, TSLA ≥ 375. Results: [`TEST_RESULTS.md`](TEST_RESULTS.md) §8.
 
 ### 6.2 Operator prices (fallback)
 
@@ -249,13 +250,21 @@ node ops/operator-prices.cjs close --source "<source, e.g. Nasdaq official closi
 1. **Pull oracle (D-025):** Hermes price at `expiry_ts` → Pyth receiver post (full verification) → permissionless `settle` → close the update accounts. Signed and paid by the settler.
 2. **Fallback:** `admin_settle` by the config authority after the on-chain `admin_settle_delay_secs`, at the operator close price bound to the market's day and symbol (source required). The outcome must equal `price ≥ strike` (D-018 Policy A).
 
-Settle by 16:05 ET: the pull oracle settles on the first worker tick that finds the first post-close update; for the operator-price fallback, staging uses `admin_settle_delay_secs` 60 (the program minimum), `ADMIN_SETTLE_AFTER_RETRIES=1` and `WORKER_TICK_MS=30000` (DLV-123). It has not yet been shown on a live close; the first one is 2026-10-09.
+Settle by 16:05 ET: the pull oracle settles on the first worker tick that finds the first post-close update; for the operator-price fallback, staging uses `admin_settle_delay_secs` 60 (the program minimum), `ADMIN_SETTLE_AFTER_RETRIES=1` and `WORKER_TICK_MS=30000` (DLV-123). Shown on the first live close, 2026-10-09: the worker paused all 7 books at 16:00 ET and settled all 7 markets by the pull oracle (AAPL at 16:00:25 ET), with no `admin_settle` and no ALERT ([`TEST_RESULTS.md`](TEST_RESULTS.md) §8).
 
 ### 6.4 Pause at expiry and alerts
 
 - At `expiry_ts` minus `PHOENIX_PAUSE_LEAD_SECS` the pauser sets each book to `Paused` (Phoenix Seat Manager `ChangeMarketStatus`): no new orders or crosses; cancel and withdraw still work. The worker re-checks every book each pass and re-pauses a book that goes Active again.
-- Grep Railway and box logs for `[pause] ALERT` and `[settle] ALERT`. There is no external alert sink yet (DLV-111).
+- Grep Railway and box logs for `[pause] ALERT` and `[settle] ALERT`. There is no external alert sink yet (DLV-111); the copilot (§6.5) summarises each checkpoint.
 - Pauser key rotation and offline backup: [`runbooks/PAUSER_ROTATION.md`](runbooks/PAUSER_ROTATION.md). Mainnet design that replaces the pauser key with a program PDA: [`design/phoenix-pause-pda-authority.md`](design/phoenix-pause-pda-authority.md).
+
+### 6.5 Operator copilot and Status page (D-029 / D-030)
+
+- The worker runs read-only checks inside its own tick (no cron, no Slack, no API key required): **create check at 08:30 ET**, **settle check at 16:30 ET**, and one settle re-check at **17:30 ET** only if the 16:30 check needed attention. Facts come from chain (the day's StrikeMarkets, books, settled outcomes and close prices); code writes the message. It sends no transactions and holds no keys of its own.
+- Each report is logged as `[copilot]` lines (`ALERT` when not ok) and kept in memory (last 20), served as `GET /copilot` on `HEALTH_PORT` 8080, reachable only on Railway's private network.
+- The web **Status** page (`/status`, footer link) reads it server-side through `AUTOMATION_STATUS_URL` (§5.2). It shows **OK** / **Needs attention** per checkpoint and says when the feed is unset or unreachable.
+- Optional: with `ANTHROPIC_API_KEY` set on `automation`, Claude writes only a short headline (one or two sentences, ≤ 300 characters), checked by `verifyHeadline` (code headline on any mismatch). Not set on staging.
+- After a redeploy the current session's checks rerun once. First scheduled run after the 2026-10-09 deploy: Mon 2026-10-12 08:30 ET.
 
 ## 7. Pre-deploy checklist
 
@@ -266,7 +275,7 @@ Settle by 16:05 ET: the pull oracle settles on the first worker tick that finds 
 - [ ] Pyth feed ids are real for the cluster; no mock accounts.
 - [ ] Authority, settler and pauser keys are distinct and only in Railway secrets / the box.
 - [ ] No `MODE=sim`, no `ANCHOR_FEATURES=localnet-test` on Railway.
-- [ ] `GET /api/health` (web) and `GET /health` (automation) return 200.
+- [ ] `GET /api/health` (web) and `GET /health` (automation) return 200; `/status` shows the copilot reports (or "No checks yet.").
 
 ## 8. CI
 

@@ -69,7 +69,7 @@ For a first-time tester who isn't the operator. Do the part for the track you're
 
 ## 2. Selection highlights everywhere
 
-The rule (`app/globals.css`): whatever is selected gets a blue ring/tint, and toggles also get a **✓**, so you can tell what's selected without relying on colour.
+The rule (`app/globals.css`): whatever is selected gets a ring/tint (the neutral blue accent by default, green for a Yes / bid choice, red for a No / ask choice, D-028), and toggles also get a **✓**, so you can tell what's selected without relying on colour.
 
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
@@ -78,7 +78,7 @@ The rule (`app/globals.css`): whatever is selected gets a blue ring/tint, and to
 | 2.3 | On a trade page, click **Buy Yes**, then **Limit**. | The chosen intent shows a **✓** and a tint; **Market/Limit** shows which is on. Intents you can't use look dashed and grey. | [ ] |
 | 2.4 | Click the **Yes 0.xx** / **No 0.xx** price buttons in the trade header. | The pressed one is highlighted, and the book title switches between `Order book · Yes` and `Order book · No`. | [ ] |
 | 2.5 | Click the **Position / Open orders / Fills** tabs, the Portfolio tabs, and the History type tabs. | The selected tab is highlighted. The current page in the header nav (**Markets / Portfolio / History**) is highlighted too. | [ ] |
-| 2.6 | Click a book row (more in §4). | The row gets a tint and a blue left bar. Clicking the same row again removes it. | [ ] |
+| 2.6 | Click a book row (more in §4). | The row gets a tint, a left bar (green on a bid row, red on an ask row) and a thin outline. Clicking the same row again removes it. | [ ] |
 
 ## 3. Trade page layout
 
@@ -240,6 +240,7 @@ If 13.6–13.8 fail on a paused book, that's a release blocker: report it.
 | 15.6 | **Portfolio → Redeemable (1)** → **Redeem N.00 USDC** → approve. | `Redeeming…`, then `Redeem submitted · <sig>…`, and an Explorer tab opens. mUSDC +N. The row disappears (`Nothing to redeem.`) and the header dot clears. | [ ] |
 | 15.7 | With the **losing** wallet: open the market's Position tab. | `Your side did not win. Payout 0.00 USDC.` No Redeem row. | [ ] |
 | 15.8 | **History → Settlements / Redemptions**. | A `settlement · Result: Yes` (or `No`) row and a `redemption · Redeem Yes` (or `No`) row with `+N.00`. | [ ] |
+| 15.9 | **[B]** Footer → **Status** (`/status`). | Page **Status** with one card per check, newest first: **Market creation · <date>** and **Settlement · <date>**, a chip **OK** (or **Needs attention**), a line like `✅ Settle check 2026-10-09: 7/7 settled (4 YES, 3 NO).` with one line per market, and `Written by code` at the bottom. **Status unavailable.** means the worker feed isn't set or can't be reached: tell the operator. | [ ] |
 
 
 ## 16. 404 pages
