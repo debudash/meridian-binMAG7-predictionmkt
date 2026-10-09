@@ -27,7 +27,7 @@ Target length: 6–8 minutes. Keep one browser window and one terminal on screen
 | 6 | 3:15 | **Buy No · Market · 5** on another market → one transaction (mint + sell the Yes) | "Buy No mints a $1 pair and sells the Yes leg in the same transaction." |
 | 7 | 3:45 | **Limit** order resting in the book; Open orders; Cancel | "Limit orders rest on Phoenix; cancel and withdraw are in the app." |
 | 8 | 4:15 | Portfolio and History (CSV) | "Positions, Phoenix balances and history are read from the chain." |
-| 9 | 4:45 | **Close and settle.** Path A: after the markets expire, run `docker compose -f docker/compose.localnet.yml exec local node docker/localnet/settle.cjs` (optionally `AAPL=230 …` to choose closes); it posts a mock Pyth price and calls the permissionless `settle`. Path B: after 16:00 ET, show the worker log lines for the pause and the `admin_settle` (operator close price, 60 s delay; target by 16:05 ET) | "At the close the book is paused, so nobody trades on a known price. Settlement reads the first Pyth price at or after the close." Path B while DLV-106 is open: "On devnet our Hermes key is not yet entitled to equity prices, so we settle with an operator-sourced close price whose source is logged; the oracle path is built and tested." |
+| 9 | 4:45 | **Close and settle.** Path A: after the markets expire, run `docker compose -f docker/compose.localnet.yml exec local node docker/localnet/settle.cjs` (optionally `AAPL=230 …` to choose closes); it posts a mock Pyth price and calls the permissionless `settle`. Path B: after 16:00 ET, show the worker log lines for the pause and the Pyth pull settle (fallback: `admin_settle` at an operator close price, 60 s delay; target by 16:05 ET) | "At the close the book is paused, so nobody trades on a known price. Settlement reads the first Pyth price at or after the close." Path B (devnet): "Our Hermes key is entitled to equity prices, so the worker posts the Hermes update at the close and calls the permissionless settle; an operator-sourced close price with a logged source is only the fallback." |
 | 10 | 5:45 | Market page **Settlement proof** card; `/markets` **Recently settled** | "Price vs strike, confidence, slot and the settle transaction, all from on-chain data." |
 | 11 | 6:15 | Portfolio → **Redeem**; wallet USDC rises by exactly 5.00 | "The winner gets $1 per contract. The loser gets 0." |
 | 12 | 6:45 | Terminal: `yarn test` summary or [`TEST_RESULTS.md`](TEST_RESULTS.md); [`PRD_TRACE.md`](PRD_TRACE.md) | "Every core path was written test-first. Here is where each PRD line stands." |
@@ -39,7 +39,7 @@ Target length: 6–8 minutes. Keep one browser window and one terminal on screen
 - $1 invariant: vault = pairs × $1 and Yes supply = No supply, checked after every step in the tests.
 - Phoenix is integrated, not rebuilt.
 - Path A uses simulated time and a mock price feed that exist only in the `localnet-test` build; prod builds cannot contain them.
-- Known gaps (see [`PRD_TRACE.md`](PRD_TRACE.md)): devnet settles with operator close prices until the Hermes key has equity access (DLV-106); the worker does not create Phoenix books (DLV-122); books are not gated to 09:30 (DLV-121).
+- Known gaps (see [`PRD_TRACE.md`](PRD_TRACE.md)): the worker does not create Phoenix books (DLV-122); books are not gated to 09:30 (DLV-121).
 
 ## Do not
 
