@@ -14,7 +14,7 @@ import { createProgram, idlHasSimFixtures } from "./solana/client";
 import { createCalendarState, runMorningCreate, runSettlePass } from "./modes/calendar";
 import { createPauseMemory, followUpDelayMs, livePauseDeps, runPausePass, serialRunner } from "./phoenix/pauseAtExpiry";
 import { loadPauseMemory, savePauseMemory } from "./phoenix/pauseMemoryStore";
-import { createCopilotState, fetchDayMarkets, runCopilotPass, type CopilotState } from "./copilot/runner";
+import { createCopilotState, fetchDayMarkets, startCopilotPass, type CopilotState } from "./copilot/runner";
 
 function startHealthServer(port: number, copilot: CopilotState): http.Server {
   const server = http.createServer((req, res) => {
@@ -23,10 +23,11 @@ function startHealthServer(port: number, copilot: CopilotState): http.Server {
       res.end(JSON.stringify({ ok: true, service: "meridian-automation" }));
       return;
     }
-    if (req.method === "GET" && req.url === "/copilot") {
-      // Read-only: public facts only (counts, strikes, prices, issues). No keys, no config.
+    const path = new URL(req.url ?? "/", "http://worker").pathname;
+    if ((req.method === "GET" || req.method === "HEAD") && path === "/copilot") {
+      // Read-only: public facts only (counts, strikes, prices, issues). No keys, no config, no raw errors.
       res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-      res.end(JSON.stringify({ reports: copilot.reports }));
+      res.end(req.method === "HEAD" ? undefined : JSON.stringify({ reports: copilot.reports }));
       return;
     }
     res.writeHead(404);
@@ -128,7 +129,8 @@ async function main() {
     }
   });
 
-  const copilotClient = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
+  // Short timeout: a slow API only delays the copilot headline (code headline used on failure), never the worker.
+  const copilotClient = process.env.ANTHROPIC_API_KEY ? new Anthropic({ timeout: 20_000, maxRetries: 1 }) : null;
   const tick = async () => {
     await pausePass();
     try {
@@ -142,19 +144,16 @@ async function main() {
       console.error(`[worker] settle pass error: ${e}`);
     }
     // D-030 operator copilot: 08:30 / 16:30 ET checks, read-only; the AI headline is optional (ANTHROPIC_API_KEY).
-    try {
-      await runCopilotPass({
-        state: copilot,
-        nowSec: Math.floor(Date.now() / 1000),
-        expectedSymbols: cfg.symbols,
-        perSymbol: cfg.strikeOffsetsE6.length,
-        fetchMarkets: (closeTs) => fetchDayMarkets(program, closeTs),
-        client: copilotClient,
-        model: process.env.COPILOT_MODEL || undefined,
-      });
-    } catch (e) {
-      console.error(`[copilot] ALERT copilot pass error: ${e}`);
-    }
+    // Started in the background and never awaited, so it can't hold up the next create / pause / settle tick.
+    void startCopilotPass({
+      state: copilot,
+      nowSec: Math.floor(Date.now() / 1000),
+      expectedSymbols: cfg.symbols,
+      perSymbol: cfg.strikeOffsetsE6.length,
+      fetchMarkets: (closeTs) => fetchDayMarkets(program, closeTs),
+      client: copilotClient,
+      model: process.env.COPILOT_MODEL || undefined,
+    });
   };
 
   await tick();

@@ -146,7 +146,9 @@ No private key ever goes in a `NEXT_PUBLIC_*` variable. `NEXT_PUBLIC_LOCALNET_DE
 | `OPERATOR_STRIKE_PRICES`, `OPERATOR_CLOSE_PRICES` | no | Operator prices (§6.2). Set with `ops/operator-prices.cjs` |
 | `CREATE_FROM_ET`, `CREATE_DEADLINE_ET`, `PRIOR_CLOSE_MAX_SKEW_SECS` | no | Create window 07:00, deadline 08:00, prior-close skew 300 s (D-026). Keep comments on their own line: Railway takes everything after `=` as the value |
 | `PHOENIX_MARKETS` | no | Keep empty; ignored for daily markets |
-| `SETTLE_POLL_MS`, `SETTLE_MAX_RETRIES`, `ADMIN_SETTLE_AFTER_RETRIES`, `WORKER_TICK_MS`, `LOG_LEVEL`, `HEALTH_PORT` | no | Tuning |
+| `SETTLE_POLL_MS`, `SETTLE_MAX_RETRIES`, `ADMIN_SETTLE_AFTER_RETRIES`, `WORKER_TICK_MS`, `LOG_LEVEL`, `HEALTH_PORT` | no | Tuning. Staging sets `HEALTH_PORT=8080`, which `AUTOMATION_STATUS_URL` on `web` relies on (D-030) |
+| `ANTHROPIC_API_KEY` | **yes** | Optional. Turns on the operator copilot's AI headline (D-029); without it the copilot runs with a code-written message |
+| `COPILOT_MODEL` | no | Optional, default `claude-opus-5-5` |
 
 The upgrade key never goes on Railway.
 

@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { formatEt, loadCopilotStatus } from "@/lib/ops/copilotStatus";
 
 // Always fresh: the worker adds a report at 08:30 and 16:30 ET (D-030).
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Status · Meridian" };
 
 export default async function StatusPage() {
   const status = await loadCopilotStatus();
@@ -24,7 +27,7 @@ export default async function StatusPage() {
       {status.ok && status.reports.length === 0 && (
         <div className="card" role="status">
           <strong>No checks yet.</strong>{" "}
-          <span className="muted">The next one runs at 08:30 ET on the next trading day.</span>
+          <span className="muted">Checks run at 08:30 ET and 16:30 ET on each trading day.</span>
         </div>
       )}
 

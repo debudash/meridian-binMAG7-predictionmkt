@@ -8,7 +8,8 @@ Meridian
 │   └── Trade          /markets/[marketId]
 ├── Portfolio          /portfolio        (wallet required for data)
 ├── History            /history          (wallet required for data)
-└── Static             /rules  /terms  /risk   (OPEN: hosted in-app vs <DOCS_URL>)
+├── Static             /rules  /terms  /risk   (OPEN: hosted in-app vs <DOCS_URL>)
+└── Status             /status  (D-030: operator copilot reports, footer link; read-only)
 ```
 
 ## Next.js routes (App Router)
