@@ -1,3 +1,13 @@
+## 2026-10-09T20:30:00-05:00 — Docs: live devnet day 2026-10-09, palette and copilot recorded
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Meridian docs owner (Claude Code subagent), facts verified by the orchestrating session; Debu decisions |
+| **Branch** | `docs/oct9-live-day-and-copilot` from `origin/main` @ `c9f6699` |
+| **Why** | The deliverable docs still described 2026-10-09 as scheduled ("to fill", "first live close is today") and did not mention the copilot / Status page deploy. |
+| **Change** | Docs only, no code change. TEST_RESULTS §1 / §7 / §8 (live day table: bootstrap + idempotent rerun, Debu's trades, 7/7 pull-oracle settles and outcomes, copilot 18/18, web 423/424, pre-existing test issues), PRD_TRACE (oracle and settle-time rows proven on the live close, §9 filled, checklist), DEPLOY (§5.1 git-archive per service + rollback, §5.3 2026-10-09 deployments / `AUTOMATION_STATUS_URL` / rollback points / payer balance, §5.4 rerun lesson, §6.1 / §6.3 past tense, new §6.5 copilot), ARCHITECTURE (copilot flow + trust row), AI_USAGE (2026-10-09 phase 2 summary, review findings), README, DEMO_SCRIPT, VISUAL_RUNBOOK (D-028 colour words, Status step 15.9), STAGING_TEST_PLAN status. TRACKER: DLV-077 live day, DLV-123 done, new DLV-126 (D-028) and DLV-127 (D-029 / D-030), Todo for the first scheduled copilot run (Mon 2026-10-12 08:30 ET). Devnet redeem left as not recorded. |
+| **Related** | DLV-077 · DLV-123 · DLV-126 · DLV-127 · D-027 · D-028 · D-029 · D-030 |
+
 ## 2026-10-09T20:15:00-05:00 — Engineers: copilot in the worker + web Status page (D-030)
 
 | Field | Value |

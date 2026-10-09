@@ -11,8 +11,8 @@ flowchart TB
   end
 
   subgraph Railway["Railway (staging)"]
-    NX[Next.js web app<br/>five pages]
-    AUTO[Node automation worker<br/>create · pause · settle]
+    NX[Next.js web app<br/>five pages + /status]
+    AUTO[Node automation worker<br/>create · pause · settle · copilot checks]
   end
 
   subgraph Solana["Solana cluster"]
@@ -35,13 +35,14 @@ flowchart TB
   PSM --> PHX
   PROG -->|read PriceUpdateV2| RCV
   PHX -.->|base = Yes mint, quote = USDC| PROG
+  NX -.->|GET /copilot, private network, read-only| AUTO
 ```
 
 | Component | Code | Job |
 | --- | --- | --- |
 | Program | `programs/meridian` | Holds collateral in a PDA vault; mints Yes+No pairs at $1; merges pairs back; settles from Pyth; redeems winners 1:1 |
 | Web app | `apps/web` | Markets, Trade, Portfolio, History, Landing. Maps four intents (Buy/Sell Yes/No) onto the single Yes/USDC book |
-| Automation | `apps/automation` | Creates the day's MAG7 markets, pauses books at expiry, settles (pull oracle, else `admin_settle`) |
+| Automation | `apps/automation` | Creates the day's MAG7 markets, pauses books at expiry, settles (pull oracle, else `admin_settle`). Also runs the read-only operator copilot (§3.1) |
 | Operator scripts | `ops/` | Devnet bootstrap, operator prices, settle checks, pause watcher backstop |
 | Phoenix | external | Matching. Meridian never matches orders (D-002 / D-015) |
 | Pyth | external | Settlement price via the pull oracle (D-025) |
@@ -80,6 +81,20 @@ The worker creates the day's markets from 07:00 ET, by 08:00 ET, with strikes AT
 
 Current gaps in this lifecycle (future work): the worker does not create Phoenix books (DLV-122; on devnet an operator ops job creates the markets and books for 2026-10-09); books are not gated to 09:30–16:00 ET and trade from creation (DLV-121); a resting Sell No does not merge on fill (DLV-069). On devnet the settle step is the Pyth pull oracle (Hermes equity access since 2026-10-09, DLV-106); `admin_settle` at an operator close price is the recorded fallback (D-027).
 
+### 3.1 Operator copilot (D-029 / D-030)
+
+```mermaid
+flowchart LR
+  T[Worker tick] -->|08:30 ET create check<br/>16:30 ET settle check| F[facts.ts: read the day's markets from chain]
+  F --> M[summarize.ts: code writes mark, issues, market lines]
+  M -.->|optional, ANTHROPIC_API_KEY| H[Claude headline → verifyHeadline]
+  M --> L["[copilot] log lines (ALERT when not ok)"]
+  M --> R[last 20 reports in memory]
+  R -->|GET /copilot on HEALTH_PORT, private network| S[web /status page]
+```
+
+Read-only: the copilot reads accounts and never signs or sends a transaction. It runs inside the worker's tick in the background and is never awaited, so it cannot delay create, pause or settle. Code decides every fact and writes the message; Claude, only when a key is set, writes one headline sentence that `verifyHeadline` must accept. Live since 2026-10-09 (Railway; first scheduled run Mon 2026-10-12 08:30 ET).
+
 ## 4. Trust boundaries
 
 | Boundary | Assumption |
@@ -91,6 +106,7 @@ Current gaps in this lifecycle (future work): the worker does not create Phoenix
 | Phoenix | External matcher. Meridian stores the book pubkey and mint wiring only |
 | Pyth | Prod `settle` accepts only a receiver-owned, Full-verified `PriceUpdateV2` with the market's feed id, the first update at or after expiry, within 60 s, conf ≤ 500 bps (D-025, D-005) |
 | Railway | Hosts web and automation only. Never holds the upgrade key or `localnet-test` builds |
+| Copilot feed | `GET /copilot` is served only on the Railway private network and read server-side by `/status`; reports hold symbols, strikes, counts, close prices and outcomes; a failed check publishes only "could not read the chain" (the error text, which can carry a keyed RPC URL, goes to the worker log only). The AI headline (optional) sees a trimmed facts object and cannot change the facts |
 | Localnet fixtures | `sim_*`, SimClock, mock Pyth, `test_drain_vault` compile only with `localnet-test`; CI asserts they are absent from the prod `.so` and IDL |
 
 ## 5. Anytime sim (D-017)

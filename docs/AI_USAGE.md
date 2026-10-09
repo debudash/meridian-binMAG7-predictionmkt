@@ -31,6 +31,13 @@ All work landed through merge requests on the project's GitLab (D-001, D-014).
 - The Docker toolchain (!94) was the local merge gate, because the project has no CI runners.
 - Debu approved every merge and made the decisions: markets created by 08:00 ET on the prior close (D-026), operator prices while Hermes lacked equities (now only a fallback, D-027), a new program id instead of recovering the lost one (DLV-124), the demo URL, and the cut line for the submission.
 
+**Phase 2 on 2026-10-09 (live devnet day).**
+
+- **AI in the product, read-only.** The operator copilot (D-029 / D-030) checks market creation (08:30 ET) and settlement (16:30 ET) inside the automation worker and shows the result on the web Status page. Code reads the facts from chain and writes the whole message; Claude may write only the headline sentence (only when an API key is set; staging runs without one), and `verifyHeadline` replaces any headline whose numbers, YES/NO counts or tone do not match the facts. The copilot sends no transactions.
+- **Independent review subagents found real issues before merge**, each fixed in the same MR: the market palette (D-028, !101) had white text on the blue accent below AA contrast and a green "Settled: No"; the first copilot (!102) expected one market per symbol, so a normal worker day with 3 strikes per symbol would have raised a false alarm, and it let the AI write the market lines, which risked pairing a close price with the wrong market, so code now writes every market line; the copilot-in-worker change (!103) could block the worker's first tick and could publish error text carrying a keyed RPC URL on the public page, so the pass now runs in the background and the page shows only "could not read the chain".
+- **Debu's explicit go-ahead gated every merge and deploy.** The agent's permission check refused merges and Railway deploys until Debu said so in the session.
+- **Live day.** Debu traded from Phantom; the worker paused and settled all 7 markets by the Pyth pull oracle with no manual price ([`TEST_RESULTS.md`](TEST_RESULTS.md) §8). When the 00:05 ET bootstrap stopped part-way, Debu topped up the payer and the agent reran the idempotent bootstrap.
+
 ## 3. What the human decided vs what agents did
 
 | Debu decided | Agents did |
@@ -44,6 +51,7 @@ All work landed through merge requests on the project's GitLab (D-001, D-014).
 | Approved operator-sourced prices with a logged source while the Hermes key lacked equities (fallback only since 2026-10-09, D-027); one market creator (worker, not the box) | Built `ops/operator-prices.cjs`, the source-required checks and the creator switch |
 | Flagged issues from hands-on use (e.g. could not place an order on localnet; markets expiring days later instead of today; no SOL balance shown on Portfolio) | Root-caused and fixed them with tests (DLV-066, DLV-118, DLV-125) |
 | Phase 2: create by 08:00 ET on the prior close (D-026); a new program id (DLV-124); 60 s staging `admin_settle` delay (DLV-123); demo URL; what is cut for the submission (DLV-121, DLV-122, DLV-069, mainnet items) | Implemented, reviewed, deployed to devnet and documented them |
+| 2026-10-09: the market palette (D-028); an operator copilot where code decides the facts and AI writes at most a headline (D-029); run it in the worker with a Status page, no cron, no Slack, no API key required (D-030); go-ahead for each merge and deploy | Built, reviewed, fixed the review findings, deployed to Railway and verified the live `/status` page |
 
 ## 4. How AI output was verified
 
@@ -76,6 +84,9 @@ All work landed through merge requests on the project's GitLab (D-001, D-014).
 | The Agave 4.x validator needs io_uring (blocked by Docker's default seccomp) and refuses to bind 0.0.0.0 | Starting the local instance | `seccomp:unconfined` on the local container only; RPC / WebSocket relayed with socat (`docker/compose.localnet.yml`, `docker/localnet/start.sh`) |
 | 7 Anchor tests timed out with the test ledger on the Windows bind mount | Docker test run | Ledger on a Linux volume: 87 passing / 0 failing; `startup_wait` raised |
 | The public devnet RPC rate-limited (429) the program deploy, leaving a half-written buffer | Devnet deploy, 2026-10-08 | Buffer closed and refunded; deploy and both Railway services moved to a dedicated devnet RPC |
+| Market palette (D-028): white text on the blue accent failed AA contrast; a settled "No" outcome showed in green | Independent review subagent (!101) | Dark text on filled accent buttons (`--on-accent`); settled status coloured by outcome |
+| Operator copilot first version (D-029): expected one market per symbol, so a normal worker day with 3 strikes per symbol (`STRIKE_OFFSETS_E6`) would raise a false alarm; the AI wrote the market lines and could pair a close price with the wrong market | Independent review subagent (!102) | Markets per symbol = the number of `STRIKE_OFFSETS_E6` strikes; code writes every market line, AI only the headline, guarded by `verifyHeadline` |
+| Copilot in the worker (D-030): the first pass could block the worker's tick; a failed check's error text (which can carry a keyed RPC URL) reached the public Status page | Independent review subagent (!103) | Pass runs in the background, never awaited; the page shows only "could not read the chain", the error goes to the log |
 | A new React hook (`useSolBalance`) was first placed after an early return in the Portfolio page, which breaks the rules of hooks | `next lint` in the local gate (DLV-125, 2026-10-08) | Hook moved above the early return before merge (!97) |
 
 ## 6. Where to look
