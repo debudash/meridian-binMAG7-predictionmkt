@@ -56,7 +56,7 @@ The toggle **changes presentation only**. Subscriptions, market ID, and the unde
 | Depth chart | cumulative depth, Yes prices | mirrored on x-axis |
 | Chart | Yes implied price series | `1 − series` |
 | Ticket default intents | Buy Yes / Sell Yes | Buy No / Sell No |
-| Accent color | Yes token (e.g. teal) | No token (e.g. violet) — **not** red/green, which are reserved for P&L |
+| Accent color | Yes token: green (D-028) | No token: red (D-028; earlier teal/violet, superseded) |
 
 Rules:
 - Toggling must not reset entered size; price input converts (`p → 1 − p`) with a 1s inline note "Converted to No price".
@@ -71,7 +71,8 @@ Rules:
 - Trades tab: time, price (perspective), size, aggressor side. Last 50, live.
 - Live via Phoenix market account subscription; throttle render to 10 fps; flash changed levels 300ms.
 - Stale indicator if no websocket update for 10s and RPC slot advancing: "Book may be stale — reconnecting".
-- **Row selection (DLV-071):** clicking a level highlights it (bid/ask-colored tint + left accent bar; `aria-selected`; keyboard focusable, ↑/↓ move between levels) and sets the ticket to Limit at that price (No intents get `1 − p_yes`). The highlight is keyed by price (not row), so it survives book refreshes and the Yes/No toggle; it clears when the level disappears, the user types a different ticket price, switches to Market, or clicks the same row again. A ticket limit price that matches a level highlights it too.
+- **Depth bars + divider (D-028):** each level shows a bar sized to its share of the largest shown level, and a rule separates asks from bids.
+- **Row selection (DLV-071):** clicking a level highlights it (bid/ask-colored tint + left accent bar + 1px outline; `aria-selected`; keyboard focusable, ↑/↓ move between levels) and sets the ticket to Limit at that price (No intents get `1 − p_yes`). The highlight is keyed by price (not row), so it survives book refreshes and the Yes/No toggle; it clears when the level disappears, the user types a different ticket price, switches to Market, or clicks the same row again. A ticket limit price that matches a level highlights it too.
 
 ## 6. Zone D — Order ticket
 ### 6.1 Structure

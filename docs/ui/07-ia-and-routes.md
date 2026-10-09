@@ -58,7 +58,7 @@ Header (all routes): Logo → `/` · Markets · Portfolio · History · [cluster
 - Countdown component `<SettlementCountdown market />` is one shared component (`06` §3).
 - Intent availability via one hook `useIntentAvailability(marketId)` (`06` §2.5) used by Trade, Markets cards, Portfolio.
 - Price formatting via `formatOutcomePrice(ticks, side)`; payoff strings via a single copy module (`06` §4.1) for i18n readiness.
-- Side colors: Yes/No accent tokens; red/green reserved for P&L and settled-result.
+- Side colors: Yes/No accent tokens; red/green reserved for P&L and settled-result. *(Superseded by D-028: Yes = green, No = red, bid = green, ask = red.)*
 
 ## Acceptance criteria
 - [ ] All routes in table exist with loading/error/not-found handling.

@@ -88,7 +88,7 @@ export function getCountdown(
         ? formatAbsolute(market.resolvedAt, timeZone)
         : absClose,
       tradingEnabled: false,
-      colorToken: "green",
+      colorToken: mapped.outcome === "yes" ? "green" : "red", // D-028: outcome colour (green Yes, red No)
     };
   }
 

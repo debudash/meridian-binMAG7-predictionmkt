@@ -19,7 +19,9 @@ export function SettlementCountdown({
       ? "var(--amber)"
       : cd.colorToken === "green"
         ? "var(--green)"
-        : cd.colorToken === "neutral-muted"
+        : cd.colorToken === "red"
+          ? "var(--red)"
+          : cd.colorToken === "neutral-muted"
           ? "var(--text-muted)"
           : "var(--text)";
 

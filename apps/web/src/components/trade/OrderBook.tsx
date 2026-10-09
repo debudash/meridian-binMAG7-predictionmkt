@@ -46,6 +46,10 @@ export function OrderBook({
     priceDisplay({ bestBid: book.bids[0]?.price, bestAsk: book.asks[0]?.price, tickSize }),
   );
   const empty = bestBid == null && bestAsk == null;
+  const asks = [...view.asks].reverse().slice(0, 8);
+  const bids = [...view.bids].slice(0, 8);
+  // D-028 depth bars: each level's size relative to the largest shown level.
+  const maxSize = Math.max(1, ...asks.map((l) => l.size), ...bids.map((l) => l.size));
 
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -83,20 +87,25 @@ export function OrderBook({
         onKeyDown={onLadderKeyDown}
         style={{ maxHeight: 220, overflow: "auto" }}
       >
-        {[...view.asks].reverse().slice(0, 8).map((l) => (
+        {asks.map((l) => (
           <BookRow
             key={`a-${l.price}`}
             level={l}
             kind="ask"
+            depth={l.size / maxSize}
             selected={isSelected(l.price)}
             onClick={() => onSelectPrice?.(l.price, "ask")}
           />
         ))}
-        {[...view.bids].slice(0, 8).map((l) => (
+        {asks.length > 0 && bids.length > 0 && (
+          <div aria-hidden="true" style={{ borderTop: "1px solid var(--border-strong)", margin: "2px 0" }} />
+        )}
+        {bids.map((l) => (
           <BookRow
             key={`b-${l.price}`}
             level={l}
             kind="bid"
+            depth={l.size / maxSize}
             selected={isSelected(l.price)}
             onClick={() => onSelectPrice?.(l.price, "bid")}
           />
@@ -115,17 +124,21 @@ export function OrderBook({
 function BookRow({
   level,
   kind,
+  depth = 0,
   selected = false,
   onClick,
 }: {
   level: { price: number; size: number };
   kind: "bid" | "ask";
+  /** 0..1 share of the largest shown level, drawn as a bar from the right (D-028). */
+  depth?: number;
   selected?: boolean;
   onClick?: () => void;
 }) {
-  // Bid/ask book colors — NOT Yes/No side accents (nit #5)
+  // Bid = green, ask = red (D-028); the aria-label still names the side.
   const color = kind === "ask" ? "var(--ask)" : "var(--bid)";
   const total = level.price * level.size;
+  const pct = Math.round(Math.min(1, Math.max(0, depth)) * 100);
   return (
     <button
       type="button"
@@ -140,11 +153,12 @@ function BookRow({
         gridTemplateColumns: "1fr 1fr 1fr",
         width: "100%",
         border: "none",
-        // Selected: tint + left accent bar in the row's own bid/ask color.
+        // Selected: tint + left accent bar in the row's own bid/ask color; otherwise a depth bar.
         background: selected
           ? `color-mix(in srgb, ${color} 18%, transparent)`
-          : "transparent",
-        boxShadow: selected ? `inset 3px 0 0 ${color}` : undefined,
+          : `linear-gradient(to left, color-mix(in srgb, ${color} 13%, transparent) ${pct}%, transparent ${pct}%)`,
+        // Selected also gets a full outline: a cue the depth bar never uses (a full-depth bar is 13% tint only).
+        boxShadow: selected ? `inset 3px 0 0 ${color}, inset 0 0 0 1px ${color}` : undefined,
         fontWeight: selected ? 600 : undefined,
         color: "var(--text)",
         padding: "0.28rem 0.85rem",

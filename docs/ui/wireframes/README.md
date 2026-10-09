@@ -32,4 +32,4 @@ Align with [`../06-trading-intents-and-constraints.md`](../06-trading-intents-an
 ## Image drift vs specs (trust annotations + `docs/ui/*` over pixels)
 - Chain: **Solana** (mocks may show wrong network badges).
 - Nav: Logo · Markets · Portfolio · History · cluster · wallet (`07`).
-- Side accents: Yes **teal**, No **violet**; red/green for P&L / settled results only.
+- Side accents: Yes **teal**, No **violet**; red/green for P&L / settled results only. *(Superseded by D-028: Yes = green, No = red, bid = green, ask = red.)*
