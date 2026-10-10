@@ -1,6 +1,6 @@
 # Demo script (demo video)
 
-Script for the PRD demo video (DLV-038). **Published 2026-10-10:** https://youtu.be/a1yxiHIbvsY (about 4 minutes). Screen recordings of the local stack and of devnet, title cards and edit by the AI agent; narration recorded by Debu in his own voice, one clip per scene below.
+Script for the PRD demo video (DLV-038). **Published 2026-10-10:** https://youtu.be/a1yxiHIbvsY (about 4 minutes). Screen recordings of the local stack and of devnet, title cards and edit by the AI agent; narration script drafted by the agent to Debu's brief and recorded by Debu in his own voice, one clip per scene below (the recording follows the lines closely, not word for word).
 
 The video uses two sources:
 
