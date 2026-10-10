@@ -84,7 +84,7 @@ The rule (`app/globals.css`): whatever is selected gets a ring/tint (the neutral
 
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
-| 3.1 | Open a market with a book. Use a wide window (≥ 1024 px). | Top: `← Markets`, the question (e.g. `Will AAPL close at or above $305.00?`), an underlying line `AAPL $… · Pyth · Ns ago · 24h … · OI …` (**[A]** shows `mock Pyth`), **Yes / No** price buttons and the countdown `Closes in …`. Left column: **Chart (stub)**, then **Order book · Yes** (`Spread 0.xx · Mid 0.xx`, columns Price / Size / Total, footer `Live Phoenix V1 book (Yes/USDC) — refreshes every 6s.`), then the **Position / Open orders / Fills** tabs and **Rules & resolution**. Right column: **Order ticket** (it stays visible when you scroll). | [ ] |
+| 3.1 | Open a market with a book. Use a wide window (≥ 1024 px). | Top: `← Markets`, the question (e.g. `Will AAPL close at or above $305.00?`), an underlying line `AAPL $… · Pyth · Ns ago · 24h … · OI …` (**[A]** shows `mock Pyth`), **Yes / No** price buttons and the countdown `Closes in …`. Left column: **Order book · Yes** (`Spread 0.xx · Mid 0.xx`, columns Price / Size / Total, footer `Live Phoenix V1 book (Yes/USDC) — refreshes every 6s.`), then the **Position / Open orders / Fills** tabs and **Rules & resolution**. Right column: **Order ticket** (it stays visible when you scroll). | [ ] |
 | 3.2 | Look at the ticket. | Buttons **Buy Yes / Sell Yes / Buy No / Sell No**, **Market / Limit**, `Size (contracts)`, a payoff box (§8), the submit button (e.g. `Buy Yes 10`, or `Connect wallet` when disconnected) and the line `Each contract pays 1.00 USDC if your side is right at settlement, and 0 if not.` When connected: `Wallet USDC <balance>`. | [ ] |
 | 3.3 | Flat wallet: the **Position** tab. | `No position. You can buy Yes or No.` | [ ] |
 | 3.4 | Scroll to **Rules & resolution**. | It ends with `marketId … · program <program id prefix>… · phoenix <pubkey>`. `phoenix unset` means the market has no book: trading buttons read `Phoenix not configured — …`. | [ ] |
@@ -225,7 +225,7 @@ If 13.6–13.8 fail on a paused book, that's a release blocker: report it.
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
 | 14.1 | **[B]** Ask the operator for the `settle path:` log line and the settle tx signature. | `PULL_SETTLE_OK via=sponsored` or `via=posted` (Pyth), or `admin_settle price=…` (fallback). | [ ] |
-| 14.2 | Reload the market page after settle. | Countdown `Settled: Yes · AAPL closed $X ≥ $300.00` (or `Settled: No · AAPL closed $X < $300.00`). Chart and book are gone. The **Settlement proof** card shows instead. The ticket still reads **Trading closed**. | [ ] |
+| 14.2 | Reload the market page after settle. | Countdown `Settled: Yes · AAPL closed $X ≥ $300.00` (or `Settled: No · AAPL closed $X < $300.00`). The book is gone. The **Settlement proof** card shows instead. The ticket still reads **Trading closed**. | [ ] |
 | 14.3 | If nothing settles for 30 min after expiry. | The countdown reads `Resolution delayed. Funds are safe; result will post when the oracle updates.` Tell the operator. | [ ] |
 
 ## 15. Settlement proof card, Recently settled, Redeem
@@ -260,7 +260,7 @@ Use a phone, or Chrome DevTools → device toolbar → **390 × 844**.
 | --- | --- | --- | --- |
 | 17.1 | Open `/`. | The hero stacks into one column. The top nav links are hidden and a **bottom bar** shows **Markets / Portfolio / History** (current page highlighted, redeem dot on Portfolio when you can redeem). | [ ] |
 | 17.2 | Open `/markets` in each of **Cards / Table / Ladder**. | Cards stack one per row. Table and ladder scroll sideways inside their box, and the page itself never scrolls sideways. | [ ] |
-| 17.3 | Open a trade page. | One column in this order: header (question, Yes/No, countdown) → **Order ticket** → order book → chart stub → Position / Open orders / Fills → Rules. Nothing is cut off. The bottom bar doesn't cover the submit button once you scroll. | [ ] |
+| 17.3 | Open a trade page. | One column in this order: header (question, Yes/No, countdown) → **Order ticket** → order book → Position / Open orders / Fills → Rules. Nothing is cut off. The bottom bar doesn't cover the submit button once you scroll. | [ ] |
 | 17.4 | Place a small order on mobile (5.1). | Same toasts as on desktop. | [ ] |
 
 
