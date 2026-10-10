@@ -4,7 +4,7 @@ Script for the PRD demo video (DLV-038). **Status:** a cut of about 4 minutes ex
 
 The video uses two sources:
 
-- **Path A — local Docker instance, any time.** Full lifecycle on a local validator with a simulated clock, mock prices and a dev wallet (D-017). Same program source and app code as devnet, built with the `localnet-test` feature (simulated clock, mock prices). Works any day, any hour.
+- **Path A — local Docker instance, any time.** Full lifecycle on a local validator with short-expiry markets (real time, `ANYTIME_EXPIRY_MINUTES`), mock prices and a dev wallet (D-017). Same program source and app code as devnet, built with the `localnet-test` feature (it adds the mock price feed; its SimClock instructions are not used by the Docker copy). Works any day, any hour.
 - **Path B — devnet, the live day of Friday 2026-10-09.** https://web-production-77fbb.up.railway.app against Solana devnet: the deployed program, 7 markets with Phoenix books, trades from Phantom, all 7 paused and settled by the worker through the Pyth pull oracle ([`TEST_RESULTS.md`](TEST_RESULTS.md) §8).
 
 Target length: about 4 minutes. Test money everywhere (local test USDC, devnet mUSDC).
@@ -23,7 +23,7 @@ Target length: about 4 minutes. Test money everywhere (local test USDC, devnet m
 | --- | --- | --- |
 | 1 | Landing page | **The problem.** Betting on where a stock closes usually means trusting a broker who holds the money and decides who won. Meridian offers Yes/No contracts on the daily close of the MAG7 stocks, each pair backed by exactly $1 USDC and settled by a public price feed. |
 | 2 | [`ARCHITECTURE.md`](ARCHITECTURE.md) component diagram | **How it works.** An Anchor program holds the collateral and mints Yes+No pairs. Phoenix, an existing order book, does the matching. Pyth supplies the close. A Node worker creates markets, pauses books at the close and settles. |
-| 3 | Title card | **What is real and what is simulated.** Real: devnet on 2026-10-09 — the deployed program, Phoenix books, live Pyth equity prices, Phantom trades, 7 markets paused and settled by the worker, the Status page. Simulated: the local copy — same source built with the test feature, simulated clock, mock prices, dev wallet. Test money everywhere. |
+| 3 | Title card | **What is real and what is simulated.** Real: devnet on 2026-10-09 — the deployed program, Phoenix books, live Pyth equity prices, Phantom trades, 7 markets paused and settled by the worker, the Status page. Simulated: the local copy — same source built with the test feature, markets that expire minutes after start, mock prices, dev wallet. Test money everywhere. |
 | 4 | Path A `/markets` | **Markets.** Seven stocks, each with a strike and a close; buttons show executable prices, the mid only as `NN% implied Yes`. |
 | 5 | Path A: **Buy Yes · Market** → confirmed toast; Position shows Yes | **Buy Yes** is a bid on the Yes/USDC book. |
 | 6 | Path A: **Buy No · Market** → one transaction (mint + sell the Yes) | **Buy No** mints a $1 pair and sells the Yes leg in the same transaction. |
@@ -40,7 +40,7 @@ Target length: about 4 minutes. Test money everywhere (local test USDC, devnet m
 - Non-custodial: collateral sits in a program vault; prod builds have no admin drain.
 - $1 invariant: vault = pairs × $1 and Yes supply = No supply, checked after every step in the tests.
 - Phoenix is integrated, not rebuilt.
-- Path A uses a simulated clock and a mock price feed that exist only in the `localnet-test` build; prod builds cannot contain them.
+- Path A uses a mock price feed that exists only in the `localnet-test` build (prod builds cannot contain it) and short real-time expiries; settlement there is one `docker/localnet/settle.cjs` run.
 - Known gaps (see [`PRD_TRACE.md`](PRD_TRACE.md)): the worker does not create Phoenix books (DLV-122); books are not gated to 09:30 (DLV-121).
 
 ## Do not
