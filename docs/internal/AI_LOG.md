@@ -1,3 +1,12 @@
+## 2026-10-10T11:15:00-05:00 — Demo video published (DLV-038)
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Debu (narration, upload); Claude Code (screen recordings, title cards, narration script draft, edit, docs) |
+| **Branch** | `docs/demo-video-link` from `origin/main` @ `ca7734e` |
+| **Change** | Demo video published at https://youtu.be/a1yxiHIbvsY (about 4 min; YouTube title "Meridian non-custodial Solana dApp for binary MAG7 equities outcome markets - Demo"). Structure as in `DEMO_SCRIPT.md`: problem, how it works, real vs simulated, Buy Yes / Buy No on the local stack, the one-book decision and its trade-offs, how it was tested, local settle + redeem, the devnet 2026-10-09 close (settlement proof, Explorer, Status page), what works and what is next. Debu recorded the narration in his own voice (13 clips); each clip was checked against the script with a local Parakeet transcription (73–100 % word match, differences were transcription artefacts), leading / trailing silence trimmed, scenes fitted to the narration. An AI-voiced backup cut (local Kokoro TTS) was made and not used. Docs: README, PRD_TRACE (demo video Met), DEMO_SCRIPT, TRACKER DLV-038 done, AI_USAGE. |
+| **Related** | DLV-038 · D-031 (no chart card in the trade scenes) |
+
 ## 2026-10-09T21:30:00-05:00 — Footer program id, Docker local stack fixes, chart stub removed (!105–!107); demo-video preparation; docs consistency pass
 
 | Field | Value |

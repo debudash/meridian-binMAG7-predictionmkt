@@ -3,7 +3,7 @@
 Yes / No contracts on where a MAG7 stock (AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA) closes today, on Solana. Every Yes + No pair is backed by exactly $1 USDC held by the program, trades on an open order book, and settles from a public price feed that anyone can check.
 
 - **Live demo (Solana devnet, test money):** https://web-production-77fbb.up.railway.app (Phantom on devnet)
-- **Demo video:** link added at submission ([script](docs/DEMO_SCRIPT.md))
+- **Demo video (about 4 min):** https://youtu.be/a1yxiHIbvsY ([script](docs/DEMO_SCRIPT.md))
 - **Reviewers, start here:** [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md), every line of the [Peak6 brief](docs/PEAK6_PRD.md) with its status and evidence
 
 ## The problem
@@ -95,7 +95,7 @@ Full status per requirement: [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md).
 | Technical documentation | [`SPEC`](docs/SPEC.md) · [`ARCHITECTURE`](docs/ARCHITECTURE.md) · [`SCHEMA`](docs/SCHEMA.md) · [`DECISIONS`](docs/DECISIONS.md) · [`RED_TEAM`](docs/RED_TEAM.md) · [`ui/`](docs/ui/README.md) |
 | Deployment guide | [`DEPLOY`](docs/DEPLOY.md) · [`docker/README`](docker/README.md) · [pauser rotation runbook](docs/runbooks/PAUSER_ROTATION.md) |
 | Test results | [`TEST_RESULTS`](docs/TEST_RESULTS.md) · [`TEST_MATRIX`](docs/TEST_MATRIX.md) |
-| Demo video | Link added at submission · [`DEMO_SCRIPT`](docs/DEMO_SCRIPT.md) |
+| Demo video | https://youtu.be/a1yxiHIbvsY · [`DEMO_SCRIPT`](docs/DEMO_SCRIPT.md) |
 | AI usage log | [`AI_USAGE`](docs/AI_USAGE.md) · full log [`internal/AI_LOG`](docs/internal/AI_LOG.md) |
 
 ## Repository map
