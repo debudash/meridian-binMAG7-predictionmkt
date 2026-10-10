@@ -27,7 +27,7 @@ Canonical numeric scales for Meridian v1. Instruction and account fields that ca
 | $1.00 USDC | `1_000_000` |
 | 2.5 Yes tokens | `2_500_000` |
 
-Automation (PRD): strikes from prior close ±3/6/9% (optional ATM), round to **$10**, dedupe → then `strike_price_e6 = dollars * 1_000_000`.
+Automation (D-026): reference = the previous trading day's close, rounded to `STRIKE_STEP_E6` (default **$5** at ≥ $100, else **$1**) for the ATM strike, plus each `STRIKE_OFFSETS_E6` offset (default −$5, 0, +$5; staging sets `0`, one ATM strike), dedupe → `strike_price_e6 = dollars * 1_000_000`.
 
 ---
 

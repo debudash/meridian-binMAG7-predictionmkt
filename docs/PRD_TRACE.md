@@ -5,7 +5,7 @@ Every line of the Peak6 PRD ([`PEAK6_PRD.md`](PEAK6_PRD.md)) with its status and
 **Status key:** **Met** = built and tested · **Partial** = built, with a stated gap · **Scheduled** = set up, not yet run · **Not yet** = not done.
 "Staging" = Railway services pointed at Solana devnet (the PRD's "testnet").
 
-Last reviewed: 2026-10-09 ~20:30 CT against `main` @ `c9f6699` (live devnet day 2026-10-09 in §9; operator copilot and Status page, D-029 / D-030); before that 2026-10-09 ~08:15 CT (DLV-106 / D-027) and 2026-10-08 ~21:00 CT (`4012bbd`).
+Last reviewed: 2026-10-09 ~21:30 CT against `main` @ `9298703` (after !105 footer program id, !106 Docker local stack fixes, !107 chart stub removed D-031; local Docker stack run end to end, [`TEST_RESULTS.md`](TEST_RESULTS.md) §9); before that 2026-10-09 ~20:30 CT against `c9f6699` (live devnet day 2026-10-09 in §9; operator copilot and Status page, D-029 / D-030), 2026-10-09 ~08:15 CT (DLV-106 / D-027) and 2026-10-08 ~21:00 CT (`4012bbd`).
 
 ## 1. Functional requirements
 
@@ -34,10 +34,10 @@ Last reviewed: 2026-10-09 ~20:30 CT against `main` @ `c9f6699` (live devnet day 
 | --- | --- | --- |
 | Unit tests for all core functions | **Met** | Anchor localnet 87 passing / 23 pending / 0 failing (the pending are the prod pull-oracle file, which runs separately: 22 / 22 @ `4012bbd`; Rust unit 6 / 6 @ `4012bbd`), automation 263 passing (+ copilot 18 / 18 @ `c9f6699`), web 421 passing (423 / 424 @ `c9f6699`, one pre-existing `siteMeta` timeout) ([`TEST_RESULTS.md`](TEST_RESULTS.md) §1, §7) |
 | Integration tests for full lifecycle | **Met** | Localnet create → mint → trade → settle → redeem: X-04 / X-05, SIM-*, SC-*; real Phoenix E2E 10/10 (opt-in) |
-| Frontend tests for UI flows | **Partial** | `apps/web` has 51 vitest files in a Node environment that test UI logic (intent availability, ticket wiring, price display, history, wallet picker, hydration guards) plus 2 opt-in E2E files that drive the web order path against real Phoenix books. There are no component (jsdom) or browser-automation tests in the repo. There are no browser UI-flow tests. UI flows were checked by a headless-browser smoke (not committed) and the manual [`VISUAL_RUNBOOK.md`](VISUAL_RUNBOOK.md) |
+| Frontend tests for UI flows | **Partial** | `apps/web` has 53 vitest files in a Node environment that test UI logic (intent availability, ticket wiring, price display, history, wallet picker, hydration guards) plus 2 opt-in E2E files that drive the web order path against real Phoenix books. There are no component (jsdom) or browser-automation tests in the repo. There are no browser UI-flow tests. UI flows were checked by a headless-browser smoke (not committed) and the manual [`VISUAL_RUNBOOK.md`](VISUAL_RUNBOOK.md) |
 | Invariant testing | **Met** | V-*, INV-*, I1–I4 helpers; 25 invariant checks per real-Phoenix E2E run ([`TEST_RESULTS.md`](TEST_RESULTS.md) §4) |
 | Clear documentation | **Met** | This docs set; map in the root [`README.md`](../README.md) |
-| Reproducible deployment scripts | **Met** | `yarn build:prod` + fixture assert, `railway.json` per service, [`ops/docker-devnet.sh`](../ops/docker-devnet.sh) (deploy, bootstrap, daily markets; the commands used on 2026-10-08), `ops/devnet-bootstrap.cjs` (idempotent, `DRY_RUN=1`), `ops/run-staging.sh`, local Docker compose and the Docker toolchain image. Devnet deploy and bootstrap ran on 2026-10-08 (program, Config, mUSDC, key funding); on 2026-10-09 the bootstrap was rerun after a partial failure and completed idempotently (no duplicate markets, handoff skipped where done). Railway services redeployed from `main` with `railway up` from a `git archive` (latest 2026-10-09 from `c9f6699`, rollback points in [`DEPLOY.md`](DEPLOY.md) §5.3). Gaps: the project has no CI runners (the Docker image is the gate; `.gitlab-ci.yml` now pins the same Agave 4.3.0); the 2026-10-09 markets and books come from an ops job, not the worker (DLV-122) |
+| Reproducible deployment scripts | **Met** | `yarn build:prod` + fixture assert, `railway.json` per service, [`ops/docker-devnet.sh`](../ops/docker-devnet.sh) (deploy, bootstrap, daily markets; the commands used on 2026-10-08), `ops/devnet-bootstrap.cjs` (idempotent, `DRY_RUN=1`), `ops/run-staging.sh`, local Docker compose and the Docker toolchain image. Devnet deploy and bootstrap ran on 2026-10-08 (program, Config, mUSDC, key funding); on 2026-10-09 the bootstrap was rerun after a partial failure and completed idempotently (no duplicate markets, handoff skipped where done). Railway services redeployed from `main` with `railway up` from a `git archive` (latest 2026-10-09: automation from `c9f6699`, web from `65a4930`; rollback points in [`DEPLOY.md`](DEPLOY.md) §5.3). Gaps: the project has no CI runners (the Docker image is the gate; `.gitlab-ci.yml` now pins the same Agave 4.3.0); the 2026-10-09 markets and books come from an ops job, not the worker (DLV-122) |
 
 ## 4. Time constraints
 
@@ -54,7 +54,7 @@ Last reviewed: 2026-10-09 ~20:30 CT against `main` @ `c9f6699` (live devnet day 
 | 100% accuracy in settlements | **Met (tests)** | Outcome = `price ≥ strike` (D-005); immutable once set; `admin_settle` must match the same rule (Policy A, A-05). Above / below / at-strike cases in S-*, E2E cases 8–9. Devnet 2026-10-09: 7 / 7 outcomes match the Pyth close vs strike (§9) |
 | Markets created before market open daily | **Met in code, verified in tests**; on 2026-10-09 the markets came from the ops job | See "Market creation by 8:00 AM ET" |
 | Settlements within 10 minutes of market close | **Met for AAPL** on the live devnet close 2026-10-09 (other 6 times not recorded) | See §2 |
-| Full lifecycle demo on testnet | **Met**: create → trade → pause → settle → redeem done live on 2026-10-09 (AAPL No redeemed 16:08:32 ET, TEST_RESULTS §8) | Program deployed to devnet 2026-10-08 (slot 508961032); Railway `web` and `automation` run from `main` against it; demo URL https://web-production-77fbb.up.railway.app. 2026-10-09: 7 markets with books, Phantom trades, books paused at 16:00 ET, 7 / 7 settled by the Pyth pull oracle (§9). A local Docker instance runs the full lifecycle including redeem any time ([`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)) |
+| Full lifecycle demo on testnet | **Met**: create → trade → pause → settle → redeem done live on 2026-10-09 (AAPL No redeemed 16:08:32 ET, TEST_RESULTS §8) | Program deployed to devnet 2026-10-08 (slot 508961032); Railway `web` and `automation` run from `main` against it; demo URL https://web-production-77fbb.up.railway.app. 2026-10-09: 7 markets with books, Phantom trades, books paused at 16:00 ET, 7 / 7 settled by the Pyth pull oracle (§9). A local Docker instance runs the full lifecycle including redeem any time ([`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)); run end to end on 2026-10-09 evening, 7 / 7 settled and redeemed ([`TEST_RESULTS.md`](TEST_RESULTS.md) §9) |
 | $1.00 payout invariant maintained | **Met** | Vault = pairs × $1 and Yes supply = No supply after every step (V-*, MP-*, E2E); winners redeem exactly $1 |
 
 ## 6. Technology
@@ -76,7 +76,7 @@ Last reviewed: 2026-10-09 ~20:30 CT against `main` @ `c9f6699` (live devnet day 
 | --- | --- | --- |
 | Source code | **Met** | This repository |
 | Technical documentation | **Met** | [`SPEC.md`](SPEC.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), [`SCHEMA.md`](SCHEMA.md), [`ui/`](ui/README.md), [`DECISIONS.md`](DECISIONS.md), [`RED_TEAM.md`](RED_TEAM.md) |
-| Demo video | **Scheduled** | Link added at submission. Script: [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) (DLV-038) |
+| Demo video | **Not yet** | A cut exists (about 4 min); narration pending; link added at submission. Script: [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) (DLV-038) |
 | Deployment guide | **Met** | [`DEPLOY.md`](DEPLOY.md) |
 | Test results | **Met** (live devnet day added 2026-10-09) | [`TEST_RESULTS.md`](TEST_RESULTS.md) |
 | AI usage log | **Met** | [`AI_USAGE.md`](AI_USAGE.md) + full log [`internal/AI_LOG.md`](internal/AI_LOG.md) |
@@ -95,7 +95,7 @@ Last reviewed: 2026-10-09 ~20:30 CT against `main` @ `c9f6699` (live devnet day 
 | Browser UI-flow tests (none today) | §3 |
 | The project has no CI runners (`.gitlab-ci.yml` pins Agave 4.3.0 like the Docker image); the Docker toolchain is the gate | [`DEPLOY.md`](DEPLOY.md) §8 |
 | Mainnet: PDA pauser authority, M1-closing conditions, external alert sink, deferred reviewer nits, external audit, production market maker | DLV-105, DLV-112, DLV-111, DLV-110 |
-| Record the demo video | DLV-038 (2026-10-09) |
+| Finish the demo video (narration pending) and link it | DLV-038 |
 
 ## 9. Live devnet day 2026-10-09
 
@@ -118,11 +118,11 @@ Due Saturday 2026-10-10, 09:00 CT.
 
 | Item | State |
 | --- | --- |
-| Source code on `main` (!93 D-026, !94 Docker, !95 docs, !96 program id + staging timing, !97 SOL tile; 2026-10-09: !100 DLV-106 docs, !101 market palette D-028, !102 operator copilot D-029, !103 copilot in the worker + Status page D-030) | Done (`c9f6699`) |
+| Source code on `main` (!93 D-026, !94 Docker, !95 docs, !96 program id + staging timing, !97 SOL tile; 2026-10-09: !100 DLV-106 docs, !101 market palette D-028, !102 operator copilot D-029, !103 copilot in the worker + Status page D-030, !104 docs, !105 footer program id, !106 Docker local stack fixes, !107 chart stub removed D-031) | Done (`9298703`) |
 | Technical documentation | Done |
 | Deployment guide; devnet program deployed and staging bootstrapped | Done (2026-10-08) |
 | Test results on the current tip (Anchor, automation, web, prod build, deployed-binary check) | Done (2026-10-08) |
 | AI usage log | Done |
 | Live devnet day evidence (§9, [`TEST_RESULTS.md`](TEST_RESULTS.md) §8) | Done 2026-10-09 (create → trade → pause → settle → redeem) |
-| Demo video link in [`README.md`](../README.md) and §7 | Not yet |
+| Demo video link in [`README.md`](../README.md) and §7 | Not yet (cut exists, narration pending) |
 | Final test refresh on the submission tip | Done 2026-10-08 on `4012bbd` (Rust unit and prod settle) and `594d41b` (Anchor). After the 2026-10-09 web / automation changes (no program change): copilot 18 / 18 and web 423 / 424 (pre-existing `siteMeta` timeout) on `c9f6699` |

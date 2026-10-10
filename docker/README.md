@@ -25,7 +25,12 @@ Watch for `[meridian-local] ready`. Then open **http://127.0.0.1:3000**, click t
 What `docker/localnet/start.sh` does, in order:
 
 1. **Keys.** Authority, maker and dev wallet are created once in the `data` volume (`/data/keys`). They never touch the repo.
-2. **Program.** The `localnet-test` build is loaded at the real program id with `--bpf-program`, so no program keypair is needed.
+   **Node deps** (root, `apps/web`, `apps/automation`) live in named volumes and are reinstalled when that package's
+   `package-lock.json` hash changes, not only when `node_modules` is missing. Then `apps/automation` is built; a failed
+   build prints its errors and stops the container.
+2. **Program.** The `localnet-test` build is loaded at the real program id with `--bpf-program`, so no program keypair is
+   needed. It is rebuilt when missing, with `REBUILD=1`, or when the cached build's IDL address differs from
+   `declare_id!` (for example a build from before a program id change); a rebuilt program also resets the chain.
 3. **Phoenix.** Phoenix V1 `PhoeNiX…` and Seat Manager `PSMxQb…` are the same binaries devnet and mainnet run.
 4. **Validator.** `solana-test-validator` runs on :8899 (WebSocket :8900). The ledger persists in the `data` volume.
 5. **Seed** (`docker/localnet/seed.cjs`). Test USDC, `initialize_config` (fees 0, staleness 150 slots, conf 500 bps,
@@ -46,17 +51,21 @@ docker compose -f docker/compose.localnet.yml exec local node docker/localnet/se
 docker compose -f docker/compose.localnet.yml exec local node docker/localnet/settle.cjs AAPL=230 TSLA=240  # choose closes
 ```
 
-This posts a fresh mock Pyth price and calls the permissionless `settle`. The D-005 gates apply, and Yes wins iff
-price ≥ strike. Afterwards **Portfolio → Redeem** pays $1 USDC per winning token.
+This posts a fresh mock Pyth price and calls the permissionless `settle` for every expired market that is still open
+(markets not yet expired are listed as "not yet"). The D-005 gates apply, and Yes wins iff price ≥ strike. Books are not
+paused here (the worker's pauser does that on devnet). Afterwards **Portfolio → Redeem** pays $1 USDC per winning token.
+
+Last full run: 2026-10-09 on `main` @ `9298703` (`RESET=1`, 7 markets with books in anytime mode, trades, limit + cancel,
+`settle.cjs GOOGL=165 TSLA=245` settled 7 / 7, two redeems; [`docs/TEST_RESULTS.md`](../docs/TEST_RESULTS.md) §9).
 
 ### Options
 
 | Env (prefix the `up` command) | Effect |
 | --- | --- |
-| `RESET=1` | Wipe the ledger and state (keys are kept) and seed from scratch |
+| `RESET=1` | Wipe the ledger and state (keys are kept) and seed from scratch; the dev wallet starts flat |
 | `REBUILD=1` | Rebuild the program (after a change under `programs/`) |
-| `SEED_MODE=anytime` / `today` | Force a seed mode |
-| `ANYTIME_EXPIRY_MINUTES=30` | Expiry for anytime markets (5–10080) |
+| `SEED_MODE=anytime` / `today` | Force a seed mode (default `auto`: same-day on a trading day before the 16:00 ET close, else anytime) |
+| `ANYTIME_EXPIRY_MINUTES=30` | Expiry for anytime markets, in minutes after the seed (default 120; 5–10080) |
 
 PowerShell: `$env:RESET=1; docker compose -f docker/compose.localnet.yml up`.
 

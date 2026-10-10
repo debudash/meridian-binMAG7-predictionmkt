@@ -44,7 +44,7 @@ Do not duplicate long rationale here — link the log.
 | --- | --- |
 | Phoenix **V1 spot** product confirmation | **OBSOLETE as OPEN** — superseded by **D-015**: working assumption (widget skipped) |
 | Phoenix base Yes vs No | **Obsolete as OPEN** — locked **D-004 / D-015** (Yes base) |
-| Exact MAG7 Pyth feed ids | **Obsolete as OPEN** — proposed lock **D-019** (SCHEMA §3.1); awaiting Debu merge |
+| Exact MAG7 Pyth feed ids | **Obsolete as OPEN** — locked **D-019** (SCHEMA §3.1) |
 | Strike `>=` vs `>` | Default `>=` (**D-005**); Schema proposes close §8 open unless Peak6 wants strict `>` |
 
 ## Obsolete / superseded notes
