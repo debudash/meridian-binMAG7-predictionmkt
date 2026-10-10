@@ -1,71 +1,100 @@
 # Meridian
 
-Meridian is a non-custodial Solana app for binary Yes/No contracts on the daily close of the MAG7 stocks (AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA). A Yes token pays $1 USDC if the stock closes at or above the strike at 16:00 ET that day; the No token pays $1 otherwise. Every Yes+No pair is backed by exactly $1 USDC held by the program.
+Yes / No contracts on where a MAG7 stock (AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA) closes today, on Solana. Every Yes + No pair is backed by exactly $1 USDC held by the program, trades on an open order book, and settles from a public price feed that anyone can check.
 
-Built for the Peak6 brief: [`docs/PEAK6_PRD.md`](docs/PEAK6_PRD.md).
+- **Live demo (Solana devnet, test money):** https://web-production-77fbb.up.railway.app (Phantom on devnet)
+- **Demo video:** link added at submission ([script](docs/DEMO_SCRIPT.md))
+- **Reviewers, start here:** [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md), every line of the [Peak6 brief](docs/PEAK6_PRD.md) with its status and evidence
 
-**Graders: start with [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md)** (every PRD line, its status and evidence).
+## The problem
 
-**Testnet demo (Solana devnet):** https://web-production-77fbb.up.railway.app (connect Phantom on devnet). The program `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` was deployed to devnet on 2026-10-08 and the Railway `web` and `automation` services run from `main`. The first live devnet trading day ran on Friday 2026-10-09: 7 MAG7 markets with Phoenix books, trades from Phantom, books paused at the 16:00 ET close and **all 7 markets settled by the Pyth pull oracle** with no manual price ([`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) §8). The worker's read-only daily checks are on the app's **Status** page (`/status`). Mainnet production is future work (see [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md)).
+A simple view like "Apple closes above $340 today" is hard to act on fairly:
 
-**Settlement on devnet today:** the automated Pyth pull-oracle settle path (D-025) is the primary path. The Hermes key has equity access since 2026-10-09 (DLV-106), and on 2026-10-09 the worker settled all 7 devnet markets by the permissionless `settle` from Pyth price updates. Operator close prices (source logged) with `admin_settle`, whose outcome must match `price ≥ strike`, remain only as the recorded fallback (D-027).
+- **You have to trust a middleman.** A broker or bookmaker holds your money and decides who won. If it is wrong, slow or insolvent, you find out too late.
+- **You can't check the outcome.** The settlement price and the moment it was taken are whatever the operator says.
+- **The tools are too complex for a yes/no view.** Options bring greeks, margin and expiry mechanics to what is really one question.
 
-## Architecture in 60 seconds
+## The solution, and what it gives you
 
-| Part | What it does |
+| Benefit | How Meridian delivers it |
 | --- | --- |
-| **Anchor program** (`programs/meridian`, Rust) | Holds USDC in a program vault, mints Yes+No pairs at $1, merges pairs back, settles each market from Pyth, redeems winners 1:1 |
-| **Phoenix** (external CLOB) | Matching. One Yes/USDC book per strike; Buy No / Sell No are composed from mint / merge plus a Yes order. Meridian never matches orders |
-| **Pyth** (external oracle) | Settlement price: the first verified update at or after the 16:00 ET close (pull oracle, D-025). On devnet this is the primary path (Hermes equity access since 2026-10-09, DLV-106); operator close prices are the fallback |
-| **Web app** (`apps/web`, Next.js) | Markets, Trade, Portfolio, History, Status (`/status`: the worker's daily create / settle checks); Phantom / Solflare |
-| **Automation** (`apps/automation`, Node) | Creates the day's markets by 08:00 ET, pauses books at the close, settles; read-only operator copilot checks at 08:30 / 16:30 ET (D-029 / D-030). It does not create Phoenix books yet (DLV-122) |
-| **Ops scripts** (`ops/`) | Devnet bootstrap, Phoenix books, operator prices, settle checks |
+| **Your winnings are always there** | Every Yes + No pair is minted against exactly $1 USDC in a program vault. Winners redeem $1 per contract; no one can spend the collateral. |
+| **One clear question, a known risk** | "Will AAPL close at or above $340 today?" You pay a price between $0 and $1; the most you can lose is what you paid, the most you get is $1. The ticket says it in plain words before you buy. |
+| **Fair, visible prices** | Trading runs on Phoenix, an open on-chain order book. You see every bid and ask. |
+| **An outcome anyone can verify** | At 16:00 ET the market settles from Pyth's signed price, the first update at or after the close. Anyone can submit the settlement, and every market page shows a settlement proof with a link to the transaction. |
+| **It runs itself** | Markets are created before the open, books pause at the close, settlement lands minutes later, and the system checks itself at 08:30 and 16:30 ET on a public Status page. |
 
-Diagrams and trust boundaries: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+## How it works
 
-## Quickstart (local, any time)
+1. **Before 08:00 ET:** seven markets are created, one per stock, with the strike at the previous day's close (D-026).
+2. **Until 16:00 ET:** you buy Yes or No on that market's order book, from your own wallet. (Books are not yet held closed until the 09:30 open, DLV-121.)
+3. **16:00 ET:** the books pause and the market settles from Pyth: Yes wins if the close is at or above the strike.
+4. **After settlement:** winners redeem $1 per contract; the losing side is worth nothing.
 
-```bash
-docker compose -f docker/compose.localnet.yml up --build
-# wait for [meridian-local] ready, then open http://127.0.0.1:3000 (not localhost)
-```
+| Part | Role |
+| --- | --- |
+| Program (`programs/meridian`, Anchor) | Vault, mint and merge pairs, settle, redeem |
+| Phoenix (existing exchange) | Order matching, one Yes/USDC book per market |
+| Pyth (existing oracle) | Signed closing price |
+| Web app (`apps/web`, Next.js) | Markets, trade ticket, portfolio, history, status |
+| Worker (`apps/automation`, Node) | Creates markets, pauses books, settles, runs the daily checks |
 
-No Rust or Solana install needed: the Docker toolchain image (Rust 1.85, Agave 4.3.0, Anchor 0.31.1, Node 22) builds and runs everything. Details: [`docker/README.md`](docker/README.md). Manual setup, tests and devnet / Railway deployment: [`docs/DEPLOY.md`](docs/DEPLOY.md).
+More detail and diagrams: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-Run the tests:
+## Key decisions and trade-offs
 
-```bash
-# in the Docker toolchain (stop the local instance first: the program suite uses :8899)
-docker compose -f docker/compose.localnet.yml run --rm local bash -lc "anchor test -- --features localnet-test"
-docker compose -f docker/compose.localnet.yml run --rm local bash -lc "npm test --prefix apps/automation && npm test --prefix apps/web"
-```
-
-Or on a host with the same toolchain: `yarn install && yarn test`, `npm test --prefix apps/automation`, `npm run test --prefix apps/web`.
-
-## Deliverables
-
-| PRD deliverable | Where | Status |
+| Decision | Why it helps the user | What it costs |
 | --- | --- | --- |
-| Source code | This repository: `programs/`, `apps/`, `ops/`, `scripts/`, `tests/`, `docker/` | Done (`main` @ `9298703`) |
-| Technical documentation | [`docs/SPEC.md`](docs/SPEC.md) (locked V1 spec) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/SCHEMA.md`](docs/SCHEMA.md) with [`accounts`](docs/accounts.md), [`flows`](docs/flows.md), [`units`](docs/units.md), [`sim-clock`](docs/sim-clock.md) · [`docs/ui/`](docs/ui/README.md) · [`docs/DECISIONS.md`](docs/DECISIONS.md) · [`docs/RED_TEAM.md`](docs/RED_TEAM.md) | Done |
-| Demo video | Link added at submission. Script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | Not yet linked |
-| Deployment guide | [`docs/DEPLOY.md`](docs/DEPLOY.md) · [`docker/README.md`](docker/README.md) · runbook [`docs/runbooks/PAUSER_ROTATION.md`](docs/runbooks/PAUSER_ROTATION.md) | Done; devnet deployed 2026-10-08 |
-| Test results | [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) · case catalogue [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) · manual test procedures (working records): [`docs/VISUAL_RUNBOOK.md`](docs/VISUAL_RUNBOOK.md), [`docs/STAGING_TEST_PLAN.md`](docs/STAGING_TEST_PLAN.md) | Done for 2026-10-08 runs; live devnet day and copilot tests added 2026-10-09 |
-| AI usage log | [`docs/AI_USAGE.md`](docs/AI_USAGE.md) · full chronological log [`docs/internal/AI_LOG.md`](docs/internal/AI_LOG.md) | Done |
+| **One order book per market; "No" is built from mint and merge, not listed** (D-004, D-018) | No always costs 1 − Yes, so the two prices never disagree, and all the liquidity sits in one book. | A resting limit Sell No does not merge into USDC on its own yet (DLV-069). The No side is only as deep as the Yes side. |
+| **Integrate Phoenix rather than build matching** (D-002) | A proven exchange, and far less code that can lose money. | Meridian inherits Phoenix's model; pausing books needs Phoenix's seat-manager role, which must be locked down before mainnet (DLV-105). |
+| **Market orders fill completely or not at all** (D-024) | You are never left half-filled, for example holding both sides after a partial Buy No. Found by an end-to-end test (DLV-070). | No partial fills at market; use a limit order for that. |
+| **Settle on the first Pyth update after the close; anyone can submit it** (D-025) | No one can pick a favourable price, and settlement doesn't depend on one operator. | Needs Pyth to publish within 60 s of the close. The fallback is an operator price with a logged source, and the program rejects an outcome that doesn't match price vs strike (D-018, D-027). |
+| **Same-day markets, strike at the previous close** (D-026) | One at-the-money question per stock per day, ready before the open. | A strike can't change once the market exists. NYSE early-close days are refused for now. |
+| **Read-only self-checks, shown on a page** (D-029, D-030) | Problems surface within 30 minutes on the Status page; the report is written by code from on-chain data. | It reports but doesn't page anyone, and it can't fix anything by itself. |
 
-Where every PRD requirement stands, with evidence: [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md).
+All decisions with dates and owners: [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
-## Submission checklist
+## What works today, and what doesn't yet
 
-Due Saturday 2026-10-10, 09:00 CT.
+**Working on Solana devnet.** The program was deployed on 2026-10-08. On Friday 2026-10-09 seven MAG7 markets traded from a Phantom wallet, all seven books paused at 16:00 ET, and **all seven settled from Pyth automatically**, with no manual price ([`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) §8). A winning position was redeemed for $1 per contract the same afternoon.
 
-- [x] Code merged to `main`: D-026 create by 08:00 ET (!93), Docker toolchain (!94), docs (!95), program id rotation and staging timing (!96), Portfolio SOL tile (!97).
-- [x] Program deployed to devnet (2026-10-08, slot 508961032); Railway `web` and `automation` redeployed from `main`.
-- [x] Test runs on the current code: Anchor localnet 87 passing / 23 pending / 0 failing, automation 263 passing, web 421 passing, prod build and fixture asserts, deployed binary byte-identical to the build ([`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md)).
-- [x] Code merged 2026-10-09: DLV-106 docs (!100), market palette D-028 (!101), operator copilot D-029 (!102), copilot in the worker + Status page D-030 (!103), docs (!104), footer program id (!105), Docker local stack fixes (!106), trade-page chart stub removed D-031 (!107); Railway `automation` redeployed from `c9f6699`, `web` from `65a4930`.
-- [x] Friday 2026-10-09: live devnet day (create → trade → pause → settle by the Pyth pull oracle, 7 / 7); [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) §8 and [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md) §9 filled; AAPL No redeemed on devnet at 16:08:32 ET.
-- [ ] Demo video: a cut exists, narration pending; add the link above at submission.
-- [ ] Final test refresh on the submission tip: all suites ran on 2026-10-08 (Anchor on `594d41b`, the others incl. Rust unit and prod pull-oracle settle on `4012bbd`); after the 2026-10-09 web / automation changes (no program change) copilot 18 / 18 and web 423 / 424 (pre-existing `siteMeta` timeout) on `c9f6699`.
+**Not done yet:**
+
+- **Mainnet.** It needs an external security audit, a production market maker, and the seat-manager lockdown (DLV-105, DLV-112). Devnet uses test SOL and test USDC only.
+- **Worker-created order books.** The worker creates markets, but their Phoenix books still come from an ops script (DLV-122).
+- **A price chart** on the trade page (planned; not in the spec, D-031). A resting limit Sell No does not auto-merge (DLV-069).
+
+Full status per requirement: [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md).
+
+## Try it
+
+- **Live on devnet:** open the demo URL above with Phantom set to devnet.
+- **Locally, any day:** a full copy (validator, Phoenix, 7 markets, web app) runs in Docker with a simulated clock, so markets close in minutes:
+
+  ```bash
+  docker compose -f docker/compose.localnet.yml up --build
+  # wait for "[meridian-local] ready", then open http://127.0.0.1:3000
+  ```
+
+  Settle and redeem steps: [`docker/README.md`](docker/README.md). Manual setup and devnet deployment: [`docs/DEPLOY.md`](docs/DEPLOY.md).
+- **Tests** (in the Docker toolchain; stop the local instance first):
+
+  ```bash
+  docker compose -f docker/compose.localnet.yml run --rm local bash -lc "anchor test -- --features localnet-test"
+  docker compose -f docker/compose.localnet.yml run --rm local bash -lc "npm test --prefix apps/automation && npm test --prefix apps/web"
+  ```
+
+  Results and how each core path was tested: [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md).
+
+## Documentation
+
+| Deliverable | Where |
+| --- | --- |
+| Technical documentation | [`SPEC`](docs/SPEC.md) · [`ARCHITECTURE`](docs/ARCHITECTURE.md) · [`SCHEMA`](docs/SCHEMA.md) · [`DECISIONS`](docs/DECISIONS.md) · [`RED_TEAM`](docs/RED_TEAM.md) · [`ui/`](docs/ui/README.md) |
+| Deployment guide | [`DEPLOY`](docs/DEPLOY.md) · [`docker/README`](docker/README.md) · [pauser rotation runbook](docs/runbooks/PAUSER_ROTATION.md) |
+| Test results | [`TEST_RESULTS`](docs/TEST_RESULTS.md) · [`TEST_MATRIX`](docs/TEST_MATRIX.md) |
+| Demo video | Link added at submission · [`DEMO_SCRIPT`](docs/DEMO_SCRIPT.md) |
+| AI usage log | [`AI_USAGE`](docs/AI_USAGE.md) · full log [`internal/AI_LOG`](docs/internal/AI_LOG.md) |
 
 ## Repository map
 
@@ -73,12 +102,10 @@ Due Saturday 2026-10-10, 09:00 CT.
 | --- | --- |
 | `programs/meridian` | Anchor program ([README](programs/meridian/README.md)) |
 | `apps/web` | Next.js app ([README](apps/web/README.md)) |
-| `apps/automation` | Node worker ([README](apps/automation/README.md)) |
-| `ops/` | Operator scripts for devnet staging ([README](ops/README.md)) |
-| `scripts/` | Build asserts, IDL emit, localnet market seeding ([localnet README](scripts/localnet/README.md)) |
-| `tests/` | Anchor suites ([README](tests/README.md)) |
-| `idl/` | Program IDLs (`meridian.prod.json` is the only one clients load off localnet) |
-| `docs/` | Deliverable docs (above) |
-| `docs/internal/` | Working docs: tracker, raw AI log, agent rules |
+| `apps/automation` | Worker ([README](apps/automation/README.md)) |
+| `ops/` | Devnet operator scripts ([README](ops/README.md)) |
+| `docker/` | Toolchain image and local instance ([README](docker/README.md)) |
+| `scripts/`, `tests/`, `idl/` | Build asserts and seeding, Anchor suites, program IDLs |
+| `docs/` | The documents above; `docs/internal/` holds the tracker and the raw AI log |
 
 Source of truth: Gauntlet Labs GitLab, `debudash/peak6-meridian` (private). Do not publish without Gauntlet Labs approval.
