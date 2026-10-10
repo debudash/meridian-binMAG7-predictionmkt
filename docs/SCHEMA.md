@@ -80,7 +80,7 @@ One account per `(equity, expiry_day, strike)`. Holds Pyth + Phoenix wiring and 
 | `sim_armed` | `bool` | 1 | Set by `sim_open_session`; when set, settle / admin_settle require `!trading_open` |
 | `reserved` | `[u8; 62]` | 62 | Forward-compat |
 
-**Approx space:** `8` + fields ≈ `320`+ → allocate `384` or use `InitSpace`.
+**Space:** derived with `InitSpace` (`8` disc + fields above; the program allocates `8 + StrikeMarket::INIT_SPACE`).
 
 **PDA seeds:**
 

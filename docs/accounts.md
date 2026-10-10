@@ -41,7 +41,7 @@ pub const EQUITY_SYMBOL_LEN: usize = 8;
 
 **Seeds:** `[CONFIG_SEED]` → unique global.
 
-**Init space (recommended):** `8 + 192` = `256` bytes allocated.
+**Space:** `8 + Config::INIT_SPACE` (derived via `InitSpace`).
 
 ```rust
 #[account]
@@ -99,7 +99,7 @@ pub struct Config {
 
 `expiry_ts` and `strike_price_e6` are little-endian `i64` / `u64` byte arrays (8 bytes each).
 
-**Init space (recommended):** `8 + 376` ≈ allocate `400` or derive via `InitSpace`.
+**Space:** `8 + StrikeMarket::INIT_SPACE` (derived via `InitSpace`).
 
 ```rust
 #[account]

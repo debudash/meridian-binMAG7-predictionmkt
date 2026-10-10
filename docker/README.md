@@ -64,7 +64,7 @@ Last full run: 2026-10-09 on `main` @ `9298703` (`RESET=1`, 7 markets with books
 | --- | --- |
 | `RESET=1` | Wipe the ledger and state (keys are kept) and seed from scratch; the dev wallet starts flat |
 | `REBUILD=1` | Rebuild the program (after a change under `programs/`) |
-| `SEED_MODE=anytime` / `today` | Force a seed mode (default `auto`: same-day before the 16:00 ET close, else anytime) |
+| `SEED_MODE=anytime` / `today` | Force a seed mode (default `auto`: same-day on a trading day before the 16:00 ET close, else anytime) |
 | `ANYTIME_EXPIRY_MINUTES=30` | Expiry for anytime markets, in minutes after the seed (default 120; 5–10080) |
 
 PowerShell: `$env:RESET=1; docker compose -f docker/compose.localnet.yml up`.
