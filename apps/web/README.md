@@ -10,7 +10,7 @@ Next.js (App Router) + TypeScript UI for Peak6 Meridian binary Yes/No markets.
 - Anchor program client for `mint` / `redeem` / read settle status
 - Phoenix CLOB as Yes/USDC book (D-015) — `@ellipsis-labs/phoenix-sdk` place/cancel when market configured
 - Intent composition: Buy/Sell Yes = bid/ask; **Buy No** = Meridian mint + ask Yes @ `1−p_no`; **Sell No** = bid Yes @ `1−p_no` then **`merge_pair`** (same tx when market/immediate; resting = bid only, merge-on-fill phased)
-- Indexer: `listMarkets` / `getMarket` via `NEXT_PUBLIC_INDEXER_URL` or RPC `StrikeMarket` GPA; fixtures when live data empty
+- Indexer: `listMarkets` / `getMarket` via `NEXT_PUBLIC_INDEXER_URL` or RPC `StrikeMarket` GPA; sample fixtures only on localnet with a loopback RPC (DLV-084, DLV-092)
 - Pyth for display / settlement status (provider shell; feeds via env)
 
 ## Routes
@@ -22,7 +22,8 @@ Next.js (App Router) + TypeScript UI for Peak6 Meridian binary Yes/No markets.
 | `/markets/[marketId]` | Trade |
 | `/portfolio` | Positions + redeem |
 | `/history` | Activity history |
-| `/rules` | Payoff / resolution stub |
+| `/rules`, `/terms`, `/risk` | Payoff / resolution, terms, risk (static) |
+| `/status` | Operator copilot reports from the worker (D-030; server-side via `AUTOMATION_STATUS_URL`) |
 
 ## Local run
 
@@ -35,7 +36,7 @@ npm run web:dev
 # or: npm run dev --prefix apps/web
 ```
 
-Open http://localhost:3000.
+Open http://127.0.0.1:3000 (`npm run dev` binds 127.0.0.1).
 
 ### Localnet dev wallet (localnet only)
 
@@ -98,7 +99,7 @@ SDK: **`@ellipsis-labs/phoenix-sdk`** (V1 spot). Placement is gated:
 | Condition | Behavior |
 | --- | --- |
 | `NEXT_PUBLIC_PHOENIX_ENABLED=false` or no `phoenixMarket` pubkey | Structured **not-configured** (`ok:false`) — TradeTicket CTA does **not** say “Confirm in your wallet…” |
-| Market pubkey set (+ optional `ENABLED=true`) + wallet | Build/sign/submit place (limit / IOC market / post-only); seat/ATA setup ixs prepended when needed |
+| Market pubkey set (+ optional `ENABLED=true`) + wallet | Build/sign/submit place (limit / IOC market, fill-or-kill per D-024; no post-only in V1, D-021); seat/ATA setup ixs prepended when needed |
 | **Buy No** | Prefer multi-ix tx: Meridian `mint` then Phoenix ask Yes @ `1−p_no` (needs vault/mints/treasury on `MarketView`) |
 | **Sell No** | Market = Phoenix bid Yes @ `1−p_no` + Meridian `merge_pair` (same tx); resting = bid only, merge-on-fill phased (`SELL_NO_MERGE_CAVEAT`) |
 
@@ -119,11 +120,11 @@ Env vars: see [`.env.example`](./.env.example) and [`.env.railway.staging.exampl
 
 ## Program id
 
-Default: `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` (overridable via `NEXT_PUBLIC_MERIDIAN_PROGRAM_ID`).
+Default: `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` (overridable via `NEXT_PUBLIC_MERIDIAN_PROGRAM_ID`). The footer shows it shortened, linked to the explorer; an invalid value shows "id not configured" instead of breaking the page.
 
 ## Railway
 
-- Service **rootDirectory**: `apps/web`
+- Deployed with `railway up` from `git archive <sha>:apps/web`, so this package is the upload root (the service has no root directory set; [`docs/DEPLOY.md`](../../docs/DEPLOY.md) §5.1)
 - Config: [`railway.json`](./railway.json) — `next build` / `next start`, Node ≥20, `healthcheckPath=/api/health`
 - Health route: [`src/app/api/health/route.ts`](./src/app/api/health/route.ts)
 

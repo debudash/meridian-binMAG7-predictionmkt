@@ -46,7 +46,7 @@ Or on a host with the same toolchain: `yarn install && yarn test`, `npm test --p
 
 | PRD deliverable | Where | Status |
 | --- | --- | --- |
-| Source code | This repository: `programs/`, `apps/`, `ops/`, `scripts/`, `tests/`, `docker/` | Done (`main` @ `c9f6699`) |
+| Source code | This repository: `programs/`, `apps/`, `ops/`, `scripts/`, `tests/`, `docker/` | Done (`main` @ `9298703`) |
 | Technical documentation | [`docs/SPEC.md`](docs/SPEC.md) (locked V1 spec) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/SCHEMA.md`](docs/SCHEMA.md) with [`accounts`](docs/accounts.md), [`flows`](docs/flows.md), [`units`](docs/units.md), [`sim-clock`](docs/sim-clock.md) · [`docs/ui/`](docs/ui/README.md) · [`docs/DECISIONS.md`](docs/DECISIONS.md) · [`docs/RED_TEAM.md`](docs/RED_TEAM.md) | Done |
 | Demo video | Link added at submission. Script: [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | Not yet linked |
 | Deployment guide | [`docs/DEPLOY.md`](docs/DEPLOY.md) · [`docker/README.md`](docker/README.md) · runbook [`docs/runbooks/PAUSER_ROTATION.md`](docs/runbooks/PAUSER_ROTATION.md) | Done; devnet deployed 2026-10-08 |
@@ -62,9 +62,9 @@ Due Saturday 2026-10-10, 09:00 CT.
 - [x] Code merged to `main`: D-026 create by 08:00 ET (!93), Docker toolchain (!94), docs (!95), program id rotation and staging timing (!96), Portfolio SOL tile (!97).
 - [x] Program deployed to devnet (2026-10-08, slot 508961032); Railway `web` and `automation` redeployed from `main`.
 - [x] Test runs on the current code: Anchor localnet 87 passing / 23 pending / 0 failing, automation 263 passing, web 421 passing, prod build and fixture asserts, deployed binary byte-identical to the build ([`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md)).
-- [x] Code merged 2026-10-09: DLV-106 docs (!100), market palette D-028 (!101), operator copilot D-029 (!102), copilot in the worker + Status page D-030 (!103); Railway `web` and `automation` redeployed from `c9f6699`.
+- [x] Code merged 2026-10-09: DLV-106 docs (!100), market palette D-028 (!101), operator copilot D-029 (!102), copilot in the worker + Status page D-030 (!103), docs (!104), footer program id (!105), Docker local stack fixes (!106), trade-page chart stub removed D-031 (!107); Railway `automation` redeployed from `c9f6699`, `web` from `65a4930`.
 - [x] Friday 2026-10-09: live devnet day (create → trade → pause → settle by the Pyth pull oracle, 7 / 7); [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md) §8 and [`docs/PRD_TRACE.md`](docs/PRD_TRACE.md) §9 filled; AAPL No redeemed on devnet at 16:08:32 ET.
-- [ ] Friday 2026-10-09: record the demo video and add the link above.
+- [ ] Demo video: a cut exists, narration pending; add the link above at submission.
 - [ ] Final test refresh on the submission tip: all suites ran on 2026-10-08 (Anchor on `594d41b`, the others incl. Rust unit and prod pull-oracle settle on `4012bbd`); after the 2026-10-09 web / automation changes (no program change) copilot 18 / 18 and web 423 / 424 (pre-existing `siteMeta` timeout) on `c9f6699`.
 
 ## Repository map

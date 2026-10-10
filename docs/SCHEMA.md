@@ -4,7 +4,7 @@ Primary reference for Anchor account layouts, PDA seeds, Phoenix linkage, Pyth s
 
 Companion docs: [`accounts.md`](accounts.md) · [`flows.md`](flows.md) · [`units.md`](units.md) · [`sim-clock.md`](sim-clock.md) · [`../programs/meridian/README.md`](../programs/meridian/README.md)
 
-**Program id (placeholder):** `Meridian11111111111111111111111111111111111` — replace at deploy.
+**Program id:** `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj` (`declare_id!` / `Anchor.toml`; deployed to devnet 2026-10-08, [`DEPLOY.md`](DEPLOY.md) §5.3).
 
 **Collateral default:** USDC mainnet mint `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` (devnet: use Circles USDC or fixture mint). Decimals = **6**.
 
@@ -30,10 +30,12 @@ Sizes are Borsh / Anchor packed sizes excluding the 8-byte Anchor discriminator 
 | `settle_max_staleness_slots` | `u64` | 8 | Max Pyth price account age in slots at settle |
 | `settle_max_conf_ratio_bps` | `u16` | 2 | Reject if `conf / |price|` > this (bps); e.g. `500` = 5% |
 | `admin_settle_delay_secs` | `u64` | 8 | Min wall-clock seconds after `expiry_ts` before `admin_settle` |
+| `next_market_id` | `u64` | 8 | Counter; written to `StrikeMarket.market_id` on create |
 | `bump` | `u8` | 1 | PDA bump |
-| `_reserved` | `[u8; 64]` | 64 | Forward-compat |
+| `last_config_update_ts` | `i64` | 8 | Unix ts of the last sensitive `update_config` (prod timelock) |
+| `reserved` | `[u8; 40]` | 40 | Forward-compat |
 
-**Approx space:** `8` (disc) + `32+32+1+32+2+2+1+8+2+8+1+64` ≈ `193` bytes → allocate `256` with padding.
+**Space:** derived with `InitSpace` (`8` disc + fields above).
 
 **PDA seeds:**
 
@@ -73,8 +75,10 @@ One account per `(equity, expiry_day, strike)`. Holds Pyth + Phoenix wiring and 
 | `settled_at_ts` | `i64` | 8 | Unix ts of settle ix; `0` until settled |
 | `settled_slot` | `u64` | 8 | Slot of settle |
 | `bump` | `u8` | 1 | Market PDA bump |
-| `vault_bump` | `u8` | 1 | Collateral vault authority bump (if separate) |
-| `_reserved` | `[u8; 64]` | 64 | Forward-compat |
+| `vault_bump` | `u8` | 1 | Vault authority PDA bump |
+| `trading_open` | `bool` | 1 | Localnet sim trading window (D-017); `true` on create, cleared by `sim_close_session` |
+| `sim_armed` | `bool` | 1 | Set by `sim_open_session`; when set, settle / admin_settle require `!trading_open` |
+| `reserved` | `[u8; 62]` | 62 | Forward-compat |
 
 **Approx space:** `8` + fields ≈ `320`+ → allocate `384` or use `InitSpace`.
 
@@ -99,7 +103,7 @@ Implementation may use `market_id` seeds if create ix allocates id from `Config.
 #### Collateral vault (token account)
 
 - **Owner / authority:** PDA `["vault_authority", strike_market.key()]`
-- **Token account:** ATA or raw token account with mint = `Config.collateral_mint`, authority = vault authority PDA
+- **Token account:** PDA token account `["collateral_vault", strike_market.key()]` (not an ATA) with mint = `Config.collateral_mint`, authority = vault authority PDA
 - **Holds:** USDC equal to outstanding unredeemed liability. While Open: ≈ `pairs_minted` (each outstanding pair is $1 collateral). After settle: ≈ `pairs_minted - pairs_redeemed` (minus fees already skimmed to treasury)
 
 | Concept | PDA seeds |
@@ -115,8 +119,8 @@ Implementation may use `market_id` seeds if create ix allocates id from `Config.
 
 | Mint | Authority | Freeze authority | Decimals | PDA / creation |
 | --- | --- | --- | --- | --- |
-| Yes | Mint authority PDA `["yes_mint_authority", strike_market]` **or** vault authority | `None` (or program freeze on settle — **default: None**, rely on status checks) | `6` (match USDC) | Created in `create_strike_market`; address stored on `StrikeMarket.yes_mint` |
-| No | Same pattern `["no_mint_authority", strike_market]` | `None` | `6` | Same |
+| Yes | Vault authority PDA `["vault_authority", strike_market]` | `None` (rely on status checks) | `6` (match USDC) | PDA `["yes_mint", strike_market]`, created in `create_strike_market`; address stored on `StrikeMarket.yes_mint` |
+| No | Same vault authority PDA | `None` | `6` | PDA `["no_mint", strike_market]`; same |
 
 **Token semantics:**
 
@@ -575,7 +579,7 @@ Status of prior §8 topics for **V1**. Defaults below are what Engineers should 
 | Topic | V1 status | Notes |
 | --- | --- | --- |
 | Phoenix Yes base | **Locked D-004 / D-015** | Yes mint = base; USDC = quote |
-| MAG7 Pyth feeds | **Proposed lock D-019** | Exact feed ids + shard-0 price accounts in §3.1 |
+| MAG7 Pyth feeds | **Locked D-019** (settle source superseded by D-025) | Exact feed ids + shard-0 price accounts in §3.1 |
 | Strike comparison | **Locked D-005** (`>=`); product confirm | Propose **close** this §8 open — keep `settle >= strike`. Flag Debu only if Peak6 wants strict `>` on exact touch |
 | `equity_symbol` `[u8; 8]` space-pad | **V1 default OK** | No Debu lock unless they want `AssetRegistry` |
 | StrikeMarket PDA seeds `(symbol, expiry, strike)` | **V1 default OK** | `market_id` remains convenience field |
@@ -589,7 +593,7 @@ Status of prior §8 topics for **V1**. Defaults below are what Engineers should 
 
 ### Needs Debu lock
 
-1. **Merge D-019** — pin V1 MAG7 Pyth Core feed ids + shard-0 Solana price accounts (§3.1); Alphabet = GOOGL.
+1. ~~Merge D-019~~ — done: D-019 is locked (feed ids in §3.1; Alphabet = GOOGL).
 2. **Confirm keep `>=`** (D-005) vs Peak6 strict `>` on exact touch — only if still product-open; Schema proposes leave D-005 as-is and close the §8 row.
 
 ---

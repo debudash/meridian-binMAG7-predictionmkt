@@ -12,7 +12,7 @@ Desktop:
 3. **How it works** (3 steps, horizontal).
 4. **Closing soon** strip: 4–6 market cards sorted by `tradingCloseTs`.
 5. **Rules strip**: payoff, resolution via Pyth, fees, one-side-per-market note.
-6. **Footer**: docs link `<DOCS_URL>`, terms `<TERMS_URL>`, risk disclosure, program `<PROGRAM_ID>`.
+6. **Footer**: docs link `<DOCS_URL>`, terms `<TERMS_URL>`, risk disclosure, program `<PROGRAM_ID>`. *(As built: Rules · Terms · Risk · Status links and the deployed program id, shortened and linked to Solana Explorer; see `07`.)*
 
 Mobile: single column; featured card under hero; closing-soon as horizontal scroll.
 

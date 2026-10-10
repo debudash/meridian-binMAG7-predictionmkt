@@ -8,7 +8,7 @@ Source spec: [`docs/ui/03-trade.md`](../03-trade.md) · rules [`docs/ui/06-tradi
 | Zone | Content |
 | --- | --- |
 | A | Question, Pyth underlying, **settlement countdown**, Yes\|No perspective toggle, both prices |
-| B | Implied-price chart (perspective) |
+| B | Implied-price chart (perspective). *(Not shown since D-031; the order book sits at the top. The chart is planned work.)* |
 | C | Order book + recent trades (No view = transform of Yes book) |
 | D | Ticket: Buy/Sell × Yes/No intents, size, preview (cost, payout if right, max P/L), CTA |
 | E/F | Position · Open orders · Fills; position summary + constraint UX |

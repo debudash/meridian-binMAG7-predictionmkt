@@ -13,8 +13,9 @@ pub const PRICE_SCALE: u64 = 1_000_000; // 1e6 — strike, settlement, display Y
 pub const CONFIG_SEED: &[u8] = b"config";
 pub const STRIKE_MARKET_SEED: &[u8] = b"strike_market";
 pub const VAULT_AUTHORITY_SEED: &[u8] = b"vault_authority";
-pub const YES_MINT_AUTH_SEED: &[u8] = b"yes_mint_authority";
-pub const NO_MINT_AUTH_SEED: &[u8] = b"no_mint_authority";
+pub const YES_MINT_SEED: &[u8] = b"yes_mint";
+pub const NO_MINT_SEED: &[u8] = b"no_mint";
+pub const VAULT_SEED: &[u8] = b"collateral_vault";
 pub const SIM_CLOCK_SEED: &[u8] = b"sim_clock"; // localnet-test only (D-017)
 
 pub const EQUITY_SYMBOL_LEN: usize = 8;
@@ -58,7 +59,8 @@ pub struct Config {
     pub admin_settle_delay_secs: u64,      // 8
     pub next_market_id: u64,               // 8 — optional counter for indexer-friendly ids
     pub bump: u8,                          // 1
-    pub reserved: [u8; 48],                // 48
+    pub last_config_update_ts: i64,        // 8 — prod timelock between sensitive update_config calls
+    pub reserved: [u8; 40],                // 40
 }
 ```
 
@@ -124,9 +126,9 @@ pub struct StrikeMarket {
     pub settled_slot: u64,                 // 8
     pub bump: u8,                          // 1
     pub vault_bump: u8,                    // 1
-    pub yes_mint_auth_bump: u8,            // 1
-    pub no_mint_auth_bump: u8,             // 1
-    pub reserved: [u8; 32],                // 32
+    pub trading_open: bool,                // 1 — localnet sim window (D-017); true on create
+    pub sim_armed: bool,                   // 1 — set by sim_open_session; then settle requires !trading_open
+    pub reserved: [u8; 62],                // 62
 }
 ```
 
@@ -135,7 +137,7 @@ pub struct StrikeMarket {
 | Field | Constraints |
 | --- | --- |
 | `equity_symbol` | Uppercase ASCII MAG7 ticker, space-padded to 8 |
-| `strike_price_e6` | `> 0`; product automation rounds to $10 ticks then × 1e6 |
+| `strike_price_e6` | `> 0`; automation rounds the reference price to `STRIKE_STEP_E6` (default $5 at ≥ $100, else $1), adds `STRIKE_OFFSETS_E6`, then × 1e6 ([`apps/automation/README.md`](../apps/automation/README.md)) |
 | `expiry_ts` | Target cash-close instant (ET); settle allowed at/after |
 | `phoenix_market` | May be `Pubkey::default()` until `set_phoenix_market` |
 | `phoenix_base_mint` | Assert `== yes_mint` when set (default wiring) |
@@ -185,7 +187,7 @@ Does not hold SOL beyond rent if used only as signer PDA (no data account requir
 | Mint | `Config.collateral_mint` |
 | Authority | vault authority PDA |
 | Close authority | none (or program) |
-| Address | Prefer ATA(`vault_authority`, `collateral_mint`) or init with deterministic seeds `["collateral_vault", strike_market]` |
+| Address | Token account PDA with seeds `[VAULT_SEED, strike_market]` = `["collateral_vault", strike_market]` (not an ATA) |
 
 **Default address seeds (explicit token account, not ATA):**
 
@@ -199,12 +201,12 @@ Store resulting pubkey in `StrikeMarket.collateral_vault`.
 
 ## Yes / No mints
 
-Created with `token::Mint` init in `create_strike_market`.
+Created with `token::Mint` init in `create_strike_market`, at PDAs `[YES_MINT_SEED, strike_market]` / `[NO_MINT_SEED, strike_market]`.
 
 | Property | Yes | No |
 | --- | --- | --- |
 | Decimals | `config.collateral_decimals` | same |
-| Mint authority | PDA `[YES_MINT_AUTH_SEED, strike_market]` | PDA `[NO_MINT_AUTH_SEED, strike_market]` |
+| Mint authority | vault authority PDA `[VAULT_AUTHORITY_SEED, strike_market]` | same |
 | Freeze authority | `None` | `None` |
 | Supply at create | `0` | `0` |
 

@@ -104,7 +104,7 @@ Read-only: the copilot reads accounts and never signs or sends a transaction. It
 | Settler | Any signer can call `settle`; the price account decides. A separate low-balance key pays for it |
 | Pauser | Full Seat Manager authority over the books (not pause-only). Hot key today; a program PDA replaces it before mainnet ([`design/phoenix-pause-pda-authority.md`](design/phoenix-pause-pda-authority.md)) |
 | Phoenix | External matcher. Meridian stores the book pubkey and mint wiring only |
-| Pyth | Prod `settle` accepts only a receiver-owned, Full-verified `PriceUpdateV2` with the market's feed id, the first update at or after expiry, within 60 s, conf ≤ 500 bps (D-025, D-005) |
+| Pyth | Prod `settle` accepts only a receiver-owned, Full-verified `PriceUpdateV2` with the market's feed id, the first update at or after expiry, within 60 s, confidence within `Config.settle_max_conf_ratio_bps` (default 500 bps; 200 on staging) (D-025, D-005) |
 | Railway | Hosts web and automation only. Never holds the upgrade key or `localnet-test` builds |
 | Copilot feed | `GET /copilot` is served only on the Railway private network and read server-side by `/status`; reports hold symbols, strikes, counts, close prices and outcomes; a failed check publishes only "could not read the chain" (the error text, which can carry a keyed RPC URL, goes to the worker log only). The AI headline (optional) sees a trimmed facts object and cannot change the facts |
 | Localnet fixtures | `sim_*`, SimClock, mock Pyth, `test_drain_vault` compile only with `localnet-test`; CI asserts they are absent from the prod `.so` and IDL |

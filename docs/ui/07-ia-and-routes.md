@@ -8,7 +8,7 @@ Meridian
 │   └── Trade          /markets/[marketId]
 ├── Portfolio          /portfolio        (wallet required for data)
 ├── History            /history          (wallet required for data)
-├── Static             /rules  /terms  /risk   (OPEN: hosted in-app vs <DOCS_URL>)
+├── Static             /rules  /terms  /risk   (hosted in-app; footer links)
 └── Status             /status  (D-030: operator copilot reports, footer link; read-only)
 ```
 
@@ -20,6 +20,8 @@ Meridian
 | `/markets/[marketId]` | `app/markets/[marketId]/page.tsx` | SSR metadata (`generateMetadata` for title/OG); client book/ticket | `side=yes|no`, `intent=buy-yes|sell-yes|buy-no|sell-no`, `price`, `size` |
 | `/portfolio` | `app/portfolio/page.tsx` | Client (wallet) | `tab=positions|orders|redeemable` |
 | `/history` | `app/history/page.tsx` | Client (wallet) | `type`, `market`, `from`, `to`, `side`, `page` |
+| `/rules`, `/terms`, `/risk` | `app/rules/page.tsx`, `app/terms/page.tsx`, `app/risk/page.tsx` | static | — |
+| `/status` | `app/status/page.tsx` | server, dynamic (reads `AUTOMATION_STATUS_URL`, D-030) | — |
 | 404 | `app/not-found.tsx` | static | — |
 | Error | `app/error.tsx`, per-segment `error.tsx` | client | — |
 | Loading | per-segment `loading.tsx` | — | — |
@@ -30,7 +32,7 @@ Meridian
 ## Providers (root layout)
 `ConnectionProvider(<RPC_URL>)` → `WalletProvider` (wallet-standard autodetect) → `QueryClientProvider` (indexer/RPC caching) → `ChainClockProvider` (slot/time skew for countdowns) → `TxStatusProvider` (global toast queue, `03` §6.3) → `PythProvider`.
 
-Config via env: `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_INDEXER_URL`, `NEXT_PUBLIC_PROGRAM_ID`, `NEXT_PUBLIC_PHOENIX_PROGRAM_ID`, `NEXT_PUBLIC_USDC_MINT`, `NEXT_PUBLIC_CLUSTER` — values are placeholders until Schema/deploy provides them.
+Config via env: `NEXT_PUBLIC_SOLANA_RPC_URL`, `NEXT_PUBLIC_INDEXER_URL`, `NEXT_PUBLIC_MERIDIAN_PROGRAM_ID`, `NEXT_PUBLIC_PHOENIX_PROGRAM_ID`, `NEXT_PUBLIC_USDC_MINT`, `NEXT_PUBLIC_SOLANA_CLUSTER` (full list and staging values: `apps/web/.env.example`, [`DEPLOY.md`](../DEPLOY.md) §5.2).
 
 ## Global navigation
 Header (all routes): Logo → `/` · Markets · Portfolio · History · [cluster badge: devnet/mainnet] · [Wallet button].
@@ -38,6 +40,7 @@ Header (all routes): Logo → `/` · Markets · Portfolio · History · [cluster
 - Portfolio nav shows a dot when redeemables > 0.
 - Mobile: bottom tab bar (Markets, Portfolio, History) + header with wallet.
 - Global toast stack bottom-right (desktop), top (mobile).
+- Footer (all routes, as built): risk line, Rules · Terms · Risk · Status links, and the deployed program id (shortened, linked to Solana Explorer; "id not configured" on a bad env value).
 
 ## Global states
 | State | Detection | UI |

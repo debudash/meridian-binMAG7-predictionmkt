@@ -1,3 +1,15 @@
+## 2026-10-09T21:30:00-05:00 — Footer program id, Docker local stack fixes, chart stub removed (!105–!107); demo-video preparation; docs consistency pass
+
+| Field | Value |
+| --- | --- |
+| **Actor** | Claude Code (orchestrating session) and subagents (docs consistency pass, independent review); Debu decisions and go-ahead for each merge and deploy |
+| **Merged** | !105 `e988016` web footer shows the deployed program id, linked to the explorer, non-fatal on a bad env value (DLV-128). !107 `65a4930` trade page "Chart (stub) … TODO(indexer)" card removed, order book at the top (D-031, DLV-130). !106 `9298703` Docker local stack: `start.sh` reinstalls node deps when a `package-lock.json` hash changes, prints automation build errors, rebuilds when the cached IDL address differs from `declare_id!`; `docker/localnet/settle.cjs` reads the `u8` `MarketStatus` (before, it skipped every market) (DLV-129) |
+| **Deploys** | Railway `web` `d058437e` (from `e988016`), then `5740cc4e` (from `65a4930`, current). `automation` unchanged: `1d2a0427` from `c9f6699` (rollback `20819005`). Web rollback chain: `d058437e` → `41cd409b` → `9750a081` |
+| **Demo video (DLV-038)** | Playwright screen recordings of the local Docker stack and of the devnet app (2026-10-09 live day, settlement proofs, `/status`), cut to about 4 minutes outside the repo. Narration pending (Debu records it); link added at submission. `docs/DEMO_SCRIPT.md` now follows the cut's 13 scenes |
+| **Verification** | Local Docker stack end to end on `9298703`: `RESET=1` rebuild, 7 MAG7 markets with books (anytime mode), dev wallet auto-connect, Buy Yes, Buy No (mint + sell Yes, one tx), limit bid resting + cancel, Portfolio, `settle.cjs GOOGL=165 TSLA=245` settled 7 / 7, Redeem ×2 (+10 USDC) (TEST_RESULTS §9). Web vitest 423 / 424 on `65a4930` (pre-existing `siteMeta` 404 timeout) |
+| **Docs pass** | Branch `docs/deep-consistency-pass` from `origin/main` @ `9298703`, docs only: current Railway deployments and rollback chain (DEPLOY §5.3, README, PRD_TRACE), redeem recorded everywhere, DEMO_SCRIPT restructured, docker/README start-up behaviour, local stack evidence (TEST_RESULTS §9), SCHEMA / accounts / units aligned with the program and automation (mint authority = vault authority PDA, struct fields, strike step), ui/03 / ui/07 / wireframes after D-031 and the footer, web / automation README routes, build command and Railway upload root |
+| **Related** | DLV-038 · DLV-077 · DLV-128 · DLV-129 · DLV-130 · D-031 |
+
 ## 2026-10-09T20:30:00-05:00 — Docs: live devnet day 2026-10-09, palette and copilot recorded
 
 | Field | Value |

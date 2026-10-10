@@ -7,7 +7,7 @@
 | **Cluster** | Solana **devnet**. The Railway services use a dedicated devnet RPC (the public `https://api.devnet.solana.com` rate-limits); Phantom uses its own devnet RPC |
 | **Program id** | The deployed prod build (no `localnet-test`): `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj`, deployed 2026-10-08 (slot 508961032). Written as `<program id>` below |
 | **Written against** | UI strings checked against `apps/web/src` @ `7e8120d`. Staging addresses (`<program id>`, `<mUSDC mint>`, `<keeper>`, `<upgrade authority>`, settler, pauser) are in [`DEPLOY.md`](DEPLOY.md) §5.3, filled at the 2026-10-08 re-bootstrap (DLV-124) |
-| **Status** | Program deployed and staging bootstrapped 2026-10-08. **First live devnet day ran Friday 2026-10-09:** 7 markets created by an operator ops job, Phoenix books on all 7, trades from Phantom, books paused at 16:00 ET, all 7 settled by the worker's Pyth pull-oracle path (no `admin_settle` fallback needed; DLV-106, D-027). Devnet redeem not yet recorded. Results in [`TEST_RESULTS.md`](TEST_RESULTS.md) §8 |
+| **Status** | Program deployed and staging bootstrapped 2026-10-08. **First live devnet day ran Friday 2026-10-09:** 7 markets created by an operator ops job, Phoenix books on all 7, trades from Phantom, books paused at 16:00 ET, all 7 settled by the worker's Pyth pull-oracle path (no `admin_settle` fallback needed; DLV-106, D-027). Debu redeemed the AAPL No position on devnet at 16:08:32 ET; the TSLA Yes redeem is optional. Results in [`TEST_RESULTS.md`](TEST_RESULTS.md) §8 |
 
 Use this checklist once the program is on devnet. Each step has an **Action**, the **Expected result**, and a **Pass / Fail** box. Steps that need the operator (someone with the staging keys on the ops box) are marked **[operator]**.
 
@@ -285,13 +285,13 @@ PDA seeds (program `<program id>`; `programs/meridian/src/constants.rs`, `instru
 | Account | Seeds |
 | --- | --- |
 | Config | `["config"]` |
-| StrikeMarket | `["strike_market", equity_symbol (8 bytes, NUL-padded), expiry_ts (i64 LE), strike_price_e6 (u64 LE)]`. This is the `marketId` in the page URL and Rules card |
+| StrikeMarket | `["strike_market", equity_symbol (8 bytes, space-padded), expiry_ts (i64 LE), strike_price_e6 (u64 LE)]`. This is the `marketId` in the page URL and Rules card |
 | Yes mint | `["yes_mint", strike_market]` (6 dp; mint authority = vault authority) |
 | No mint | `["no_mint", strike_market]` |
 | Vault authority | `["vault_authority", strike_market]` |
 | Collateral vault (token account) | `["collateral_vault", strike_market]` (mint = mUSDC, authority = vault authority) |
 
-`accounts.md` still mentions a separate `yes_mint_authority` seed. The program on main uses the vault authority PDA as mint authority.
+Both mints use the vault authority PDA as mint authority ([`accounts.md`](accounts.md)).
 
 Ways to get the addresses without code (the IDL isn't published on-chain, so Explorer won't decode Meridian accounts):
 
