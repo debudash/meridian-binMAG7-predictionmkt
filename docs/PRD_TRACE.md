@@ -5,7 +5,7 @@ Every line of the Peak6 PRD ([`PEAK6_PRD.md`](PEAK6_PRD.md)) with its status and
 **Status key:** **Met** = built and tested · **Partial** = built, with a stated gap · **Scheduled** = set up, not yet run · **Not yet** = not done.
 "Staging" = Railway services pointed at Solana devnet (the PRD's "testnet").
 
-Last reviewed: 2026-10-09 ~21:30 CT against `main` @ `9298703` (after !105 footer program id, !106 Docker local stack fixes, !107 chart stub removed D-031; local Docker stack run end to end, [`TEST_RESULTS.md`](TEST_RESULTS.md) §9); before that 2026-10-09 ~20:30 CT against `c9f6699` (live devnet day 2026-10-09 in §9; operator copilot and Status page, D-029 / D-030), 2026-10-09 ~08:15 CT (DLV-106 / D-027) and 2026-10-08 ~21:00 CT (`4012bbd`).
+Last reviewed: 2026-10-10 against `main` @ `ca7734e` (demo video published, DLV-038 done); before that 2026-10-09 ~21:30 CT against `main` @ `9298703` (after !105 footer program id, !106 Docker local stack fixes, !107 chart stub removed D-031; local Docker stack run end to end, [`TEST_RESULTS.md`](TEST_RESULTS.md) §9); before that 2026-10-09 ~20:30 CT against `c9f6699` (live devnet day 2026-10-09 in §9; operator copilot and Status page, D-029 / D-030), 2026-10-09 ~08:15 CT (DLV-106 / D-027) and 2026-10-08 ~21:00 CT (`4012bbd`).
 
 ## 1. Functional requirements
 
@@ -76,7 +76,7 @@ Last reviewed: 2026-10-09 ~21:30 CT against `main` @ `9298703` (after !105 foote
 | --- | --- | --- |
 | Source code | **Met** | This repository |
 | Technical documentation | **Met** | [`SPEC.md`](SPEC.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), [`SCHEMA.md`](SCHEMA.md), [`ui/`](ui/README.md), [`DECISIONS.md`](DECISIONS.md), [`RED_TEAM.md`](RED_TEAM.md) |
-| Demo video | **Not yet** | A cut exists (about 4 min); narration pending; link added at submission. Script: [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) (DLV-038) |
+| Demo video | **Met** | https://youtu.be/a1yxiHIbvsY (about 4 min, published 2026-10-10; narrated by Debu). Script and scene list: [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) (DLV-038) |
 | Deployment guide | **Met** | [`DEPLOY.md`](DEPLOY.md) |
 | Test results | **Met** (live devnet day added 2026-10-09) | [`TEST_RESULTS.md`](TEST_RESULTS.md) |
 | AI usage log | **Met** | [`AI_USAGE.md`](AI_USAGE.md) + full log [`internal/AI_LOG.md`](internal/AI_LOG.md) |
@@ -95,7 +95,6 @@ Last reviewed: 2026-10-09 ~21:30 CT against `main` @ `9298703` (after !105 foote
 | Browser UI-flow tests (none today) | §3 |
 | The project has no CI runners (`.gitlab-ci.yml` pins Agave 4.3.0 like the Docker image); the Docker toolchain is the gate | [`DEPLOY.md`](DEPLOY.md) §8 |
 | Mainnet: PDA pauser authority, M1-closing conditions, external alert sink, deferred reviewer nits, external audit, production market maker | DLV-105, DLV-112, DLV-111, DLV-110 |
-| Finish the demo video (narration pending) and link it | DLV-038 |
 
 ## 9. Live devnet day 2026-10-09
 
@@ -124,5 +123,5 @@ Due Saturday 2026-10-10, 09:00 CT.
 | Test results on the current tip (Anchor, automation, web, prod build, deployed-binary check) | Done (2026-10-08) |
 | AI usage log | Done |
 | Live devnet day evidence (§9, [`TEST_RESULTS.md`](TEST_RESULTS.md) §8) | Done 2026-10-09 (create → trade → pause → settle → redeem) |
-| Demo video link in [`README.md`](../README.md) and §7 | Not yet (cut exists, narration pending) |
+| Demo video link in [`README.md`](../README.md) and §7 | Done 2026-10-10: https://youtu.be/a1yxiHIbvsY |
 | Final test refresh on the submission tip | Done 2026-10-08 on `4012bbd` (Rust unit and prod settle) and `594d41b` (Anchor). After the 2026-10-09 web / automation changes (no program change): copilot 18 / 18 and web 423 / 424 (pre-existing `siteMeta` timeout) on `c9f6699` |
