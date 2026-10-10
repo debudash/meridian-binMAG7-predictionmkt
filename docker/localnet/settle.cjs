@@ -11,6 +11,8 @@
  * mints, and the web app hides the book on a settled market.
  */
 "use strict";
+const STATUS = ["open", "settling", "settledYes", "settledNo", "void"];
+const statusName = (v) => (typeof v === "number" ? STATUS[v] ?? `status ${v}` : Object.keys(v)[0]);
 const fs = require("fs");
 const path = require("path");
 const W = "/repo/apps/web/node_modules/";
@@ -46,7 +48,8 @@ async function main() {
   for (const rec of state.markets) {
     const marketPk = new PublicKey(rec.market);
     const sm = await program.account.strikeMarket.fetch(marketPk);
-    const status = Object.keys(sm.status)[0];
+    // status is a u8 in the prod-shaped IDL (MarketStatus 0..4), an enum object in older IDLs.
+    const status = statusName(sm.status);
     if (status !== "open") continue;
     const expiry = Number(sm.expiryTs.toString());
     if (expiry > now) { waiting++; console.log(`${rec.symbol} ≥ ${rec.strikeE6 / 1e6}: expires in ${Math.ceil((expiry - now) / 60)} min — not yet`); continue; }
@@ -58,7 +61,7 @@ async function main() {
     const sig = await program.methods.settle()
       .accounts({ settler: authority.publicKey, config: configPda, strikeMarket: marketPk, pythPriceFeed: feed.publicKey, simClock: null }).rpc();
     const after = await program.account.strikeMarket.fetch(marketPk);
-    console.log(`${rec.symbol} ≥ ${rec.strikeE6 / 1e6}: settled at ${priceE6 / 1e6} → ${Object.keys(after.status)[0]} (${sig})`);
+    console.log(`${rec.symbol} ≥ ${rec.strikeE6 / 1e6}: settled at ${priceE6 / 1e6} → ${statusName(after.status)} (${sig})`);
     done++;
   }
   console.log(`settled ${done}, not expired yet ${waiting}`);
