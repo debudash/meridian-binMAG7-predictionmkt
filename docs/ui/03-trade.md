@@ -27,7 +27,8 @@ Normative rules: `06-trading-intents-and-constraints.md` (intents §1, constrain
 └──────────────────────────────────────────────────────┴─────────────────────┘
 ```
 - **Desktop (≥1024px):** grid `minmax(0,1fr) 360px`, `align-items: start`, 16px gaps; left column cards stack with no equal-height stretching; ticket is `position: sticky` (scrolls internally if taller than the viewport). Position lives in E (no duplicate panel under the ticket).
-- **Tablet + mobile (<1024px):** single column in this order: A → D (ticket) → C (book) → B (chart) → E (position) → G.
+- **D-031 (2026-10-09):** block B (chart) is not shown; the order book (C) moves to the top of the left column. The chart is planned work, not in the SPEC.
+- **Tablet + mobile (<1024px):** single column in this order: A → D (ticket) → C (book) → E (position) → G (B removed, D-031).
 - _Original design (superseded by the above):_ 3-column B | C | D row with F (position summary) under D; tablet B full width + C/D side-by-side; mobile sticky bottom Buy bar opening D as a bottom sheet — the bottom-sheet ticket remains a possible later enhancement.
 
 ## 3. Zone A — Header
@@ -170,7 +171,7 @@ Rules:
 - Addresses: market `<MARKET_PUBKEY>`, Phoenix market `<PHOENIX_MARKET>`, program `<PROGRAM_ID>` with copy buttons.
 
 ## 9a. Settlement proof card (DLV-076, D-023 — as built)
-Shown at the top of the left column once a market is not Open (chart stub and order book are hidden then; the ticket shows "Trading closed").
+Shown at the top of the left column once a market is not Open (the order book is hidden then; the ticket shows "Trading closed").
 - **Settled:** "Settlement proof" + Yes/No-wins chip; headline "NVDA $138.25 ≥ $135.00 → Yes wins" (≥ per D-005); rows: settlement price + source (Pyth / mock Pyth (localnet) / admin fallback), confidence (± $, from the `Settled` event's `pyth_conf` × the feed account's current expo; "n/a" for admin settle), strike, settled at (CT) + settle slot, **settle tx** explorer link, **Pyth feed id** (Hermes link for real feeds; "(mock)" on localnet) + price-account explorer link.
 - Data: `StrikeMarket` (status, settlement_price_e6, settled_at_ts, settled_slot, pyth_feed_id, pyth_price_feed) + the `Settled`/`AdminSettled` event decoded from the settle tx logs, found via `getSignaturesForAddress(market)` (exact `settled_slot` match first, ≤5×200 sigs). Missing tx → values from the account + note.
 - Not on-chain (shown as a note): the Pyth publish time of the price used (settle enforced ≤150-slot staleness, D-005).

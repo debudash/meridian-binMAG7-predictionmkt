@@ -78,7 +78,7 @@ describe("Markets table + ladder", () => {
   });
 });
 
-describe("Trade header + chart stub + book spread row", () => {
+describe("Trade header + book spread row", () => {
   const trade = src("app/markets/[marketId]/TradeClient.tsx");
   const book = src("components/trade/OrderBook.tsx");
   it("pills stay the perspective toggle but show Buy prices; no ?? 0.5 mid", () => {
@@ -90,11 +90,11 @@ describe("Trade header + chart stub + book spread row", () => {
     expect(trade).toMatch(/data-testid="trade-implied"/);
     expect(trade).toMatch(/title=\{impliedTooltip\(priceView\)\}/);
   });
-  it("chart stub uses the helper's implied Yes text (no doubled Yes)", () => {
+  it("no chart stub on the trade page (D-031: chart not in the SPEC); no doubled Yes", () => {
+    expect(trade).not.toMatch(/Chart \(stub\)|TODO\(indexer\)/);
     expect(trade).not.toMatch(/Yes\{" "\}\s*\{impliedText\(priceView\)\}/);
-    expect(trade).toMatch(/\{impliedText\(priceView\)\}/);
   });
-  it("chart stub and spread row never print a bare mid", () => {
+  it("trade header and spread row never print a bare mid", () => {
     expect(trade).not.toMatch(/Mid\{" "\}/);
     expect(book).not.toMatch(/· Mid \$\{/);
     expect(book).toMatch(/spreadText\(/);

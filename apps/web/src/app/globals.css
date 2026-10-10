@@ -458,7 +458,6 @@ tr.row-selectable:focus-visible { outline: var(--focus-ring); outline-offset: -2
 .trade-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .trade-main > *, .trade-side { min-width: 0; box-sizing: border-box; }
 .trade-rules p { overflow-wrap: anywhere; }
-.trade-chart { height: 240px; overflow: hidden; }
 .trade-side {
   position: sticky;
   top: 72px;
@@ -474,7 +473,6 @@ tr.row-selectable:focus-visible { outline: var(--focus-ring); outline-offset: -2
   .trade-proof { order: 0; }
   .trade-side { position: static; max-height: none; overflow: visible; order: 1; }
   .trade-book { order: 2; }
-  .trade-chart { order: 3; height: auto; min-height: 120px; }
   .trade-zone { order: 4; }
   .trade-rules { order: 5; }
 }
