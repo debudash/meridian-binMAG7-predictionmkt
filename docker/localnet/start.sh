@@ -27,9 +27,11 @@ solana config set --url http://127.0.0.1:8899 >/dev/null
 # node_modules), not only when node_modules is missing: a volume from before a dependency change breaks the build.
 deps() { # deps <dir> <marker> <install command...>
   local dir=$1 marker=$2; shift 2
-  local want; want=$(sha256sum "$dir/package-lock.json" 2>/dev/null | cut -c1-16)
-  if [ ! -e "$dir/node_modules/$marker" ] || [ "$(cat "$dir/node_modules/.lock-hash" 2>/dev/null)" != "$want" ]; then
-    log "npm install ($dir)"; "$@"; echo "$want" > "$dir/node_modules/.lock-hash"
+  [ -f "$dir/package-lock.json" ] || { log "no package-lock.json in $dir"; exit 1; }
+  lockhash() { sha256sum "$dir/package-lock.json" | cut -c1-16; }
+  if [ ! -e "$dir/node_modules/$marker" ] || [ "$(cat "$dir/node_modules/.lock-hash" 2>/dev/null)" != "$(lockhash)" ]; then
+    # Stamp after installing: `npm install` (root) may rewrite the lockfile it just read.
+    log "npm install ($dir)"; "$@"; lockhash > "$dir/node_modules/.lock-hash"
   fi
 }
 deps . @coral-xyz npm install --legacy-peer-deps --no-audit --no-fund
@@ -40,7 +42,7 @@ npm run build --prefix apps/automation >/dev/null || { log "automation build fai
 # 2. program (localnet-test build; the prod build never goes on this validator's twin on devnet)
 # Also rebuild when the cached build was made for another program id (e.g. after the DLV-124 rotation): the validator
 # loads the .so at the declared id, and a stale build makes every Meridian call fail with "program does not exist".
-WANT_ID=$(grep -o 'declare_id!("[^"]*")' programs/meridian/src/lib.rs | cut -d'"' -f2)
+WANT_ID=$(grep -o 'declare_id!("[^"]*")' programs/meridian/src/lib.rs | cut -d'"' -f2) || { log "declare_id! not found in programs/meridian/src/lib.rs"; exit 1; }
 HAVE_ID=$(node -e 'try{console.log(require("/repo/target/idl/meridian.json").address)}catch{}' 2>/dev/null || true)
 if [ "$HAVE_ID" != "$WANT_ID" ]; then log "cached program id ${HAVE_ID:-none} != declare_id $WANT_ID: rebuilding"; REBUILD=1; fi
 if [ ! -f target/deploy/meridian.so ] || [ ! -f target/idl/meridian.json ] || [ "${REBUILD:-0}" = "1" ]; then
