@@ -27,6 +27,7 @@ Normative rules: `06-trading-intents-and-constraints.md` (intents §1, constrain
 └──────────────────────────────────────────────────────┴─────────────────────┘
 ```
 - **Desktop (≥1024px):** grid `minmax(0,1fr) 360px`, `align-items: start`, 16px gaps; left column cards stack with no equal-height stretching; ticket is `position: sticky` (scrolls internally if taller than the viewport). Position lives in E (no duplicate panel under the ticket).
+- **D-031 (2026-10-09):** block B (chart) is not shown; the order book (C) moves to the top of the left column. The chart is planned work, not in the SPEC.
 - **Tablet + mobile (<1024px):** single column in this order: A → D (ticket) → C (book) → B (chart) → E (position) → G.
 - _Original design (superseded by the above):_ 3-column B | C | D row with F (position summary) under D; tablet B full width + C/D side-by-side; mobile sticky bottom Buy bar opening D as a bottom sheet — the bottom-sheet ticket remains a possible later enhancement.
 

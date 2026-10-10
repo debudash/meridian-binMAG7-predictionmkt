@@ -16,7 +16,7 @@ import { fetchPhoenixBook, isPhoenixPlacementEnabled } from "@/lib/phoenix";
 import { useConnection } from "@solana/wallet-adapter-react";
 import type { OrderBookSnapshot } from "@/lib/market/types";
 import { type Perspective } from "@/lib/market/bookTransform";
-import { headerPills, impliedText, impliedTooltip, marketPriceDisplay } from "@/lib/market/priceDisplay";
+import { headerPills, impliedTooltip, marketPriceDisplay } from "@/lib/market/priceDisplay";
 import {
   bookKeys,
   bookSelectionReducer,
@@ -329,15 +329,7 @@ export function TradeClient({
               <SettleProofCard market={market} />
             </div>
           )}
-          {market.status === "open" && (
-            <div className="card trade-chart">
-              <strong>Chart (stub)</strong>
-              <p className="muted" style={{ fontSize: "0.85rem", margin: "0.5rem 0 0" }}>
-                Chart stub — implied price series + Pyth overlay not wired (TODO(indexer)).{" "}
-                {impliedText(priceView)}.
-              </p>
-            </div>
-          )}
+          {/* D-031: no chart card. The price chart is not in the SPEC (planned work), so the book sits at the top. */}
           {market.status === "open" && (
             <div className="trade-book">
               <OrderBook
