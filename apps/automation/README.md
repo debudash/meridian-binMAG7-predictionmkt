@@ -41,7 +41,7 @@ See [`docs/DEPLOY.md`](../../docs/DEPLOY.md) §3.3.
 
 ## Railway
 
-- **Build:** `npm install && npm run build` (in this package, or monorepo equivalent)
+- **Build:** `npm install && npm run build:railway` ([`railway.json`](./railway.json))
 - **Start:** `node dist/worker.js`
 - Env table: `docs/DEPLOY.md` §5.2 + `.env.example`
 - Program id default: `3X3ETGZYNcZ5BMMxcEuDhXxfisAmWzgqvdnhivbK91Hj`
@@ -62,7 +62,7 @@ The worker runs two checks per trading day inside its own tick (no cron): **crea
 npm test
 ```
 
-Covers ET settle gates, strike encoding, and prod-entry ↔ sim-module isolation.
+Covers the market-day calendar, D-026 create window, strikes, operator prices, pull settle, settler / pauser keys, pause monitoring, the operator copilot and prod-entry ↔ sim-module isolation. Latest counts: [`docs/TEST_RESULTS.md`](../../docs/TEST_RESULTS.md) §1.
 
 ## Notes / stubs
 
@@ -89,7 +89,7 @@ Covers ET settle gates, strike encoding, and prod-entry ↔ sim-module isolation
 
 ## Railway
 
-- Service **rootDirectory**: `apps/automation`
+- Deployed with `railway up` from `git archive <sha>:apps/automation`, so this package is the upload root ([`docs/DEPLOY.md`](../../docs/DEPLOY.md) §5.1)
 - Config: [`railway.json`](./railway.json) — start `node dist/worker.js`, `healthcheckPath=/health`
 - IDL: committed/synced [`idl/meridian.prod.json`](./idl/meridian.prod.json) (from `yarn build:prod-idl` at repo root). Default `MERIDIAN_IDL_PATH=idl/meridian.prod.json`.
 - Build: `npm run build:railway` (excludes `sim-lifecycle` / `modes/sim` from `dist/`)

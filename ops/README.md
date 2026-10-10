@@ -6,7 +6,7 @@ every keypair path, RPC, program id and secret comes from the environment or an 
 
 | File | What |
 | --- | --- |
-| `run-staging.sh` | Full pipeline: wait for payer SOL → prod build of `origin/main` → deploy/upgrade → deployed-binary fixture assert → bootstrap → **pause watcher** → e2e → START-triggered 20-min AAPL ≥ 300 market → **pause at expiry** → **Pyth pull settle (Hermes)** → `admin_settle` fallback → redeem. `DRY_RUN=1` prints the plan, zero transactions. |
+| `run-staging.sh` | Full pipeline: wait for payer SOL → prod build of `origin/main` → deploy/upgrade → deployed-binary fixture assert → bootstrap → **pause watcher** → e2e → START-triggered 20-min AAPL ATM market → **pause at expiry** → **Pyth pull settle (Hermes)** → `admin_settle` fallback → redeem. `DRY_RUN=1` prints the plan, zero transactions. |
 | `devnet-bootstrap.cjs` | Idempotent bootstrap (mUSDC, config, strike markets, Phoenix books + maker ladder, wallets, settler, **pauser** + seat-manager **handoff**). `DRY_RUN=1` offline plan. |
 | `settle-test.cjs` | Short-market `mint` / `settle` / `redeem` / `status`. `settle` = pull settle via `apps/automation` `ops-cli pull-settle` (settler key, `PYTH_HERMES_API_KEY`), then sponsored-account settle, then `admin_settle` (`ADMIN_PRICE_E6`). |
 | `pyth-read.py` | **Informational only**: last published price of the Mag-7 shard-0 accounts (weeks stale). Age guard (`--max-age-secs`, default 900): stale feeds print `STALE`, are left out of the JSON and exit 2. **Never a settle price** (Reviewers mr72-73 M3). |

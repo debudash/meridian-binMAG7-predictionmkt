@@ -11,7 +11,7 @@ For a first-time tester who isn't the operator. Do the part for the track you're
 1. Start the local instance on the latest `main` (`docker compose -f docker/compose.localnet.yml up --build`, see [`DEPLOY.md`](DEPLOY.md) §3), or use a machine where the operator runs it. Write down the commit (SHA).
 2. The app at http://127.0.0.1:3000 and the **Localnet Dev Wallet** exist only on the machine that runs the local instance.
 3. In a browser on that machine, open http://127.0.0.1:3000 and carry on with 0.1–0.2 below. There's nothing to install: the Localnet Dev Wallet signs by itself.
-4. **Existing positions on the current Localnet Dev Wallet (dev wallet 2).** It already holds **Yes 5** on **NVDA ≥ $140.00 at close Oct 14** and **MSFT ≥ $420.00 at close Oct 14** (card titles use that short form from `shortQuestion`; Portfolio shows the same). Those are leftover from earlier Track A runs — **don't count them as your fills** from this session. For a truly flat wallet, ask the operator for a fresh key ([`apps/web/README.md`](../apps/web/README.md) "Fresh (flat) dev wallet") or pick a market where the card has **no** `You: …` badge (e.g. AAPL / TSLA / META / AMZN / GOOGL on the current ledger).
+4. **Existing positions on the Localnet Dev Wallet.** The dev wallet keeps its positions as long as the local ledger does. Positions from earlier runs show as `You: …` badges on the market cards — **don't count them as your fills** from this session. For a flat wallet, restart the local instance with `RESET=1` (wipes the ledger and state, keeps the keys; [`docker/README.md`](../docker/README.md)) or pick a market whose card has **no** `You: …` badge.
 
 **Track B: devnet staging, Phantom**
 
@@ -102,7 +102,7 @@ The rule (`app/globals.css`): whatever is selected gets a ring/tint (the neutral
 
 ## 5. Buy Yes, Sell Yes, Buy No, Sell No (Market and Limit)
 
-Start flat on a market with a book. Use size **5**. (The full table with exact balances is STAGING_TEST_PLAN §3.) **[A]** The current Localnet Dev Wallet (dev wallet 2) already shows card badges **`You: Yes 5`** on **NVDA ≥ $140.00 at close Oct 14** and **MSFT ≥ $420.00 at close Oct 14** — leftovers, not fills from this session. Use a market with **no** badge, or ask the operator for a fresh flat key ([`apps/web/README.md`](../apps/web/README.md) "Fresh (flat) dev wallet"); no reseed needed.
+Start flat on a market with a book. Use size **5**. (The full table with exact balances is STAGING_TEST_PLAN §3.) **[A]** Card badges like `You: Yes 5` from earlier runs are leftovers, not fills from this session. Use a market with **no** badge, or start flat with `RESET=1` ([`docker/README.md`](../docker/README.md)).
 
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |
@@ -220,7 +220,7 @@ If 13.6–13.8 fail on a paused book, that's a release blocker: report it.
 2. The legacy permissionless settle against the sponsored account (settler).
 3. From expiry + 330 s, if still unsettled: **`admin_settle`** by the config authority at the **Hermes AAPL price at expiry** (publish time within 60 s of expiry). If Hermes has no such price (off-hours, key not entitled), the pipeline **refuses** to settle on its own and waits for the operator to supply the real expiry price **with its source** (e.g. the official close); the source is logged. It never uses the stale shard-0 account price (Reviewers mr72-73 M3). Since 2026-10-09 the `PYTH_HERMES_API_KEY` is entitled to equity feeds (it returned 403 "Not entitled" on 2026-10-08, DLV-106), so the Hermes pull settle and the Hermes fallback price work; the **operator price** path is only the last fallback.
 
-**[A]** The operator closes the sim session (or warps the SimClock) and settles against the mock Pyth price ([`DEPLOY.md`](DEPLOY.md) §3).
+**[A]** After the markets expire, the operator runs `docker compose -f docker/compose.localnet.yml exec local node docker/localnet/settle.cjs` (optionally `AAPL=… TSLA=…` to choose closes), which posts a mock Pyth price and calls the permissionless `settle` ([`docker/README.md`](../docker/README.md)).
 
 | # | Click / Do | You should see | Pass |
 | --- | --- | --- | --- |

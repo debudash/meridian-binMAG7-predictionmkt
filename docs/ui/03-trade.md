@@ -11,17 +11,16 @@ Normative rules: `06-trading-intents-and-constraints.md` (intents §1, constrain
 4. See and manage their position and open orders in this market.
 5. After settlement, redeem.
 
-## 2. Layout (DLV-072 — two-column, as built)
+## 2. Layout (DLV-072 — two-column; block B removed by D-031, as built)
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
 │ A. Compact header: question + underlying/24h/OI · [Buy Yes 0.63]           │
 │    [Buy No 0.39] · 62% implied Yes (pills = Yes/No toggle, `08`) · COUNTDOWN   │
 ├──────────────────────────────────────────────────────┬─────────────────────┤
-│ B. Chart (stub: fixed ~240px)                        │ D. Order ticket     │
-├──────────────────────────────────────────────────────┤    (fixed ~360px,   │
-│ C. Order book                                        │    sticky under the │
-├──────────────────────────────────────────────────────┤    app header)      │
-│ E. Tabs: Position · Open orders · Fills              │                     │
+│ C. Order book                                        │ D. Order ticket     │
+│                                                      │    (fixed ~360px,   │
+├──────────────────────────────────────────────────────┤    sticky under the │
+│ E. Tabs: Position · Open orders · Fills              │    app header)      │
 ├──────────────────────────────────────────────────────┤                     │
 │ G. Rules & resolution                                │                     │
 └──────────────────────────────────────────────────────┴─────────────────────┘
@@ -54,8 +53,8 @@ The toggle **changes presentation only**. Subscriptions, market ID, and the unde
 | Mid | `(bestBid + bestAsk)/2` | `1 − midYes` |
 | Spread | `bestAsk − bestBid` | identical value |
 | Last trade | `p_last` | `1 − p_last`; trade direction color inverted (a Yes buy is shown as a No sell) |
-| Depth chart | cumulative depth, Yes prices | mirrored on x-axis |
-| Chart | Yes implied price series | `1 − series` |
+| Depth chart (planned, not built) | cumulative depth, Yes prices | mirrored on x-axis |
+| Chart (planned, not built; D-031) | Yes implied price series | `1 − series` |
 | Ticket default intents | Buy Yes / Sell Yes | Buy No / Sell No |
 | Accent color | Yes token: green (D-028) | No token: red (D-028; earlier teal/violet, superseded) |
 
@@ -189,7 +188,7 @@ Shown at the top of the left column once a market is not Open (the order book is
 | User balances | USDC, SOL, Yes qty, No qty; Phoenix free/locked base & quote | token accounts + Phoenix trader state | live |
 | User orders | order id, side, price, size, filled, intent mapping | Phoenix trader state + indexer for intent labels `TODO(schema)` | live |
 | User cost basis | avg entry, realized P&L | indexer | on fill |
-| Chart | OHLC of Yes price; Pyth history | indexer / Pyth benchmarks | 1m |
+| Chart (planned, D-031) | OHLC of Yes price; Pyth history | indexer / Pyth benchmarks | 1m |
 
 ## 11. States
 | State | Behavior |
