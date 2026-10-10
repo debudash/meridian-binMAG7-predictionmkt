@@ -1,6 +1,6 @@
 # Demo script (demo video)
 
-Script for the PRD demo video (DLV-038). **Status:** a cut of about 4 minutes exists (screen recordings of the local stack and of devnet); the narration is not recorded yet, and the link is added to the README at submission.
+Script for the PRD demo video (DLV-038). **Published 2026-10-10:** https://youtu.be/a1yxiHIbvsY (about 4 minutes). Screen recordings of the local stack and of devnet, title cards and edit by the AI agent; narration script drafted by the agent to Debu's brief and recorded by Debu in his own voice, one clip per scene below (the recording follows the lines closely, not word for word).
 
 The video uses two sources:
 
@@ -19,7 +19,7 @@ Target length: about 4 minutes. Test money everywhere (local test USDC, devnet m
 
 ## Scenes
 
-| # | Show | Say (narration pending) |
+| # | Show | Say |
 | --- | --- | --- |
 | 1 | Landing page | **The problem.** Betting on where a stock closes usually means trusting a broker who holds the money and decides who won. Meridian offers Yes/No contracts on the daily close of the MAG7 stocks, each pair backed by exactly $1 USDC and settled by a public price feed. |
 | 2 | [`ARCHITECTURE.md`](ARCHITECTURE.md) component diagram | **How it works.** An Anchor program holds the collateral and mints Yes+No pairs. Phoenix, an existing order book, does the matching. Pyth supplies the close. A Node worker creates markets, pauses books at the close and settles. |
