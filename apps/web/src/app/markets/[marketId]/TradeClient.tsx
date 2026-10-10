@@ -321,7 +321,7 @@ export function TradeClient({
       )}
 
       {/* Desktop: flexible main column + fixed sticky ticket column.
-          <1024px: one column — header, ticket, book, chart, position, rules (CSS order). */}
+          <1024px: one column — header, ticket, book, position, rules (CSS order). */}
       <div className="trade-layout">
         <div className="trade-main">
           {market.status !== "open" && (
